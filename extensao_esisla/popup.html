@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Ambiental ⚡ e-SISLA</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    
+    <!-- Topo -->
+    <header class="popup-header">
+      <div class="header-brand">
+        <span class="header-bolt">⚡</span>
+        <div>
+          <strong>Ambiental</strong>
+          <small>Fila Inteligente e-SISLA</small>
+        </div>
+      </div>
+      <div class="header-status">
+        <span class="status-dot"></span>
+        <span class="status-text" id="statusQueueBadge">0 na fila</span>
+      </div>
+    </header>
+
+    <!-- Conteúdo Principal -->
+    <main class="popup-body">
+      <!-- Cartão com a Ficha Ativa / Selecionada -->
+      <div id="cardComFicha" class="card-attendance" style="display:none">
+        <div class="card-badge-row">
+          <span class="badge-protocol" id="badgeProtocol">#00000</span>
+          <span class="badge-parecer" id="badgeParecer">Favorável</span>
+        </div>
+        
+        <div class="card-patient" id="cardPatient">Nome do Servidor</div>
+        
+        <div class="card-details-grid">
+          <div class="detail-item">
+            <span class="detail-label">CID Principal</span>
+            <strong class="detail-val" id="detailCid1">—</strong>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Dias</span>
+            <strong class="detail-val" id="detailDias">—</strong>
+          </div>
+          <div class="detail-item full">
+            <span class="detail-label">CID Secundário</span>
+            <strong class="detail-val" id="detailCid2">—</strong>
+          </div>
+        </div>
+
+        <button type="button" class="btn-fill-hero" id="btnPreencherAbaAtiva">
+          ⚡ Preencher Aba do e-SISLA
+        </button>
+      </div>
+
+      <!-- Estado Vazio -->
+      <div id="cardSemFicha" class="card-empty">
+        <div class="empty-icon">📋</div>
+        <strong>Fila vazia</strong>
+        <p>Ao abrir a Ficha e-SISLA no sistema Ambiental, clique em <strong>Adicionar à Fila</strong> para ter conferência e preenchimento seguro.</p>
+      </div>
+
+      <!-- Seção da Fila Inteligente do Dia -->
+      <div class="section-queue" id="sectionQueue" style="display:none">
+        <div class="section-queue-header">
+          <strong>📋 Laudos na Fila (<span id="queueCount">0</span>)</strong>
+          <button type="button" id="btnLimparFila" class="btn-queue-clear" title="Limpar todos os laudos da fila">Limpar Fila</button>
+        </div>
+        <div class="queue-list" id="queueList"></div>
+      </div>
+
+      <!-- Botões de Ação Auxiliar -->
+      <div class="action-buttons-row">
+        <button type="button" class="btn-action-sec" id="btnColarClipboard">
+          📋 Colar da Área de Transf.
+        </button>
+      </div>
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="popup-footer">
+      <span>🛡️ <strong>Trava de Segurança:</strong> O e-SISLA confere o protocolo e nome na tela antes de liberar o preenchimento.</span>
+    </footer>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
