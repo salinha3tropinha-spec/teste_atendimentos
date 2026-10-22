@@ -1,0 +1,293 @@
+/* Ambiental — API Service Layer
+ * Frontend deve chamar este módulo em vez de repetir fetch/auth/error handling.
+ */
+(() => {
+  'use strict';
+  const json = async (res) => res.json().catch(() => null);
+  const messageFor = (body, status) => {
+    const code = body?.error?.code;
+    const map = {
+      AUTH_ERROR: 'Sua sessão expirou ou não é válida. Entre novamente.',
+      PERMISSION_DENIED: 'Seu perfil não possui permissão para esta ação.',
+      VERSION_CONFLICT: 'Este atendimento foi atualizado em outro dispositivo. Recarregue antes de continuar.',
+      VALIDATION_ERROR: body?.error?.message,
+      AI_PROVIDER_BUSY: 'A assistência inteligente está temporariamente ocupada. Tente novamente em instantes.',
+      AI_UNAVAILABLE: 'A assistência inteligente está temporariamente indisponível.'
+    };
+    return map[code] || body?.error?.message || body?.detail || `Não foi possível concluir a solicitação (HTTP ${status}).`;
+  };
+
+  async function request(path, options = {}) {
+    if (!window.AmbientalAuth?.authFetch) throw new Error('Camada de autenticação indisponível.');
+    const timeoutMs = Number(options.timeoutMs || 60000);
+    const { timeoutMs: _ignored, ...requestOptions } = options;
+    const method = String(requestOptions.method || 'GET').toUpperCase();
+    const canRetry = method === 'GET' && requestOptions.retry !== false;
+    const attempts = canRetry ? 2 : 1;
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      let response;
+      const impersonatedId = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('ambiental.impersonate_medico_id') : null;
+      const impersonateHeader = impersonatedId ? { 'X-Impersonate-Medico-Id': impersonatedId } : {};
+
+      try {
+        response = await AmbientalAuth.authFetch(path, {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          ...requestOptions,
+          signal: requestOptions.signal || controller.signal,
+          headers: {
+            Accept: 'application/json',
+            ...(requestOptions.body ? { 'Content-Type': 'application/json' } : {}),
+            ...impersonateHeader,
+            ...(requestOptions.headers || {})
+          }
+        });
+      } catch (err) {
+        if (attempt < attempts && err?.name !== 'AbortError') {
+          await new Promise(r => setTimeout(r, 250));
+          continue;
+        }
+        const error = new Error(err?.name === 'AbortError' ? 'A solicitação demorou mais que o esperado.' : 'Não foi possível conectar ao servidor.');
+        error.code = err?.name === 'AbortError' ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR';
+        error.retryable = true;
+        throw error;
+      } finally {
+        window.clearTimeout(timer);
+      }
+      const body = await json(response);
+      if (response.ok && body?.success !== false) return body?.data ?? body;
+      const error = new Error(messageFor(body, response.status));
+      error.code = body?.error?.code || `HTTP_${response.status}`;
+      error.status = response.status;
+      error.body = body;
+      error.requestId = response.headers.get('X-Request-ID') || body?.request_id || null;
+      if (attempt < attempts && [502, 503, 504].includes(response.status)) {
+        await new Promise(r => setTimeout(r, 350));
+        continue;
+      }
+      throw error;
+    }
+    throw new Error('Não foi possível concluir a solicitação.');
+  }
+
+  const API = {
+    request,
+    auth: {
+      me: () => request('/api/auth/me'),
+      logout: () => AmbientalAuth.logout()
+    },
+    medico: {
+      dashboard: (params = {}) => {
+        const q = new URLSearchParams(params).toString();
+        return request(`/api/medico/dashboard${q ? '?' + q : ''}`);
+      },
+      atendimentos: (params = {}) => request(`/api/medico/atendimentos?${new URLSearchParams(params)}`),
+      agenda: (params = {}) => request(`/api/medico/agenda?${new URLSearchParams(params)}`),
+      updateAgendaStatus: (id, payload) => request(`/api/medico/agenda/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify(payload) })
+    },
+    atendimento: {
+      checkVersion: (params = {}) => request(`/api/atendimentos/check-version?${new URLSearchParams(params)}`),
+      get: (id) => request(`/api/atendimentos/${encodeURIComponent(id)}`),
+      save: (id, payload) => request(id ? `/api/atendimentos/${encodeURIComponent(id)}` : '/api/atendimentos', {
+        method: id ? 'PUT' : 'POST', body: JSON.stringify(payload)
+      }),
+      history: (id) => request(`/api/atendimentos/${encodeURIComponent(id)}/historico`),
+      auditoria: (id) => request(`/api/atendimentos/${encodeURIComponent(id)}/auditoria`)
+    },
+    ai: {
+      justificativa: (payload) => request('/api/ai/justificativa', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 60000 }),
+      justificativaStream: async (payload, { onChunk, onDone, onError } = {}) => {
+        const impersonatedId = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('ambiental.impersonate_medico_id') : null;
+        const impersonateHeader = impersonatedId ? { 'X-Impersonate-Medico-Id': impersonatedId } : {};
+        const fetchFn = window.AmbientalAuth ? window.AmbientalAuth.authFetch : fetch;
+        try {
+          const response = await fetchFn('/api/ai/justificativa/stream', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'text/event-stream',
+              ...impersonateHeader
+            },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) {
+            const errJson = await response.json().catch(() => ({}));
+            const msg = errJson?.error?.message || errJson?.detail || `HTTP ${response.status}`;
+            throw new Error(msg);
+          }
+          if (!response.body) throw new Error('Streaming não suportado pelo navegador.');
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let buffer = '';
+          let fullText = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith('data:')) continue;
+              try {
+                const data = JSON.parse(trimmed.slice(5).trim());
+                if (data.error) throw new Error(data.error);
+                if (data.text) {
+                  fullText += data.text;
+                  if (typeof onChunk === 'function') onChunk(data.text, fullText);
+                }
+                if (data.done && typeof onDone === 'function') {
+                  onDone(fullText);
+                }
+              } catch (pe) {
+                if (trimmed.includes('"error"')) throw pe;
+              }
+            }
+          }
+          if (typeof onDone === 'function') onDone(fullText);
+          return fullText;
+        } catch (err) {
+          if (typeof onError === 'function') onError(err);
+          throw err;
+        }
+      },
+      preenchimento: (payload) => request('/api/ai/preenchimento', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 60000 }),
+      preencherFicha: (payload) => request('/api/ai/preencher-ficha', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 120000 }),
+      documento: (payload) => request('/api/ai/documento', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 60000 }),
+      esisla: (payload) => request('/api/ai/esisla', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 60000 }),
+      refinarFichaEsisla: (payload) => request('/api/ai/refinar-ficha-esisla', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 }),
+      transcreverAtendimento: (audioBase64OrForm) => {
+        if (typeof FormData !== 'undefined' && audioBase64OrForm instanceof FormData) {
+          return (window.AmbientalAuth ? window.AmbientalAuth.authFetch('/api/ai/transcrever-atendimento', {
+            method: 'POST',
+            body: audioBase64OrForm
+          }) : fetch('/api/ai/transcrever-atendimento', {
+            method: 'POST',
+            body: audioBase64OrForm
+          })).then(async r => {
+            const b = await r.json().catch(() => ({}));
+            if (!r.ok || b?.success === false) throw new Error(b?.error?.message || b?.detail || 'Falha ao transcrever áudio.');
+            return b?.data ?? b;
+          });
+        }
+        return request('/api/ai/transcrever-atendimento', { method: 'POST', body: JSON.stringify(audioBase64OrForm), timeoutMs: 90000 });
+      },
+      benchmarkCid: (cid) => request(`/api/ai/benchmark-cid/${encodeURIComponent(cid)}`)
+    },
+    admin: {
+      medicos: () => request('/api/admin/medicos'),
+      medicosListaImpersonate: () => request('/api/admin/medicos/lista-impersonate'),
+      createMedico: (payload) => request('/api/admin/medicos', { method: 'POST', body: JSON.stringify(payload) }),
+      updateMedico: (id, payload) => request(`/api/admin/medicos/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) }),
+      toggleStatus: (id) => request(`/api/admin/medicos/${encodeURIComponent(id)}/status`, { method: 'PATCH' }),
+      resetSenha: (id, senha) => request(`/api/admin/medicos/${encodeURIComponent(id)}/senha`, { method: 'POST', body: JSON.stringify({ senha }) }),
+      deleteMedico: (id) => request(`/api/admin/medicos/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+      getAgendas: (medicoId, params = {}) => request(`/api/admin/medicos/${encodeURIComponent(medicoId)}/agendas?${new URLSearchParams(params)}`),
+      getDoctorAgendas: (medicoId, params = {}) => request(`/api/admin/medicos/${encodeURIComponent(medicoId)}/agendas?${new URLSearchParams(params)}`),
+      saveAgendas: (medicoId, payload) => request(`/api/admin/medicos/${encodeURIComponent(medicoId)}/agendas`, { method: 'POST', body: JSON.stringify(payload) }),
+      saveDoctorAgendas: (medicoId, payload) => request(`/api/admin/medicos/${encodeURIComponent(medicoId)}/agendas`, { method: 'POST', body: JSON.stringify(payload) }),
+      deleteAgenda: (agendaId) => request(`/api/admin/agendas/${encodeURIComponent(agendaId)}`, { method: 'DELETE' }),
+      deleteSingleAgenda: (agendaId) => request(`/api/admin/agendas/${encodeURIComponent(agendaId)}`, { method: 'DELETE' }),
+      clearAgendas: (medicoId, data) => request(`/api/admin/medicos/${encodeURIComponent(medicoId)}/agendas?data=${encodeURIComponent(data)}`, { method: 'DELETE' }),
+      deleteDoctorAgendas: (medicoId, data) => request(`/api/admin/medicos/${encodeURIComponent(medicoId)}/agendas?data=${encodeURIComponent(data)}`, { method: 'DELETE' }),
+      parseAgendaPdf: (formDataOrPayload) => {
+        if (typeof FormData !== 'undefined' && formDataOrPayload instanceof FormData) {
+          return (window.AmbientalAuth ? window.AmbientalAuth.authFetch('/api/admin/agendas/parse-pdf', {
+            method: 'POST',
+            body: formDataOrPayload
+          }) : fetch('/api/admin/agendas/parse-pdf', {
+            method: 'POST',
+            body: formDataOrPayload
+          })).then(async r => {
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok || body?.success === false) throw new Error(body?.error?.message || body?.detail || 'Falha ao processar arquivo PDF da agenda.');
+            const dataObj = (body && body.data && typeof body.data === 'object') ? body.data : body;
+            return {
+              ...body,
+              ...dataObj,
+              data: dataObj?.data || dataObj?.data_ymd || '',
+              data_ymd: dataObj?.data_ymd || dataObj?.data || '',
+              data_formatada: dataObj?.data_formatada || '',
+              itens: dataObj?.itens || body?.itens || []
+            };
+          });
+        }
+        return request('/api/admin/agendas/parse-pdf', { method: 'POST', body: JSON.stringify(formDataOrPayload) }).then(res => {
+          const dataObj = (res && res.data && typeof res.data === 'object') ? res.data : res;
+          return {
+            ...res,
+            ...dataObj,
+            data: dataObj?.data || dataObj?.data_ymd || '',
+            data_ymd: dataObj?.data_ymd || dataObj?.data || '',
+            data_formatada: dataObj?.data_formatada || '',
+            itens: dataObj?.itens || res?.itens || []
+          };
+        });
+      },
+      limpezaManutencao: () => request('/api/admin/manutencao/limpeza', { method: 'POST' })
+    },
+    impersonate: {
+      set: (medicoId, medicoInfo) => {
+        if (!medicoId) {
+          sessionStorage.removeItem('ambiental.impersonate_medico_id');
+          sessionStorage.removeItem('ambiental.impersonate_medico_info');
+        } else {
+          sessionStorage.setItem('ambiental.impersonate_medico_id', String(medicoId));
+          if (medicoInfo) sessionStorage.setItem('ambiental.impersonate_medico_info', JSON.stringify(medicoInfo));
+        }
+      },
+      get: () => {
+        const id = sessionStorage.getItem('ambiental.impersonate_medico_id');
+        let info = null;
+        try { info = JSON.parse(sessionStorage.getItem('ambiental.impersonate_medico_info') || 'null'); } catch(_) {}
+        return id ? { id, ...info } : null;
+      },
+      clear: () => {
+        sessionStorage.removeItem('ambiental.impersonate_medico_id');
+        sessionStorage.removeItem('ambiental.impersonate_medico_info');
+      }
+    },
+    esisla: {
+      parsePdf: (formDataOrPayload) => {
+        if (typeof FormData !== 'undefined' && formDataOrPayload instanceof FormData) {
+          return (window.AmbientalAuth ? window.AmbientalAuth.authFetch('/api/esisla/parse-pdf', {
+            method: 'POST',
+            body: formDataOrPayload
+          }) : fetch('/api/esisla/parse-pdf', {
+            method: 'POST',
+            body: formDataOrPayload
+          })).then(async r => {
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data?.error?.message || data?.detail || 'Falha ao processar arquivo do e-SISLA.');
+            return data;
+          });
+        }
+        return request('/api/esisla/parse-pdf', { method: 'POST', body: JSON.stringify(formDataOrPayload), timeoutMs: 60000 });
+      },
+      criarAtendimento: (payload) => request('/api/esisla/criar-atendimento', { method: 'POST', body: JSON.stringify(payload) }),
+      vincularAgendaBatch: (formData) => {
+        const impersonatedId = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('ambiental.impersonate_medico_id') : null;
+        const headers = impersonatedId ? { 'X-Impersonate-Medico-Id': impersonatedId } : {};
+        return (window.AmbientalAuth ? window.AmbientalAuth.authFetch('/api/esisla/vincular-agenda-batch', {
+          method: 'POST',
+          body: formData,
+          headers
+        }) : fetch('/api/esisla/vincular-agenda-batch', {
+          method: 'POST',
+          body: formData,
+          headers
+        })).then(async r => {
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(data?.error?.message || data?.detail || 'Falha ao vincular arquivos e-SISLA à agenda.');
+          return data;
+        });
+      },
+      importarAgenda: (payload) => request('/api/esisla/importar-agenda', { method: 'POST', body: JSON.stringify(payload) })
+    }
+  };
+
+  window.AmbientalAPI = API;
+})();

@@ -1,0 +1,2529 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gestão de Médicos e Acesso Pericial — Ambiental · LTS</title>
+<link rel="stylesheet" href="/global.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/auth.js"></script>
+<script src="/api.js"></script>
+<script src="/utils.js"></script>
+
+<style>
+:root {
+  --nav: #06264e;
+  --nav-hover: #0c3568;
+  --blue: #0284c7;
+  --blue-hover: #0369a1;
+  --blue-dark: #07478f;
+  --green: #10b981;
+  --green-dark: #047857;
+  --green-bg: #ecfdf5;
+  --ink: #0f2744;
+  --ink-secondary: #334e68;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  --bg: #f8fafc;
+  --card-bg: #ffffff;
+  --danger: #ef4444;
+  --danger-bg: #fef2f2;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --shadow-sm: 0 1px 3px rgba(15, 39, 68, 0.05);
+  --shadow-md: 0 6px 18px rgba(15, 39, 68, 0.06);
+  --shadow-lg: 0 16px 36px rgba(15, 39, 68, 0.09);
+  --shadow-xl: 0 24px 60px rgba(15, 39, 68, 0.12);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: radial-gradient(circle at 10% 0%, rgba(2, 132, 199, 0.06), transparent 30%),
+              radial-gradient(circle at 90% 12%, rgba(16, 185, 129, 0.04), transparent 26%),
+              linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.shell { min-height: 100vh; display: grid; grid-template-columns: 260px minmax(0, 1fr); }
+
+/* SIDEBAR — DESIGN EXECUTIVO STEALTH */
+.side {
+  background: radial-gradient(circle at 50% 0%, rgba(2, 132, 199, 0.18) 0%, transparent 65%),
+              linear-gradient(180deg, #071527 0%, #0A1B33 45%, #05101E 100%);
+  color: #fff;
+  padding: 22px 14px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 6px 0 32px rgba(2, 12, 27, 0.35);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 10;
+}
+.brand {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 6px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.brand img {
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 3px;
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.35);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+}
+.brand b { display: block; font-size: 14.5px; font-weight: 900; letter-spacing: -0.01em; color: #fff; }
+.brand span { display: block; font-size: 10px; color: #94a3b8; margin-top: 2px; }
+
+.nav-title {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 850;
+  margin: 20px 8px 8px;
+}
+.nav a {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 650;
+  margin: 3px 0;
+  border: 1px solid transparent;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.nav a svg { width: 17px; height: 17px; stroke-width: 2; opacity: 0.85; flex-shrink: 0; }
+.nav a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  transform: translateX(3px);
+}
+.nav a.active {
+  background: linear-gradient(90deg, rgba(2, 132, 199, 0.28) 0%, rgba(2, 132, 199, 0.08) 100%);
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: inset 3.5px 0 0 #00C95A, 0 4px 14px rgba(2, 132, 199, 0.22);
+  color: #fff;
+  font-weight: 800;
+}
+.spacer { flex: 1; }
+.user {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 11.5px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  margin-top: 10px;
+}
+.user-info-row { display: flex; align-items: center; gap: 10px; }
+.user-avatar-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+.user b { display: block; font-size: 12px; font-weight: 750; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user small { display: block; color: #94a3b8; margin-top: 2px; font-size: 9.5px; }
+
+#sidebarLogout {
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #fca5a5 !important;
+  border-radius: 11px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  font-weight: 750;
+  margin-top: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.18s ease;
+  width: 100%;
+}
+#sidebarLogout:hover {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+  transform: translateY(-1px);
+}
+
+/* TOPBAR */
+main { min-width: 0; }
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 12px rgba(15, 39, 68, 0.03);
+}
+.topin {
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+}
+.crumb {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.crumb-dot { width: 5px; height: 5px; border-radius: 50%; background: #0284c7; box-shadow: 0 0 6px rgba(2, 132, 199, 0.6); }
+.title {
+  font-size: 24px;
+  font-weight: 950;
+  margin: 3px 0 2px;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #071930 0%, #0284c7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.subtitle { margin: 0; color: var(--muted); font-size: 12px; }
+
+.top-badge-admin {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #e0f2fe, #f0f9ff);
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 850;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.08);
+}
+
+.content { padding: 24px 32px 40px; max-width: 1440px; }
+
+/* ACESSO PERICIAL HERO CARD */
+.impersonate-hero-card {
+  background: radial-gradient(circle at 85% 20%, rgba(2, 132, 199, 0.22), transparent 50%),
+              linear-gradient(135deg, #071930 0%, #0A2242 55%, #06162B 100%);
+  color: #fff;
+  padding: 20px 24px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 32px rgba(2, 15, 33, 0.22);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+  position: relative;
+  overflow: hidden;
+  animation: rise 0.45s ease both;
+}
+.impersonate-hero-card::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.15), transparent 70%);
+  pointer-events: none;
+}
+.impersonate-hero-left {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  min-width: 280px;
+  flex: 1;
+}
+.impersonate-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(10px);
+}
+.impersonate-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #38bdf8;
+  margin-bottom: 4px;
+}
+.impersonate-hero-card h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+.impersonate-hero-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 11.5px;
+  line-height: 1.45;
+  max-width: 540px;
+}
+.impersonate-hero-right {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 14px 16px;
+  backdrop-filter: blur(12px);
+  min-width: 350px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+.impersonate-hero-right label {
+  display: block;
+  font-size: 10px;
+  font-weight: 900;
+  color: #bae6fd;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+.impersonate-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.impersonate-select {
+  flex: 1;
+  background: #051426;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.impersonate-select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+.btn-impersonate-action {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 11.5px;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+.btn-impersonate-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.45);
+  filter: brightness(1.05);
+}
+.quick-doc-chips {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.doc-chip {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f0f9ff;
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 10.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.doc-chip:hover {
+  background: #ffffff;
+  color: #0369a1;
+  border-color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* STATS */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.stat {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px 20px;
+  box-shadow: 0 2px 6px rgba(15, 39, 68, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: rise 0.5s ease both;
+  position: relative;
+  overflow: hidden;
+}
+.stat::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
+}
+.stat:nth-child(2)::before { background: linear-gradient(90deg, #10b981, #34d399); }
+.stat:nth-child(3)::before { background: linear-gradient(90deg, #0284c7, #075985); }
+.stat:nth-child(4)::before { background: linear-gradient(90deg, #059669, #10b981); }
+
+.stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -4px rgba(15, 23, 42, 0.08);
+  border-color: #cbd5e1;
+}
+.stat-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.stat small {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.stat-ico {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  background: #f1f5f9;
+}
+.stat b {
+  display: block;
+  font-size: 26px;
+  font-weight: 950;
+  margin-top: 8px;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.stat span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* WORKSPACE: FULL WIDTH CLEAN ARCHITECTURE */
+.workspace {
+  display: block;
+  width: 100%;
+}
+.panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+  animation: rise 0.6s ease both;
+  transition: border-color 0.2s ease;
+  width: 100%;
+}
+.panelhead {
+  padding: 16px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #fafcff;
+}
+.panelhead strong {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panelhead span.tag {
+  font-size: 9.5px;
+  color: var(--blue-dark);
+  background: #e0f2fe;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+.panelbody { padding: 22px; }
+
+/* FORMS */
+.form-grid { display: grid; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label {
+  font-size: 10.5px;
+  font-weight: 950;
+  color: #334e68;
+  letter-spacing: 0.02em;
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #cfdae6;
+  border-radius: 12px;
+  outline: none;
+  background: #fbfdff;
+  color: #102a43;
+  font: inherit;
+  font-size: 12.5px;
+  transition: all 0.2s ease;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.12);
+  background: #fff;
+}
+.hint { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+.requirements {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.req { display: flex; gap: 8px; align-items: flex-start; font-size: 10.5px; color: #475569; }
+.req i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--green);
+  margin-top: 4px;
+  flex: 0 0 auto;
+}
+
+/* BUTTONS */
+.actions { display: flex; gap: 10px; margin-top: 20px; }
+.primary, .secondary, .danger, .btn-action-hero {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 900;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.primary {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+.secondary {
+  background: #fff;
+  color: #334e68;
+  border: 1px solid var(--line);
+}
+.secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid #fecaca;
+}
+.danger:hover { background: #fee2e2; }
+.primary:disabled, .secondary:disabled, .danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* TABLE */
+.table-wrap { overflow-x: auto; width: 100%; }
+.table { width: 100%; border-collapse: collapse; min-width: 920px; }
+.table th, .table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid #edf2f7;
+  text-align: left;
+  font-size: 12px;
+  vertical-align: middle;
+}
+.table th {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+  background: #f8fafc;
+  font-weight: 900;
+  border-bottom: 1.5px solid #e2e8f0;
+  white-space: nowrap;
+}
+.table tr {
+  transition: background 0.15s ease;
+}
+.table tbody tr:hover {
+  background: #f8fbff;
+}
+
+/* DOCTOR AVATAR PILL */
+.doctor-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.doctor-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #0284c7, #075985);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.med-title { font-weight: 850; color: #0f172a; font-size: 13px; letter-spacing: -0.01em; }
+.med-sub { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+
+/* BADGES */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--green-bg);
+  color: var(--green-dark);
+  font-weight: 900;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.badge.off {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* PULSE DOT */
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  animation: pulseGreen 2s infinite;
+}
+.pulse-dot.off {
+  background: #94a3b8;
+  animation: none;
+  box-shadow: none;
+}
+
+@keyframes pulseGreen {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* ACTIONS IN TABLE */
+.btn-group { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
+.btn-sm {
+  padding: 6px 11px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  background: #fff;
+  color: var(--ink);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.btn-sm:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+.btn-sm.impersonate-btn {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.3);
+  font-weight: 900;
+}
+.btn-sm.impersonate-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.45);
+  filter: brightness(1.06);
+}
+.btn-sm.primary {
+  background: #07478f;
+  color: #fff;
+  border-color: transparent;
+}
+.btn-sm.primary:hover { background: #0a5bc0; }
+.btn-sm.warning {
+  background: var(--warning-bg);
+  color: #b45309;
+  border-color: #fde68a;
+}
+.btn-sm.warning:hover { background: #fef3c7; }
+.btn-sm.success {
+  background: var(--green-bg);
+  color: #047857;
+  border-color: #a7f3d0;
+}
+.btn-sm.success:hover { background: #d1fae5; }
+.btn-sm.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: #fecaca;
+}
+.btn-sm.danger:hover { background: #fee2e2; }
+
+/* PAGINAÇÃO DE MÉDICOS (LIMITE 40 POR PÁGINA) */
+.table-pagination-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 13px 20px;
+  background: #FCFDFE;
+  border-top: 1px solid var(--line);
+  user-select: none;
+}
+.pagination-info {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pagination-info b {
+  color: var(--ink);
+  font-weight: 800;
+}
+.pagination-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.page-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #334155;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .16s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.page-nav-btn:hover:not(:disabled) {
+  background: #F8FAFC;
+  border-color: #94A3B8;
+  color: #0F172A;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(15, 23, 42, 0.08);
+}
+.page-nav-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+.page-nav-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  color: #94A3B8;
+  box-shadow: none;
+}
+.page-numbers-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.page-num-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 7px;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+  background: #FFFFFF;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+.page-num-btn:hover:not(.active) {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+  color: #0F172A;
+  transform: translateY(-1px);
+}
+.page-num-btn.active {
+  background: linear-gradient(135deg, #0284C7, #0369A1);
+  border-color: #0284C7;
+  color: #FFFFFF !important;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.32);
+  pointer-events: none;
+}
+.page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  color: #94A3B8;
+  font-weight: 800;
+  font-size: 11px;
+  user-select: none;
+}
+
+/* MODALS */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 16, 30, 0.65);
+  backdrop-filter: blur(12px);
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.25s ease;
+}
+.modal-overlay.open { opacity: 1; visibility: visible; }
+.modal-card {
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 30px 80px rgba(6, 38, 78, 0.25);
+  width: min(500px, 100%);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: rise 0.3s ease both;
+  transition: width 0.22s ease;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+.modal-card.modal-lg { width: min(880px, 100%); }
+.modal-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 22px 0;
+  background: #f8fafc;
+  border-bottom: 1.5px solid var(--line);
+}
+.modal-tab {
+  border: 0;
+  background: transparent;
+  padding: 11px 18px;
+  font-size: 11.5px;
+  font-weight: 850;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  border-radius: 10px 10px 0 0;
+  transition: all 0.15s ease;
+}
+.modal-tab:hover { color: var(--ink); background: rgba(2, 132, 199, 0.05); }
+.modal-tab.active {
+  color: var(--blue-dark);
+  border-bottom-color: var(--blue);
+  background: #fff;
+  font-weight: 950;
+}
+.modal-head {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fafcff;
+}
+.modal-head h3 { margin: 0; font-size: 16px; font-weight: 950; color: var(--ink); }
+.modal-close {
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+.modal-close:hover { background: #f1f5f9; color: var(--ink); }
+.modal-body { padding: 24px; overflow-y: auto; max-height: calc(92vh - 120px); }
+
+/* AGENDA PREVIEW */
+.agenda-preview-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+.agenda-preview-table th, .agenda-preview-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: left;
+  vertical-align: middle;
+}
+.agenda-preview-table th {
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 900;
+}
+.agenda-preview-table tr:hover td { background: #f8fbff; }
+
+/* NOTICE */
+.notice {
+  padding: 13px 16px;
+  border-radius: 14px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* BOOT LOADER */
+.loadingbar {
+  height: 3px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: linear-gradient(90deg, transparent, #10b981, #0284c7, transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+.admin-boot-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: radial-gradient(circle at 50% 10%, rgba(2, 132, 199, 0.14), transparent 40%),
+              linear-gradient(145deg, #eef4f9, #f9fbfd);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  transition: opacity 0.38s ease, visibility 0.38s ease;
+}
+.admin-boot-loader.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+.admin-boot-card {
+  width: min(430px, 100%);
+  padding: 34px;
+  border: 1px solid #e2eaf2;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 30px 90px rgba(8, 40, 78, 0.18);
+  text-align: center;
+}
+.admin-boot-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--blue-dark);
+  font-size: 11.5px;
+  font-weight: 950;
+  letter-spacing: 0.1em;
+}
+.admin-boot-brand img {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: #fff;
+  padding: 3px;
+  border: 1px solid #e6edf4;
+}
+.admin-boot-spinner {
+  width: 76px;
+  height: 76px;
+  margin: 24px auto 16px;
+  border-radius: 50%;
+  border: 5px solid #e2e8f0;
+  border-top-color: var(--green);
+  border-right-color: var(--blue);
+  animation: spin 1.05s linear infinite;
+  box-shadow: 0 0 0 9px rgba(2, 132, 199, 0.05);
+}
+.admin-boot-card h3 { margin: 0; color: var(--ink); font-size: 18px; font-weight: 950; }
+.admin-boot-card p { margin: 8px 0 18px; color: var(--muted); font-size: 12px; }
+.admin-boot-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.admin-boot-step {
+  padding: 9px 6px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 9.5px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.admin-boot-step.active { background: #e0f2fe; color: var(--blue-dark); }
+.admin-boot-step.done { background: var(--green-bg); color: var(--green-dark); }
+.admin-boot-progress { height: 6px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+.admin-boot-progress span {
+  display: block;
+  width: 8%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), var(--green));
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.toast-region { position: fixed; right: 20px; bottom: 20px; z-index: 160; display: grid; gap: 8px; }
+.toastx {
+  background: #082d5a;
+  color: #fff;
+  padding: 13px 18px;
+  border-radius: 14px;
+  box-shadow: 0 16px 36px rgba(4, 29, 53, 0.28);
+  font-size: 11px;
+  font-weight: 850;
+  animation: toastin 0.22s ease both;
+  max-width: 380px;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes toastin {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media(max-width: 1080px) {
+  .impersonate-hero-card { flex-direction: column; align-items: stretch; }
+  .impersonate-hero-right { min-width: 100%; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media(max-width: 800px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { display: none; }
+  .topin { padding: 16px 20px; }
+  .content { padding: 18px 20px; }
+  .stats { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div id="adminBootLoader" class="admin-boot-loader" aria-live="polite" aria-busy="true">
+  <div class="admin-boot-card">
+    <div class="admin-boot-brand">
+      <img src="/logo.png" alt="Ambiental">
+      <span>AMBIENTAL · LTS</span>
+    </div>
+    <div class="admin-boot-spinner"></div>
+    <h3 id="adminBootTitle">Preparando gestão de profissionais</h3>
+    <p id="adminBootText">Conectando ao cadastro médico seguro…</p>
+    <div class="admin-boot-steps">
+      <span class="admin-boot-step active" id="abStep1">Sessão</span>
+      <span class="admin-boot-step" id="abStep2">Contas</span>
+      <span class="admin-boot-step" id="abStep3">Pronto</span>
+    </div>
+    <div class="admin-boot-progress"><span id="abProgress"></span></div>
+  </div>
+</div>
+
+<div id="loadingbar" class="loadingbar" hidden></div>
+
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="brand">
+      <img src="/logo.png" alt="Ambiental">
+      <div>
+        <b>Ambiental · LTS</b>
+        <span>Gestão administrativa</span>
+      </div>
+    </div>
+    <div class="nav-title">Navegação</div>
+    <nav class="nav">
+      <a href="/gestao">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard de Atendimentos</span>
+      </a>
+      <a class="active" href="/gestao-medicos-admin.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM16 3.5a4 4 0 0 1 0 7.8M19 14a4 4 0 0 1 2 3.5V21"/></svg>
+        <span>Gestão de Médicos</span>
+        <span class="badge" id="sideDocBadge" style="margin-left:auto;padding:2px 8px;border-radius:999px;background:rgba(16,185,129,0.2);border:1px solid rgba(52,211,153,0.4);color:#34D399;font-size:10px;font-weight:850">0 médicos</span>
+      </a>
+      <a href="/gestao#atendimentos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="M7 8h10M7 12h7M7 16h5"/></svg>
+        <span>Buscar atendimento</span>
+      </a>
+      <a href="/gestao#historico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5M12 7v5l3 2"/></svg>
+        <span>Histórico de auditoria</span>
+      </a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="user">
+      <div class="user-info-row">
+        <div class="user-avatar-badge">AD</div>
+        <div style="min-width:0;flex:1">
+          <b id="who">Administrador</b>
+          <small>Contas médicas e acesso pericial</small>
+        </div>
+      </div>
+      <button type="button" id="sidebarLogout" onclick="AmbientalAuth.logout()" title="Encerrar sessão segura">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Sair do Sistema</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+    <header class="top">
+      <div class="topin">
+        <div>
+          <div class="crumb"><span class="crumb-dot"></span> Administração / Gestão de Médicos</div>
+          <div class="title">Contas Médicas & Acesso Pericial</div>
+          <p class="subtitle">Gerenciamento seguro de credenciais, e-mails de acesso, agendas periciais e impersonate administrativo.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button type="button" class="primary" onclick="openCreateModal()" style="padding:9px 16px;border-radius:12px;box-shadow:0 4px 14px rgba(16,185,129,0.3);font-size:11.5px">
+            <span>➕</span> <span>Adicionar Médico</span>
+          </button>
+          <div class="top-badge-admin">
+            <span>🛡️</span> <span>Administrador</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="content">
+      <!-- HERO: ACESSO PERICIAL ADMINISTRATIVO (IMPERSONATE) -->
+      <section class="impersonate-hero-card">
+        <div class="impersonate-hero-left">
+          <div class="impersonate-icon-box">🩺</div>
+          <div>
+            <div class="impersonate-badge"><span>⚡</span> Acesso Pericial Administrativo</div>
+            <h2>Entrar no Portal do Médico</h2>
+            <p>Acesse com 1 clique a conta e a agenda pericial do dia de qualquer profissional. No portal médico você pode importar e-SISLA em lote e acompanhar atendimentos como se fosse o perito.</p>
+          </div>
+        </div>
+        <div class="impersonate-hero-right">
+          <label for="selectImpersonateQuick">Acesso Rápido — Entrar como Médico:</label>
+          <div class="impersonate-input-row">
+            <select id="selectImpersonateQuick" class="impersonate-select" onchange="onQuickSelectChange(this.value)">
+              <option value="">Selecione o médico para entrar...</option>
+            </select>
+            <button type="button" class="btn-impersonate-action" onclick="entrarComoMedicoSelecionadoTop()" title="Acessar o portal médico como Dr(a). selecionado">
+              <span>Entrar</span> <span>→</span>
+            </button>
+          </div>
+          <div id="quickDoctorsChips" class="quick-doc-chips">
+            <!-- Gerado dinamicamente com médicos ativos -->
+          </div>
+        </div>
+      </section>
+
+      <!-- METRIC CARDS -->
+      <section class="stats">
+        <article class="stat">
+          <div class="stat-top">
+            <small>Médicos Cadastrados</small>
+            <div class="stat-ico">🩺</div>
+          </div>
+          <b id="count">—</b>
+          <span>Total registrado na base</span>
+        </article>
+
+        <article class="stat">
+          <div class="stat-top">
+            <small>Contas Ativas</small>
+            <div class="stat-ico" style="background:#ecfdf5;color:#059669">●</div>
+          </div>
+          <b id="activeCount">—</b>
+          <span>Disponíveis para login</span>
+        </article>
+
+        <article class="stat">
+          <div class="stat-top">
+            <small>Atendimentos Realizados</small>
+            <div class="stat-ico" style="background:#f0f9ff;color:#0284c7">📋</div>
+          </div>
+          <b id="attendanceCount">—</b>
+          <span>Total vinculado aos médicos</span>
+        </article>
+
+        <article class="stat">
+          <div class="stat-top">
+            <small>Laudos Finalizados</small>
+            <div class="stat-ico" style="background:#ecfdf5;color:#047857">✓</div>
+          </div>
+          <b id="finishedCount">—</b>
+          <span>Concluídos com parecer</span>
+        </article>
+      </section>
+
+      <!-- WORKSPACE: LISTAGEM DE MÉDICOS (100% LARGURA) -->
+      <section class="workspace">
+        <div class="panel">
+          <div class="panelhead">
+            <div style="display:flex;align-items:center;gap:10px">
+              <strong><span>👥</span> Médicos Cadastrados</strong>
+              <span class="badge" id="tableDocsCountBadge" style="background:#e0f2fe;color:#0369a1;font-weight:800">0 cadastrados</span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <input id="search" class="search" placeholder="🔍 Buscar por nome, CRM ou e-mail..." style="padding:8px 14px;border:1px solid var(--line);border-radius:10px;font-size:11.5px;outline:none;width:240px;background:#f8fafc">
+              <span id="sync" style="font-size:10.5px;color:var(--muted);font-weight:700">Carregando…</span>
+              <button type="button" class="primary" onclick="openCreateModal()" style="padding:8px 14px;border-radius:10px;font-size:11px">
+                <span>➕</span> <span>Adicionar Médico</span>
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Médico</th>
+                  <th>CRM/CRO</th>
+                  <th>Modo</th>
+                  <th>Produção</th>
+                  <th>Status</th>
+                  <th>Acesso & Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="empty" hidden style="padding:40px;text-align:center;color:var(--muted)">Nenhum médico encontrado com os filtros atuais.</div>
+          <div class="table-pagination-footer" id="doctorPaginationFooter" style="display:none">
+            <div class="pagination-info" id="doctorPaginationInfo">Carregando médicos...</div>
+            <div class="pagination-controls" id="doctorPaginationControls">
+              <button type="button" class="page-nav-btn" id="btnDocPrev" onclick="changeDoctorPage(doctorCurrentPage - 1)" title="Página anterior">‹ Anterior</button>
+              <div class="page-numbers-wrap" id="doctorPaginationNumbersWrap"></div>
+              <button type="button" class="page-nav-btn" id="btnDocNext" onclick="changeDoctorPage(doctorCurrentPage + 1)" title="Próxima página">Próxima ›</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<!-- Modal: Adicionar Novo Médico -->
+<div id="createModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="createModalTitle">
+  <div class="modal-card modal-lg" id="createPanel">
+    <div class="modal-head">
+      <div>
+        <h3 id="createModalTitle">➕ Adicionar Novo Médico Perito</h3>
+        <span style="font-size:11px;color:var(--muted);margin-top:2px;display:block">Cadastro de credenciais e configuração do modo de atendimento no Authentication</span>
+      </div>
+      <button type="button" class="modal-close" onclick="closeCreateModal()" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body" style="padding:22px">
+      <div class="notice">
+        <span>ℹ️</span>
+        <div>Preencha os dados do médico. As credenciais são sincronizadas no <b>Authentication</b> e associadas ao perfil <b>Médico</b>.</div>
+      </div>
+      <form id="createForm" novalidate>
+        <div class="form-grid">
+          <div class="field">
+            <label for="nome">Nome Completo</label>
+            <input id="nome" name="nome" required minlength="3" autocomplete="name" placeholder="Ex.: Dr. Roberto Santos">
+          </div>
+
+          <div class="field">
+            <label for="email">E-mail Corporativo / Login <small style="color:var(--muted);font-weight:400">(opcional)</small></label>
+            <input id="email" name="email" type="email" autocomplete="email" placeholder="medico@empresa.com.br">
+          </div>
+
+          <div class="field">
+            <label for="crm">CRM/CRO e UF</label>
+            <input id="crm" name="crm" required placeholder="Ex.: CRM 123456 / SP">
+          </div>
+
+          <div class="field">
+            <label for="senha">Senha Inicial de Acesso</label>
+            <input id="senha" name="senha" type="password" required minlength="8" autocomplete="new-password" placeholder="Mínimo de 8 caracteres">
+            <div class="hint">Usada para criação da conta no Authentication.</div>
+          </div>
+
+          <div class="field">
+            <label style="margin-bottom:6px">Modo de Atendimento Padrão</label>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px">
+              <label style="border:1.5px solid #bae6fd;background:#f0f9ff;border-radius:12px;padding:10px 12px;cursor:pointer;display:flex;align-items:flex-start;gap:10px">
+                <input type="radio" name="modo_atendimento" value="agil" id="createModoAgil" checked style="margin-top:2px;accent-color:var(--blue)">
+                <div>
+                  <strong style="display:block;font-size:12px;color:var(--ink)">⚡ Modo Ágil</strong>
+                  <small style="color:var(--muted);font-size:10.5px;line-height:1.35;display:block">Modelo de atendimento facilitado para médicos com dificuldades.</small>
+                </div>
+              </label>
+
+              <label style="border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer;display:flex;align-items:flex-start;gap:10px">
+                <input type="radio" name="modo_atendimento" value="extenso" id="createModoExtenso" style="margin-top:2px;accent-color:var(--blue)">
+                <div>
+                  <strong style="display:block;font-size:12px;color:var(--ink)">📋 Modo Extenso</strong>
+                  <small style="color:var(--muted);font-size:10.5px;line-height:1.35;display:block">Médico com experiencia e com facilidade em realizar os atendimentos.</small>
+                </div>
+              </label>
+
+              <label style="border:1.5px solid #c7d2fe;background:#f5f3ff;border-radius:12px;padding:10px 12px;cursor:pointer;display:flex;align-items:flex-start;gap:10px">
+                <input type="radio" name="modo_atendimento" value="ia" id="createModoIA" style="margin-top:2px;accent-color:#4f46e5">
+                <div>
+                  <strong style="display:block;font-size:12px;color:#4338ca">✨ Modo IA</strong>
+                  <small style="color:var(--muted);font-size:10.5px;line-height:1.35;display:block">Abre automaticamente a importação inteligente por IA.</small>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="requirements">
+          <div class="req"><i></i><span>Perfil vinculado como <b>Médico Perito</b> no banco de dados.</span></div>
+          <div class="req"><i></i><span>CRM/CRO vinculado ao mesmo ID do usuário autenticado.</span></div>
+        </div>
+
+        <div class="actions" style="justify-content:flex-end;margin-top:16px">
+          <button class="secondary" type="button" id="clearBtn" onclick="$('createForm').reset()">Limpar</button>
+          <button class="secondary" type="button" onclick="closeCreateModal()">Cancelar</button>
+          <button class="primary" id="createBtn" type="submit">Criar Conta Médica</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edição de Médico & Agenda -->
+<div id="editModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+  <div class="modal-card" id="editModalCard">
+    <div class="modal-head">
+      <h3 id="editModalTitle">Gerenciar Profissional de Saúde</h3>
+      <button type="button" class="modal-close" onclick="closeEditModal()" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-tabs">
+      <button type="button" class="modal-tab active" id="tabBtnEditDados" onclick="switchEditModalTab('dados')">👤 Dados Cadastrais & E-mail</button>
+      <button type="button" class="modal-tab" id="tabBtnEditAgenda" onclick="switchEditModalTab('agenda')">📅 Incluir & Gerenciar Agendas</button>
+    </div>
+    <div class="modal-body">
+      <!-- Aba 1: Dados Cadastrais & E-mail -->
+      <div id="tabContentEditDados">
+        <form id="editForm" novalidate>
+          <input type="hidden" id="editId">
+          <div class="form-grid">
+            <div class="field">
+              <label for="editNome">Nome Completo</label>
+              <input id="editNome" required minlength="3" placeholder="Ex.: Dr. Roberto Santos">
+            </div>
+
+            <div class="field">
+              <label for="editCrm">CRM/CRO e UF</label>
+              <input id="editCrm" required minlength="3" placeholder="Ex.: CRM 123456 / SP">
+            </div>
+
+            <div class="field" style="grid-column: 1 / -1;">
+              <label for="editEmail">E-mail Corporativo / Login da Conta</label>
+              <input id="editEmail" type="email" placeholder="medico@empresa.com.br" autocomplete="email">
+              <div class="hint">E-mail vinculado ao acesso do médico. Ao alterar, as credenciais no Authentication são atualizadas para permitir login imediato.</div>
+            </div>
+
+            <div class="field" style="grid-column: 1 / -1;">
+              <label style="margin-bottom:6px">Modo de Atendimento</label>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
+                <label style="border:1.5px solid #bae6fd;background:#f0f9ff;border-radius:12px;padding:10px 12px;cursor:pointer;display:flex;align-items:flex-start;gap:8px">
+                  <input type="radio" name="editModoAtendimento" value="agil" id="editModoAgil" checked style="margin-top:2px;accent-color:var(--blue)">
+                  <div>
+                    <strong style="display:block;font-size:12px;color:var(--ink)">⚡ Modo Ágil</strong>
+                    <small style="color:var(--muted);font-size:10.5px;line-height:1.35;display:block">Modelo de atendimento facilitado para médicos com dificuldades.</small>
+                  </div>
+                </label>
+                <label style="border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer;display:flex;align-items:flex-start;gap:8px">
+                  <input type="radio" name="editModoAtendimento" value="extenso" id="editModoExtenso" style="margin-top:2px;accent-color:var(--blue)">
+                  <div>
+                    <strong style="display:block;font-size:12px;color:var(--ink)">📋 Modo Extenso</strong>
+                    <small style="color:var(--muted);font-size:10.5px;line-height:1.35;display:block">Médico com experiencia e com facilidade em realizar os atendimentos.</small>
+                  </div>
+                </label>
+                <label style="border:1.5px solid #c7d2fe;background:#f5f3ff;border-radius:12px;padding:10px 12px;cursor:pointer;display:flex;align-items:flex-start;gap:8px">
+                  <input type="radio" name="editModoAtendimento" value="ia" id="editModoIA" style="margin-top:2px;accent-color:#4f46e5">
+                  <div>
+                    <strong style="display:block;font-size:12px;color:#4338ca">✨ Modo IA</strong>
+                    <small style="color:var(--muted);font-size:10.5px;line-height:1.35;display:block">Abre automaticamente a importação inteligente por IA.</small>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions" style="margin-top:22px;justify-content:flex-end">
+            <button type="button" class="secondary" onclick="closeEditModal()">Cancelar</button>
+            <button type="submit" class="primary" id="saveEditBtn">Salvar Alterações</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Aba 2: Incluir e Gerenciar Agendas -->
+      <div id="tabContentEditAgenda" hidden>
+        <div class="notice" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div><strong>Médico Selecionado:</strong> <span id="agendaDocName">—</span> <span id="agendaDocCrm" style="color:var(--muted);font-weight:700"></span></div>
+          <span class="badge" style="background:#e0f2fe;color:#0369a1">Gestão de Agenda Pericial</span>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;background:#fbfcfe;border:1px solid var(--line);border-radius:14px;padding:12px 16px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <label for="agendaDataInput" style="font-size:11.5px;font-weight:900;color:var(--ink)">Data da Agenda:</label>
+            <input type="date" id="agendaDataInput" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px;font-weight:700;font-size:12px">
+            <button type="button" class="btn-sm primary" id="btnConsultarAgendaDia">🔄 Carregar Dia</button>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="btn-sm danger" id="btnLimparAgendaDia" title="Excluir todos os agendamentos desta data">🗑️ Limpar Dia Inteiro</button>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div>
+              <strong style="font-size:12.5px;color:var(--ink)">📥 Importar Agendamentos (PDF Oficial ou Planilha)</strong>
+              <p class="hint" style="margin:3px 0 0">
+                Selecione ou arraste o <b>PDF oficial de Perícias Agendadas</b> (Governo Digital / SP) ou cole as linhas copiadas do Excel.<br>
+                💡 <i>Identificação automática: periciados com <b>X</b> na coluna Pessoa são marcados como <b>Perícia de Acompanhante</b>; coluna Read com <b>S</b> como <b>Readaptado</b>.</i>
+              </p>
+            </div>
+            <button type="button" class="btn-sm" id="btnExemploPlanilha" title="Preencher com exemplo de teste" style="flex-shrink:0">Exemplo</button>
+          </div>
+
+          <div id="agendaPdfDropZone" style="border:2px dashed #93c5fd;background:#f0f9ff;border-radius:12px;padding:14px;text-align:center;margin-bottom:12px;cursor:pointer;transition:all .2s">
+            <span style="font-size:22px;display:block;margin-bottom:2px">📄</span>
+            <strong style="color:#0369a1;font-size:12.5px">Clique ou arraste o PDF oficial de perícias aqui</strong>
+            <p style="margin:2px 0 0;font-size:11px;color:#64748b">O sistema lê a data da agenda, horários, protocolos e acompanhantes automaticamente.</p>
+          </div>
+
+          <textarea id="agendaPasteInput" rows="3" style="width:100%;border:1px solid #cfdae6;border-radius:12px;padding:10px 12px;font-size:11.5px;font-family:Consolas,monospace;resize:vertical;background:#fbfdff" placeholder="Ou se preferir, cole aqui as linhas de texto ou dados da planilha..."></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <input type="file" id="agendaFileInput" accept=".pdf,.csv,.xlsx,.xls,.tsv,.txt" style="display:none">
+              <button type="button" class="btn-sm primary" id="btnTriggerPdfFile" style="background:#0284c7;color:#fff">📄 Selecionar PDF (.pdf)</button>
+              <button type="button" class="btn-sm" id="btnTriggerFile">📁 Planilha (.xlsx / .csv)</button>
+              <span id="agendaFileFeedback" style="font-size:11px;font-weight:700;color:var(--ink)"></span>
+            </div>
+            <button type="button" class="primary" id="btnProcessarPlanilha" style="padding:9px 18px">⚡ Processar Dados</button>
+          </div>
+        </div>
+
+        <div id="agendaPreviewArea" style="display:none;background:#f8fbff;border:1px solid #bae6fd;border-radius:16px;padding:16px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div><strong style="font-size:12.5px;color:var(--blue-dark)">✨ Pré-visualização dos Agendamentos</strong> <span class="badge" id="previewCountBadge" style="margin-left:6px">0 periciados</span></div>
+            <span style="font-size:10.5px;color:var(--muted)">Revise antes de gravar na base</span>
+          </div>
+          <div class="table-wrap" style="max-height:240px;border:1px solid var(--line);border-radius:12px;background:#fff">
+            <table class="agenda-preview-table">
+              <thead><tr><th>Hora</th><th>Tipo</th><th>Protocolo</th><th>NI</th><th>Nome do Periciado</th><th>Categoria</th><th>Compareceu</th><th>Obs</th></tr></thead>
+              <tbody id="agendaPreviewTbody"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:10px">
+            <label style="font-size:11.5px;font-weight:800;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="checkSubstituirAgenda" checked style="accent-color:var(--blue)"> Substituir agendamentos existentes desta data
+            </label>
+            <div style="display:flex;gap:8px">
+              <button type="button" class="btn-sm" id="btnDescartarPreview">Descartar</button>
+              <button type="button" class="primary" id="btnSalvarAgenda">💾 Gravar Agendamentos</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="agendaCurrentSection" style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div><strong style="font-size:12.5px;color:var(--ink)">📋 Agendamentos Gravados na Base</strong> <span class="badge" id="currentAgendaCountBadge" style="margin-left:6px;background:#e0f2fe;color:#0369a1">0 gravados</span></div>
+            <span id="agendaCurrentDateLabel" style="font-size:10.5px;color:var(--muted);font-weight:800"></span>
+          </div>
+          <div class="table-wrap" style="max-height:260px;border:1px solid var(--line);border-radius:12px;background:#fff">
+            <table class="agenda-preview-table">
+              <thead><tr><th>Hora</th><th>Tipo</th><th>Protocolo</th><th>NI</th><th>Nome do Periciado</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="agendaCurrentTbody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="agendaCurrentEmpty" style="padding:24px;text-align:center;color:var(--muted)" hidden>Nenhum agendamento gravado para esta data.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Redefinir Senha -->
+<div id="pwdModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="pwdModalTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="pwdModalTitle">Redefinir Senha de Acesso</h3>
+      <button type="button" class="modal-close" onclick="closePwdModal()" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="pwdTargetDoctor" style="font-size:11.5px;color:var(--muted);margin:0 0 16px 0;line-height:1.45"></p>
+      <form id="pwdForm" novalidate>
+        <input type="hidden" id="pwdId">
+        <div class="form-grid">
+          <div class="field">
+            <label for="newPwd">Nova Senha</label>
+            <input id="newPwd" type="password" required minlength="8" placeholder="Mínimo de 8 caracteres" autocomplete="new-password">
+          </div>
+          <div class="field">
+            <label for="confirmPwd">Confirmar Nova Senha</label>
+            <input id="confirmPwd" type="password" required minlength="8" placeholder="Repita a nova senha" autocomplete="new-password">
+          </div>
+        </div>
+        <div class="hint" style="margin-top:12px">A nova senha terá efeito imediato para o próximo login do profissional.</div>
+        <div class="actions" style="margin-top:22px;justify-content:flex-end">
+          <button type="button" class="secondary" onclick="closePwdModal()">Cancelar</button>
+          <button type="submit" class="primary" id="savePwdBtn">Redefinir Senha</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="toast-region" id="toasts" aria-live="polite"></div>
+
+<script>
+(async () => {
+  const $ = id => document.getElementById(id);
+  let rows = [];
+  let filtered = [];
+
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  const fmt = d => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+  const moneyless = v => Number(v || 0);
+  
+  const toast = (message) => {
+    const el = document.createElement('div');
+    el.className = 'toastx';
+    el.textContent = message;
+    $('toasts').appendChild(el);
+    setTimeout(() => el.remove(), 3800);
+  };
+
+  const busy = (on) => {
+    $('loadingbar').hidden = !on;
+    document.body.setAttribute('aria-busy', on ? 'true' : 'false');
+  };
+
+  function getInitials(name) {
+    if (!name) return 'DR';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  /* ACESSO PERICIAL (IMPERSONATE) */
+  window.entrarComoMedico = function(medicoId, nome, crm) {
+    if (!medicoId) {
+      toast('Selecione um médico para acessar o portal com seu login.');
+      return;
+    }
+    const r = rows.find(m => String(m.id) === String(medicoId));
+    const nomeFinal = nome || r?.nome || `Médico ID ${medicoId}`;
+    const crmFinal = crm || r?.crm || '';
+
+    sessionStorage.setItem('ambiental.impersonate_medico_id', String(medicoId));
+    sessionStorage.setItem('ambiental.impersonate_medico_nome', nomeFinal);
+    sessionStorage.setItem('ambiental.impersonate_medico_crm', crmFinal);
+
+    toast(`Entrando como ${nomeFinal}…`);
+    setTimeout(() => {
+      location.href = `/gestao_medicos.html?impersonate_medico_id=${encodeURIComponent(medicoId)}`;
+    }, 250);
+  };
+
+  window.entrarComoMedicoSelecionadoTop = function() {
+    const val = $('selectImpersonateQuick')?.value;
+    if (!val) {
+      toast('Por favor, selecione um médico na lista para entrar.');
+      return;
+    }
+    const r = rows.find(m => String(m.id) === String(val));
+    entrarComoMedico(val, r?.nome, r?.crm);
+  };
+
+  window.onQuickSelectChange = function(val) {
+    // Pode disparar ou aguardar clique no botão
+  };
+
+  const updateQuickImpersonateUI = () => {
+    const sel = $('selectImpersonateQuick');
+    const chips = $('quickDoctorsChips');
+    if (!sel || !chips) return;
+
+    const activeDocs = rows.filter(r => Number(r.ativo) === 1);
+    
+    sel.innerHTML = '<option value="">Selecione o médico para entrar...</option>' + 
+      activeDocs.map(d => {
+        const cleanName = (d.nome || 'Médico').replace(/\s*-\s*CRM.*$/i, '').replace(/\s*CRM[:\s]*\d+.*$/i, '').trim();
+        return `<option value="${d.id}">${esc(cleanName)} (${d.crm ? 'CRM ' + d.crm : 'Sem CRM'})</option>`;
+      }).join('');
+
+    chips.innerHTML = activeDocs.slice(0, 5).map(d => {
+      const cleanName = (d.nome || 'Médico').replace(/\s*-\s*CRM.*$/i, '').replace(/\s*CRM[:\s]*\d+.*$/i, '').trim();
+      const parts = cleanName.trim().split(/\s+/);
+      let shortName = parts[0] || cleanName;
+      if (parts.length >= 2 && /^(dr\.|dra\.|doutor|doutora)$/i.test(parts[0])) {
+        shortName = `${parts[0]} ${parts[1]}`;
+      }
+      return `
+        <button type="button" class="doc-chip" onclick="entrarComoMedico('${d.id}', '${esc(cleanName)}', '${esc(d.crm || '')}')" title="Acessar portal médico como Dr(a). ${esc(cleanName)}">
+          <span style="font-size:11px">🩺</span> <span>${esc(shortName)}</span> <span style="opacity:0.75">→</span>
+        </button>
+      `;
+    }).join('');
+  };
+
+  let doctorCurrentPage = 1;
+  const doctorPageSize = 40;
+
+  function renderDoctorPaginationUI(total, totalPages, startIdx, endIdx) {
+    const bar = $('doctorPaginationFooter');
+    if (!bar) return;
+    if (total === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+    bar.style.display = 'flex';
+
+    const info = $('doctorPaginationInfo');
+    if (info) {
+      info.innerHTML = `Exibindo <b>${startIdx + 1}–${endIdx}</b> de <b>${total}</b> médico${total === 1 ? '' : 's'}`;
+    }
+
+    const prevBtn = $('btnDocPrev');
+    const nextBtn = $('btnDocNext');
+    if (prevBtn) prevBtn.disabled = doctorCurrentPage <= 1;
+    if (nextBtn) nextBtn.disabled = doctorCurrentPage >= totalPages;
+
+    const numWrap = $('doctorPaginationNumbersWrap');
+    if (numWrap) {
+      let html = '';
+      const pages = [];
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= doctorCurrentPage - 1 && i <= doctorCurrentPage + 1)) {
+          pages.push(i);
+        }
+      }
+      let lastP = 0;
+      for (const p of pages) {
+        if (lastP && p - lastP > 1) {
+          html += `<span class="page-ellipsis">…</span>`;
+        }
+        const activeCls = p === doctorCurrentPage ? ' active' : '';
+        html += `<button type="button" class="page-num-btn${activeCls}" onclick="changeDoctorPage(${p})">${p}</button>`;
+        lastP = p;
+      }
+      numWrap.innerHTML = html;
+    }
+  }
+
+  window.changeDoctorPage = function(p) {
+    const totalPages = Math.max(1, Math.ceil(filtered.length / doctorPageSize));
+    if (p < 1 || p > totalPages || p === doctorCurrentPage) return;
+    doctorCurrentPage = p;
+    render();
+    const panel = document.querySelector('.workspace');
+    if (panel) {
+      try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_) {}
+    }
+  };
+
+  const render = () => {
+    $('count').textContent = rows.length;
+    $('activeCount').textContent = rows.filter(r => Number(r.ativo) === 1).length;
+    $('attendanceCount').textContent = rows.reduce((s, r) => s + moneyless(r.total_atendimentos), 0);
+    $('finishedCount').textContent = rows.reduce((s, r) => s + moneyless(r.finalizados), 0);
+    if ($('tableDocsCountBadge')) {
+      $('tableDocsCountBadge').textContent = `${rows.length} ${rows.length === 1 ? 'cadastrado' : 'cadastrados'}`;
+    }
+    if ($('sideDocBadge')) {
+      $('sideDocBadge').textContent = `${rows.length} ${rows.length === 1 ? 'médico' : 'médicos'}`;
+    }
+
+    updateQuickImpersonateUI();
+
+    const q = $('search').value.trim().toLowerCase();
+    filtered = rows.filter(r => !q || `${r.nome || ''} ${r.crm || ''} ${r.email || ''}`.toLowerCase().includes(q));
+    $('empty').hidden = filtered.length > 0;
+
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / doctorPageSize));
+    if (doctorCurrentPage > totalPages) doctorCurrentPage = totalPages;
+    if (doctorCurrentPage < 1) doctorCurrentPage = 1;
+
+    const startIdx = (doctorCurrentPage - 1) * doctorPageSize;
+    const endIdx = Math.min(startIdx + doctorPageSize, total);
+    const pagedDoctors = filtered.slice(startIdx, endIdx);
+
+    $('tbody').innerHTML = pagedDoctors.map(r => {
+      const isActive = Number(r.ativo) === 1;
+      const mode = (r.modo_atendimento || 'agil').toLowerCase();
+      let modeBadge = '<span class="badge" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;font-weight:800">⚡ Ágil</span>';
+      if (mode === 'extenso') {
+        modeBadge = '<span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-weight:800">📋 Extenso</span>';
+      } else if (mode === 'ia') {
+        modeBadge = '<span class="badge" style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;font-weight:800">✨ Modo IA</span>';
+      }
+
+      const cleanDocName = (r.nome || 'Médico').replace(/\s*-\s*CRM.*$/i, '').replace(/\s*CRM[:\s]*\d+.*$/i, '').trim();
+      const initials = getInitials(cleanDocName);
+      const crmDisplay = r.crm ? esc(r.crm) : '—';
+
+      return `<tr>
+        <td>
+          <div class="doctor-cell">
+            <div class="doctor-avatar">${initials}</div>
+            <div>
+              <div class="med-title">${esc(cleanDocName)}</div>
+              <div class="med-sub">ID: ${esc(r.id)} ${r.email ? `· <span style="color:#0284c7;font-weight:700">${esc(r.email)}</span>` : '<span style="color:#94a3b8">(sem e-mail)</span>'}</div>
+            </div>
+          </div>
+        </td>
+        <td><strong style="color:var(--ink);letter-spacing:0.02em">${crmDisplay}</strong></td>
+        <td>${modeBadge}</td>
+        <td>
+          <b>${moneyless(r.total_atendimentos)}</b>
+          <span style="font-size:10.5px;color:var(--muted);display:block">${moneyless(r.finalizados)} finalizados</span>
+        </td>
+        <td>
+          <span class="badge ${isActive ? '' : 'off'}">
+            <span class="pulse-dot ${isActive ? '' : 'off'}"></span>
+            ${isActive ? 'Ativo' : 'Suspenso'}
+          </span>
+        </td>
+        <td>
+          <div class="btn-group">
+            <button class="btn-sm impersonate-btn" onclick="entrarComoMedico('${r.id}', '${esc(cleanDocName)}', '${esc(r.crm || '')}')" title="Acessar o portal médico como Dr(a). ${esc(cleanDocName)}">
+              <span>🩺 Entrar</span> <span>→</span>
+            </button>
+            <button class="btn-sm primary" data-agenda="${esc(r.id)}" title="Incluir e gerenciar agendas">📅 Agenda</button>
+            <button class="btn-sm" data-edit="${esc(r.id)}" title="Editar nome, CRM, e-mail e modo">✏️ Editar</button>
+            <button class="btn-sm ${isActive ? 'warning' : 'success'}" data-toggle="${esc(r.id)}" title="${isActive ? 'Suspender acesso' : 'Reativar acesso'}">
+              ${isActive ? 'Suspender' : 'Reativar'}
+            </button>
+            <button class="btn-sm" data-pwd="${esc(r.id)}" title="Redefinir senha">🔑 Senha</button>
+            <button class="btn-sm danger" data-remove="${esc(r.id)}" title="Excluir conta médica">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    renderDoctorPaginationUI(total, totalPages, startIdx, endIdx);
+
+    document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openEditDoctor(b.dataset.edit)));
+    document.querySelectorAll('[data-agenda]').forEach(b => b.addEventListener('click', () => openAgendaDoctor(b.dataset.agenda)));
+    document.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', () => toggleDoctorStatus(b.dataset.toggle)));
+    document.querySelectorAll('[data-pwd]').forEach(b => b.addEventListener('click', () => openPwdDoctor(b.dataset.pwd)));
+    document.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => removeDoctor(b.dataset.remove)));
+  };
+
+  function setBoot(step, title, text, progress) {
+    const ids = ['abStep1', 'abStep2', 'abStep3'];
+    ids.forEach((id, i) => {
+      const el = $(id);
+      if (!el) return;
+      const n = i + 1;
+      el.classList.toggle('active', n === step);
+      el.classList.toggle('done', n < step);
+    });
+    if ($('adminBootTitle')) $('adminBootTitle').textContent = title;
+    if ($('adminBootText')) $('adminBootText').textContent = text;
+    if ($('abProgress')) $('abProgress').style.width = progress + '%';
+  }
+
+  function dismissBootLoader() {
+    const loader = $('adminBootLoader');
+    if (!loader || loader.classList.contains('hide')) return;
+    loader.classList.add('hide');
+    loader.setAttribute('aria-busy', 'false');
+    setTimeout(() => loader.remove(), 80);
+  }
+
+  async function load() {
+    $('sync').textContent = 'Sincronizando…';
+    if (!rows.length) {
+      setBoot(2, 'Carregando profissionais', 'Buscando contas médicas e vínculos de atendimento…', 58);
+    }
+    try {
+      const res = await AmbientalAuth.authFetch('/api/admin/medicos');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message || 'Não foi possível carregar os médicos.');
+      rows = data.data?.items || [];
+      try {
+        sessionStorage.setItem('ambiental.admin.medicos_cache', JSON.stringify({ items: rows, ts: Date.now() }));
+      } catch(_) {}
+      render();
+      $('sync').textContent = 'Atualizado agora';
+      setBoot(3, 'Sala pronta', 'Contas médicas carregadas. Gestão liberada.', 100);
+      dismissBootLoader();
+    } catch(e) {
+      $('sync').textContent = 'Erro';
+      setBoot(3, 'Não foi possível carregar', 'Verifique a conexão com o servidor e tente novamente.', 100);
+      toast(e.message);
+    }
+  }
+
+  const todayYMD = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  let activeAgendaDoctorId = null;
+  let currentParsedAgendaItems = [];
+  let currentSavedAgendaItems = [];
+
+  window.switchEditModalTab = function(tab) {
+    const isDados = tab === 'dados';
+    $('tabBtnEditDados').classList.toggle('active', isDados);
+    $('tabBtnEditAgenda').classList.toggle('active', !isDados);
+    $('tabContentEditDados').hidden = !isDados;
+    $('tabContentEditAgenda').hidden = isDados;
+    $('editModalCard').classList.toggle('modal-lg', !isDados);
+    if (!isDados && activeAgendaDoctorId) {
+      if (!$('agendaDataInput').value) {
+        $('agendaDataInput').value = todayYMD();
+      }
+      loadDoctorAgendasForSelectedDate();
+    }
+  };
+
+  window.openEditDoctor = function(id) {
+    const r = rows.find(x => String(x.id) === String(id));
+    if (!r) return;
+    activeAgendaDoctorId = r.id;
+    $('editId').value = r.id;
+    $('editNome').value = r.nome || '';
+    $('editCrm').value = r.crm || '';
+    $('editEmail').value = r.email || '';
+    const mode = (r.modo_atendimento || 'agil').toLowerCase();
+    if (mode === 'extenso') $('editModoExtenso').checked = true;
+    else if (mode === 'ia') $('editModoIA').checked = true;
+    else $('editModoAgil').checked = true;
+    $('agendaDocName').textContent = r.nome || 'Médico';
+    $('agendaDocCrm').textContent = r.crm ? `(${r.crm})` : '';
+    switchEditModalTab('dados');
+    $('editModal').classList.add('open');
+    $('editNome').focus();
+  };
+
+  window.openAgendaDoctor = function(id) {
+    const r = rows.find(x => String(x.id) === String(id));
+    if (!r) return;
+    activeAgendaDoctorId = r.id;
+    $('editId').value = r.id;
+    $('editNome').value = r.nome || '';
+    $('editCrm').value = r.crm || '';
+    $('agendaDocName').textContent = r.nome || 'Médico';
+    $('agendaDocCrm').textContent = r.crm ? `(${r.crm})` : '';
+    if (!$('agendaDataInput').value) {
+      $('agendaDataInput').value = todayYMD();
+    }
+    switchEditModalTab('agenda');
+    $('editModal').classList.add('open');
+  };
+
+  window.closeEditModal = function() {
+    $('editModal').classList.remove('open');
+    $('editForm').reset();
+    discardPreview();
+    $('agendaPasteInput').value = '';
+    $('agendaFileInput').value = '';
+    $('agendaFileFeedback').textContent = '';
+    activeAgendaDoctorId = null;
+  };
+
+  window.openPwdDoctor = function(id) {
+    const r = rows.find(x => String(x.id) === String(id));
+    if (!r) return;
+    $('pwdId').value = r.id;
+    $('pwdTargetDoctor').textContent = `Definindo nova senha de acesso para ${r.nome} (${r.crm || 'Sem CRM'}).`;
+    $('pwdModal').classList.add('open');
+    $('newPwd').focus();
+  };
+
+  window.closePwdModal = function() {
+    $('pwdModal').classList.remove('open');
+    $('pwdForm').reset();
+  };
+
+  function discardPreview() {
+    currentParsedAgendaItems = [];
+    $('agendaPreviewArea').style.display = 'none';
+    $('agendaPreviewTbody').innerHTML = '';
+  }
+
+  $('btnDescartarPreview').onclick = discardPreview;
+
+  async function loadDoctorAgendasForSelectedDate() {
+    if (!activeAgendaDoctorId) return;
+    const dataStr = $('agendaDataInput').value || todayYMD();
+    $('agendaCurrentDateLabel').textContent = `Data: ${dataStr}`;
+    try {
+      busy(true);
+      const res = await AmbientalAPI.admin.getDoctorAgendas(activeAgendaDoctorId, dataStr);
+      currentSavedAgendaItems = res?.data?.items || [];
+      renderCurrentSavedAgendas();
+    } catch(err) {
+      toast(err.message || 'Erro ao carregar agendamentos gravados.');
+    } finally {
+      busy(false);
+    }
+  }
+
+  function renderCurrentSavedAgendas() {
+    const tbody = $('agendaCurrentTbody');
+    const empty = $('agendaCurrentEmpty');
+    const badge = $('currentAgendaCountBadge');
+    badge.textContent = `${currentSavedAgendaItems.length} gravados`;
+
+    if (!currentSavedAgendaItems.length) {
+      tbody.innerHTML = '';
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    tbody.innerHTML = currentSavedAgendaItems.map(item => `
+      <tr data-agenda="${item.id}">
+        <td><strong>${esc(item.hora)}</strong></td>
+        <td><span class="badge" style="background:#e0f2fe;color:#0369a1">${esc(item.tipo || 'LICENC')}</span></td>
+        <td><code>${esc(item.protocolo || '—')}</code></td>
+        <td>${esc(item.ni || '—')}</td>
+        <td><b>${esc(item.nome_periciado)}</b></td>
+        <td>
+          ${(item.pessoa === 'Acompanhante' || item.is_acompanhante) ? '<span class="badge" style="background:#f3e8ff;color:#7e22ce;font-weight:800;border:1px solid #d8b4fe;margin-right:4px">👥 Acomp.</span>' : ''}
+          ${item.readaptado === 'Sim' ? '<span class="badge" style="background:#fef3c7;color:#92400e;font-weight:800;border:1px solid #fde68a;margin-right:4px">🔄 Read.</span>' : ''}
+          <span class="badge ${item.atendimento_id ? '' : 'off'}">
+            ${item.atendimento_id ? '✓ Atendido' : (item.compareceu ? 'Compareceu' : 'Agendado')}
+          </span>
+        </td>
+        <td>
+          <button type="button" class="btn-sm danger" onclick="deleteIndividualAgenda(${item.id})" title="Excluir agendamento">Excluir</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  window.deleteIndividualAgenda = window.deleteSingleAgenda = async function(agendaId) {
+    if (!confirm('Deseja realmente remover este agendamento?')) return;
+    try {
+      busy(true);
+      await (AmbientalAPI.admin.deleteAgenda ? AmbientalAPI.admin.deleteAgenda(agendaId) : AmbientalAPI.admin.deleteSingleAgenda(agendaId));
+      toast('Agendamento excluído.');
+      await loadDoctorAgendasForSelectedDate();
+    } catch(err) {
+      toast(err.message || 'Erro ao excluir agendamento.');
+    } finally {
+      busy(false);
+    }
+  };
+
+  $('btnConsultarAgendaDia').onclick = loadDoctorAgendasForSelectedDate;
+  $('agendaDataInput').onchange = loadDoctorAgendasForSelectedDate;
+
+  $('btnLimparAgendaDia').onclick = async () => {
+    if (!activeAgendaDoctorId) return;
+    const dataStr = $('agendaDataInput').value || todayYMD();
+    if (!confirm(`Atenção: Deseja apagar TODOS os agendamentos do dia ${dataStr} para este médico?`)) return;
+    try {
+      busy(true);
+      const res = await (AmbientalAPI.admin.deleteDoctorAgendas || AmbientalAPI.admin.clearAgendas)(activeAgendaDoctorId, dataStr);
+      toast(`Removidos ${res?.count || res?.data?.deleted_count || 0} agendamentos.`);
+      await loadDoctorAgendasForSelectedDate();
+    } catch(err) {
+      toast(err.message || 'Erro ao limpar agenda do dia.');
+    } finally {
+      busy(false);
+    }
+  };
+
+  /* PARSER DA PLANILHA OU TEXTO DO PDF */
+  function parseAgendaCsvText(rawText) {
+    return parseExcelSpreadsheet(rawText);
+  }
+
+  function parseExcelSpreadsheet(rawText) {
+    const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const parsed = [];
+
+    // Se houver data no cabeçalho
+    const dateMatch = rawText.match(/Per[í\xed\ufffd\w\s]*Agendadas\s+para:?\s*(\d{2}\/\d{2}\/\d{4})/i) || rawText.match(/(\d{2}\/\d{2}\/\d{4})/);
+    if (dateMatch && $('agendaDataInput') && !$('agendaDataInput').value) {
+      const parts = dateMatch[1].split('/');
+      if (parts.length === 3) {
+        $('agendaDataInput').value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+    }
+
+    for (const line of lines) {
+      if (/^(STATUS|HORA|TIPO|PROTOCOLO|NOME DO PERICIADO|Perícias Agendadas|SECRETARIA|Emissão|Página)/i.test(line)) continue;
+
+      // Padrão 1: Linha oficial de Perícias Agendadas (com ou sem pontilhados)
+      // Ex: (   ) 13:30 LICENC 954382024 1381516 JANAINA FEITOZA S PORTUGAL ..../..../........:...... ............................1 X
+      const mOfficial = line.match(/^\(?\s*\)?\s*(\d{1,2}:\d{2})\s+([A-Za-z0-9_-]+)\s+(\d+)\s+(\d+)\s+(.+?)(?:\s*\.{2,}.*?(\d+)?\s*(.*))?$/);
+      if (mOfficial && mOfficial[5]) {
+        const hora = mOfficial[1];
+        const tipo = mOfficial[2];
+        const protocolo = mOfficial[3];
+        const ni = mOfficial[4];
+        let nome = mOfficial[5].trim();
+        const seq = mOfficial[6] || '1';
+        const rest = (mOfficial[7] || '').trim().split(/\s+/);
+        
+        nome = nome.replace(/\.{2,}.*$/, '').trim();
+        const isRead = rest.includes('S');
+        const isAcomp = rest.includes('X');
+        
+        if (nome && nome.length >= 3) {
+          parsed.push({
+            status: 'Agendado',
+            hora,
+            tipo,
+            protocolo,
+            ni,
+            nome_periciado: nome,
+            compareceu: '',
+            observacao: '',
+            seq,
+            pessoa: isAcomp ? 'Acompanhante' : '',
+            is_acompanhante: isAcomp,
+            readaptado: isRead ? 'Sim' : ''
+          });
+          continue;
+        }
+      }
+
+      // Padrão 2: TSV / Excel tabulado
+      const parts = line.split('\t').map(p => p.trim());
+      if (parts.length >= 2) {
+        let hora = '', tipo = '', protocolo = '', ni = '', nome = '', comp = '', obs = '', seq = '', status = 'Agendado', pessoa = '', readaptado = '';
+        if (parts.length >= 6) {
+          status = parts[0] || 'Agendado';
+          hora = parts[1] || '';
+          tipo = parts[2] || '';
+          protocolo = parts[3] || '';
+          ni = parts[4] || '';
+          nome = parts[5] || '';
+          comp = parts[6] || '';
+          obs = parts[7] || '';
+          seq = parts[8] || '';
+          if (parts[9]) pessoa = parts[9];
+        } else {
+          hora = parts[0] || '';
+          tipo = parts[1] || '';
+          protocolo = parts[2] || '';
+          nome = parts[3] || '';
+        }
+
+        const horaMatch = hora.match(/\b([01]?\d|2[0-3]):[0-5]\d\b/);
+        if (horaMatch) hora = horaMatch[0];
+
+        const isAcomp = /acompanhante|x/i.test(pessoa) || /acompanhante/i.test(obs) || /acompanhante/i.test(tipo);
+        const isRead = /sim|s/i.test(readaptado) || /readaptad/i.test(obs);
+
+        if (nome && nome.length >= 3) {
+          parsed.push({
+            status,
+            hora: hora || '08:00',
+            tipo: tipo || 'LICENC',
+            protocolo: protocolo || '',
+            ni: ni || '',
+            nome_periciado: nome,
+            compareceu: comp || '',
+            observacao: obs || '',
+            seq: seq || '',
+            pessoa: isAcomp ? 'Acompanhante' : (pessoa || ''),
+            is_acompanhante: isAcomp,
+            readaptado: isRead ? 'Sim' : ''
+          });
+        }
+      }
+    }
+    return parsed;
+  }
+
+  $('btnExemploPlanilha').onclick = () => {
+    $('agendaPasteInput').value = 
+`(   ) 13:00 LICENC 954381237 1234272 ALESSANDRA APARECIDA ROSA ..../..../........:...... ............................1 
+(   ) 13:30 LICENC 954382024 1381516 JANAINA FEITOZA S PORTUGAL ..../..../........:...... ............................1 X
+(   ) 13:30 LICENC 954382387 1390635 RENATO DE SOUZA ABELHA ..../..../........:...... ............................1 S `;
+    toast('Exemplo do formato oficial preenchido. Clique em "Processar Dados".');
+  };
+
+  async function ensureXlsx() {
+    if (window.XLSX) return window.XLSX;
+    $('agendaFileFeedback').textContent = 'Carregando biblioteca de planilhas…';
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      s.onload = () => resolve(window.XLSX);
+      s.onerror = () => reject(new Error('Falha ao carregar biblioteca Excel'));
+      document.head.appendChild(s);
+    });
+  }
+
+  function displayParsedAgenda(items) {
+    currentParsedAgendaItems = items;
+    const acompCount = items.filter(x => x.is_acompanhante || x.pessoa === 'Acompanhante').length;
+    const readCount = items.filter(x => x.readaptado === 'Sim').length;
+    
+    let countText = `${items.length} periciado(s)`;
+    if (acompCount > 0) countText += ` · ${acompCount} acompanhante(s)`;
+    if (readCount > 0) countText += ` · ${readCount} readaptado(s)`;
+    
+    $('previewCountBadge').textContent = countText;
+    $('agendaPreviewArea').style.display = 'block';
+    $('agendaPreviewTbody').innerHTML = items.map(it => `
+      <tr>
+        <td><strong>${esc(it.hora)}</strong></td>
+        <td><span class="badge" style="background:#e0f2fe;color:#0369a1">${esc(it.tipo)}</span></td>
+        <td><code>${esc(it.protocolo || '—')}</code></td>
+        <td>${esc(it.ni || '—')}</td>
+        <td><b>${esc(it.nome_periciado)}</b></td>
+        <td>
+          ${(it.is_acompanhante || it.pessoa === 'Acompanhante') ? '<span class="badge" style="background:#f3e8ff;color:#7e22ce;font-weight:800;border:1px solid #d8b4fe">👥 Acompanhante</span>' : ''}
+          ${it.readaptado === 'Sim' ? '<span class="badge" style="background:#fef3c7;color:#92400e;font-weight:800;border:1px solid #fde68a">🔄 Readaptado</span>' : ''}
+          ${(!it.is_acompanhante && it.pessoa !== 'Acompanhante' && it.readaptado !== 'Sim') ? '<span style="color:#94a3b8;font-size:11px">Titular Padrão</span>' : ''}
+        </td>
+        <td>${esc(it.compareceu || '—')}</td>
+        <td><small>${esc(it.observacao || '—')}</small></td>
+      </tr>
+    `).join('');
+    toast(`${items.length} agendamentos extraídos com sucesso.`);
+  }
+
+  async function handleSelectedAgendaFile(file) {
+    if (!file) return;
+    const isPdf = file.name.toLowerCase().endsWith('.pdf');
+    $('agendaFileFeedback').textContent = `Processando ${file.name}…`;
+
+    try {
+      if (isPdf) {
+        busy(true);
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await AmbientalAPI.admin.parseAgendaPdf(fd);
+
+        // Suporte resiliente a envelopes de resposta (res.itens, res.data.itens, etc.)
+        const payload = (res && res.data && typeof res.data === 'object' && Array.isArray(res.data.itens)) 
+          ? res.data 
+          : res;
+        const items = payload?.itens || res?.itens || res?.data?.itens || (Array.isArray(res?.data) ? res.data : []);
+        const dateVal = (typeof res?.data === 'string' && res.data)
+          || (typeof payload?.data === 'string' && payload.data)
+          || payload?.data_ymd
+          || res?.data_ymd
+          || '';
+
+        if (dateVal && $('agendaDataInput')) {
+          $('agendaDataInput').value = dateVal;
+        }
+
+        if (!items || !items.length) {
+          toast('Nenhum agendamento reconhecido no PDF selecionado.');
+          $('agendaFileFeedback').textContent = 'Nenhum agendamento encontrado no PDF.';
+          return;
+        }
+        $('agendaFileFeedback').textContent = `✓ ${file.name} processado! ${items.length} agendamento(s) extraído(s).`;
+        displayParsedAgenda(items);
+        return;
+      }
+
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        await ensureXlsx();
+        const data = await file.arrayBuffer();
+        const workbook = window.XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const tsv = window.XLSX.utils.sheet_to_csv(sheet, { FS: '\t' });
+        $('agendaPasteInput').value = tsv;
+        $('agendaFileFeedback').textContent = `✓ ${file.name} convertido com sucesso!`;
+      } else {
+        const text = await file.text();
+        $('agendaPasteInput').value = text;
+        $('agendaFileFeedback').textContent = `✓ ${file.name} carregado!`;
+      }
+      $('btnProcessarPlanilha').click();
+    } catch(err) {
+      toast('Erro ao ler arquivo da agenda: ' + err.message);
+      $('agendaFileFeedback').textContent = 'Erro ao ler arquivo.';
+    } finally {
+      busy(false);
+    }
+  }
+
+  $('btnTriggerFile').onclick = () => $('agendaFileInput').click();
+  if ($('btnTriggerPdfFile')) $('btnTriggerPdfFile').onclick = () => $('agendaFileInput').click();
+
+  const dropZone = $('agendaPdfDropZone');
+  if (dropZone) {
+    dropZone.onclick = () => $('agendaFileInput').click();
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = '#0284c7'; dropZone.style.background = '#e0f2fe'; };
+    dropZone.ondragleave = () => { dropZone.style.borderColor = '#93c5fd'; dropZone.style.background = '#f0f9ff'; };
+    dropZone.ondrop = async (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#93c5fd'; dropZone.style.background = '#f0f9ff';
+      const file = e.dataTransfer?.files?.[0];
+      if (file) handleSelectedAgendaFile(file);
+    };
+  }
+
+  // Suporte a colar (Ctrl+V) arquivo PDF ou arrastar direto no textarea
+  if ($('agendaPasteInput')) {
+    $('agendaPasteInput').addEventListener('drop', (e) => {
+      const file = e.dataTransfer?.files?.[0];
+      if (file && (file.name.toLowerCase().endsWith('.pdf') || file.type.includes('pdf'))) {
+        e.preventDefault();
+        handleSelectedAgendaFile(file);
+      }
+    });
+
+    $('agendaPasteInput').addEventListener('paste', async (e) => {
+      const files = e.clipboardData?.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        if (file && (file.name.toLowerCase().endsWith('.pdf') || file.type.includes('pdf'))) {
+          e.preventDefault();
+          await handleSelectedAgendaFile(file);
+          return;
+        }
+      }
+      // Se colou texto com padrão de agenda, dispara processamento automático
+      setTimeout(() => {
+        const val = $('agendaPasteInput').value.trim();
+        if (val && (val.includes('LICENC') || val.includes('RECONS') || val.includes('Perícias Agendadas') || /^\(?\s*\)?\s*\d{1,2}:\d{2}/m.test(val))) {
+          $('btnProcessarPlanilha').click();
+        }
+      }, 80);
+    });
+  }
+
+  // Listener global de paste caso o usuário dê Ctrl+V de arquivo na tela
+  document.addEventListener('paste', async (e) => {
+    const tabAgenda = $('tabContentEditAgenda');
+    if (!tabAgenda || tabAgenda.hidden) return;
+    const files = e.clipboardData?.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file && (file.name.toLowerCase().endsWith('.pdf') || file.type.includes('pdf'))) {
+        e.preventDefault();
+        await handleSelectedAgendaFile(file);
+      }
+    }
+  });
+
+  $('agendaFileInput').onchange = async (e) => {
+    const file = e.target.files[0];
+    if (file) await handleSelectedAgendaFile(file);
+    e.target.value = '';
+  };
+
+  $('btnProcessarPlanilha').onclick = () => {
+    const raw = $('agendaPasteInput').value.trim();
+    if (!raw) {
+      toast('Cole os dados ou selecione um arquivo PDF / Planilha.');
+      return;
+    }
+    const items = parseExcelSpreadsheet(raw);
+    if (!items.length) {
+      toast('Nenhum agendamento reconhecido no formato padrão.');
+      return;
+    }
+    displayParsedAgenda(items);
+  };
+
+  $('btnSalvarAgenda').onclick = async () => {
+    if (!activeAgendaDoctorId) return;
+    if (!currentParsedAgendaItems.length) {
+      toast('Nenhum agendamento para gravar.');
+      return;
+    }
+    const dataStr = $('agendaDataInput').value || todayYMD();
+    const replaceExisting = $('checkSubstituirAgenda').checked;
+
+    const btn = $('btnSalvarAgenda');
+    btn.disabled = true; btn.textContent = 'Gravando…'; busy(true);
+    try {
+      const res = await (AmbientalAPI.admin.saveDoctorAgendas || AmbientalAPI.admin.saveAgendas)(activeAgendaDoctorId, {
+        data: dataStr,
+        itens: currentParsedAgendaItems,
+        substituir: replaceExisting,
+        substituir_existentes: replaceExisting
+      });
+      toast(`Sucesso! ${res?.count || res?.data?.saved_count || currentParsedAgendaItems.length} agendamentos gravados.`);
+      discardPreview();
+      $('agendaPasteInput').value = '';
+      await loadDoctorAgendasForSelectedDate();
+    } catch(err) {
+      toast(err.message || 'Erro ao gravar agendamentos.');
+    } finally {
+      btn.disabled = false; btn.textContent = '💾 Gravar Agendamentos'; busy(false);
+    }
+  };
+
+  /* TOGGLE STATUS */
+  async function toggleDoctorStatus(id) {
+    const r = rows.find(x => String(x.id) === String(id));
+    if (!r) return;
+    const willActivate = Number(r.ativo) !== 1;
+    const msg = willActivate ? `Reativar o acesso de ${r.nome}?` : `Suspender o acesso de ${r.nome}? O médico não conseguirá fazer login até ser reativado.`;
+    if (!confirm(msg)) return;
+    busy(true);
+    try {
+      await (AmbientalAPI.admin.toggleStatus ? AmbientalAPI.admin.toggleStatus(id) : AmbientalAPI.admin.updateMedicoStatus(id, willActivate));
+      toast(willActivate ? 'Médico reativado.' : 'Acesso suspenso.');
+      await load();
+    } catch(e) {
+      toast(e.message || 'Erro ao alterar status.');
+    } finally {
+      busy(false);
+    }
+  }
+
+  /* REMOVER MÉDICO */
+  async function removeDoctor(id) {
+    const r = rows.find(x => String(x.id) === String(id));
+    if (!r) return;
+    if (!confirm(`Deseja realmente remover a conta de ${r.nome}?\n\nOs atendimentos já realizados por este médico não serão excluídos.`)) return;
+    busy(true);
+    try {
+      await AmbientalAPI.admin.deleteMedico(id);
+      toast('Conta médica removida com sucesso.');
+      await load();
+    } catch(e) {
+      toast(e.message || 'Erro ao excluir médico.');
+    } finally {
+      busy(false);
+    }
+  }
+
+  /* FORM CADASTRO DE NOVO MÉDICO */
+  $('createForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const nome = $('nome').value.trim();
+    const email = $('email').value.trim();
+    const crm = $('crm').value.trim();
+    const senha = $('senha').value;
+    const modo_atendimento = document.querySelector('input[name="modo_atendimento"]:checked')?.value || 'agil';
+
+    if (nome.length < 3) { toast('Informe o nome completo do médico.'); return; }
+    if (crm.length < 3) { toast('Informe o CRM/CRO.'); return; }
+    if (senha.length < 8) { toast('A senha deve ter pelo menos 8 caracteres.'); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Informe um e-mail válido.'); return; }
+
+    const btn = $('createBtn');
+    btn.disabled = true; btn.textContent = 'Criando conta…'; busy(true);
+    try {
+      const res = await AmbientalAPI.admin.createMedico({ nome, email, crm, senha, modo_atendimento });
+      toast('Conta médica criada com sucesso!');
+      $('createForm').reset();
+      closeCreateModal();
+      await load();
+    } catch(err) {
+      toast(err.message || 'Erro ao criar conta médica.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Criar Conta Médica'; busy(false);
+    }
+  });
+
+  /* MODAL NOVO MÉDICO */
+  window.openCreateModal = function() {
+    $('createModal')?.classList.add('open');
+    setTimeout(() => $('nome')?.focus(), 80);
+  };
+
+  window.closeCreateModal = function() {
+    $('createModal')?.classList.remove('open');
+  };
+
+  $('clearBtn').onclick = () => $('createForm').reset();
+
+  /* FORM EDIÇÃO DE DADOS E E-MAIL */
+  $('editForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id = $('editId').value;
+    const nome = $('editNome').value.trim();
+    const crm = $('editCrm').value.trim();
+    const email = $('editEmail').value.trim();
+    const modo_atendimento = document.querySelector('input[name="editModoAtendimento"]:checked')?.value || 'agil';
+
+    if (nome.length < 3) { toast('Informe o nome completo.'); return; }
+    if (crm.length < 3) { toast('Informe o CRM/CRO.'); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('Informe um e-mail válido.'); return; }
+
+    const btn = $('saveEditBtn');
+    btn.disabled = true; btn.textContent = 'Salvando…'; busy(true);
+    try {
+      await AmbientalAPI.admin.updateMedico(id, { nome, crm, email: email, modo_atendimento });
+      toast('Dados cadastrais e e-mail do médico atualizados com sucesso.');
+      closeEditModal();
+      await load();
+    } catch(err) {
+      toast(err.message || 'Erro ao salvar alterações.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Salvar Alterações'; busy(false);
+    }
+  });
+
+  /* FORM REDEFINIÇÃO DE SENHA */
+  $('pwdForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id = $('pwdId').value;
+    const senha = $('newPwd').value;
+    const confirmSenha = $('confirmPwd').value;
+    if (senha.length < 8) { toast('A nova senha deve ter no mínimo 8 caracteres.'); return; }
+    if (senha !== confirmSenha) { toast('As senhas não coincidem.'); return; }
+
+    const btn = $('savePwdBtn');
+    btn.disabled = true; btn.textContent = 'Redefinindo…'; busy(true);
+    try {
+      const res = await AmbientalAPI.admin.resetSenha(id, senha);
+      toast(res?.data?.mensagem || res?.mensagem || 'Senha redefinida com sucesso.');
+      closePwdModal();
+    } catch(err) {
+      toast(err.message || 'Erro ao redefinir senha.');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Redefinir Senha'; busy(false);
+    }
+  });
+
+  $('search').oninput = () => {
+    doctorCurrentPage = 1;
+    render();
+  };
+
+  /* ESC & CLIQUE FORA */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeCreateModal();
+      closeEditModal();
+      closePwdModal();
+    }
+  });
+  $('createModal')?.addEventListener('click', e => {
+    if (e.target === $('createModal')) closeCreateModal();
+  });
+  $('editModal').addEventListener('click', e => {
+    if (e.target === $('editModal')) closeEditModal();
+  });
+  $('pwdModal').addEventListener('click', e => {
+    if (e.target === $('pwdModal')) closePwdModal();
+  });
+
+  try {
+    try {
+      const cachedRaw = sessionStorage.getItem('ambiental.admin.medicos_cache');
+      if (cachedRaw) {
+        const parsed = JSON.parse(cachedRaw);
+        if (Array.isArray(parsed?.items) && parsed.items.length > 0) {
+          rows = parsed.items;
+          render();
+          dismissBootLoader();
+        }
+      }
+    } catch (_) {}
+
+    if (!rows.length) {
+      setBoot(1, 'Validando acesso', 'Confirmando sessão administrativa segura…', 24);
+    }
+    const profile = await AmbientalAuth.requireAuth({ area: 'gestao' });
+    if (profile?.perfil !== 'Administrador') {
+      location.replace('/acesso-negado.html?area=gestao-medicos-admin');
+      return;
+    }
+    $('who').textContent = profile.nome || profile.email || 'Administrador';
+    await load();
+  } catch(e) {
+    if (e.message !== 'AUTH_REQUIRED' && e.message !== 'PERMISSION_DENIED') {
+      setBoot(3, 'Falha ao iniciar', 'Não foi possível preparar a gestão de profissionais.', 100);
+      toast('Não foi possível iniciar a gestão de contas médicas.');
+    }
+  }
+})();
+</script>
+</body>
+</html>
