@@ -1101,6 +1101,125 @@ body.modo-ia2-active #containerModoIA2 {
   border-color: #3B82F6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
+.ia2-transcript-visual {
+  width: 100%;
+  height: 440px;
+  overflow-y: auto;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 12px;
+  padding: 14px;
+  background: #F8FAFC;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+.ia2-transcript-visual:focus {
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+.ia2-qa-card {
+  background: #ffffff;
+  border: 1px solid #E2E8F0;
+  border-left: 4px solid #3B82F6;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+}
+.ia2-qa-card:hover {
+  border-color: #CBD5E1;
+  border-left-color: #2563EB;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
+}
+.ia2-qa-q-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.ia2-qa-badge-q {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #EFF6FF;
+  color: #1D4ED8;
+  flex-shrink: 0;
+}
+.ia2-qa-q-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1E293B;
+}
+.ia2-qa-a-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ia2-qa-badge-a {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #ECFDF5;
+  color: #047857;
+  flex-shrink: 0;
+}
+.ia2-qa-a-text {
+  flex: 1;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.5;
+  outline: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.ia2-qa-a-text:focus {
+  background: #F1F5F9;
+  box-shadow: 0 0 0 2px #93C5FD;
+}
+.ia2-qa-note {
+  background: #F1F5F9;
+  border-left: 4px solid #64748B;
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin-bottom: 10px;
+}
+.ia2-qa-badge-note {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #E2E8F0;
+  color: #475569;
+}
+.ia2-qa-note-text {
+  font-size: 12.5px;
+  color: #334155;
+  margin-top: 4px;
+  outline: none;
+  line-height: 1.5;
+}
+.ia2-doubt-word {
+  background-color: #FEF08A;
+  color: #854D0E;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border-bottom: 2px solid #EAB308;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline;
+  transition: background-color 0.15s ease;
+}
+.ia2-doubt-word:hover {
+  background-color: #FDE047;
+  color: #713F12;
+}
 
 .ia2-escrita-panel {
   background: #ffffff;
@@ -2275,11 +2394,22 @@ body:not(.mode-agil-active) #containerModoAgil {
 
           <!-- PAINEL DIREITO: TRANSCRIÇÃO EM TEMPO REAL -->
           <div class="ia2-transcript-panel">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-              <strong style="font-size:14px;color:#0F172A;display:flex;align-items:center;gap:6px">
-                <span>🎙️</span> Transcrição em Tempo Real
-              </strong>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
               <div style="display:flex;align-items:center;gap:8px">
+                <strong style="font-size:14px;color:#0F172A;display:flex;align-items:center;gap:6px">
+                  <span>🎙️</span> Transcrição da Consulta
+                </strong>
+                <span id="ia2BadgeDuvidas" class="badge" style="display:none;background:#FEF9C3;color:#854D0E;border:1px solid #FDE047;font-weight:700;font-size:11px;padding:3px 8px;border-radius:10px">
+                  🟡 <span id="ia2QtdDuvidas">0</span> dúvida(s)
+                </span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <!-- Seletor de visualização: Diálogo Organizado vs Texto Puro -->
+                <div style="display:inline-flex;border:1px solid #CBD5E1;border-radius:8px;overflow:hidden;background:#F1F5F9;padding:2px">
+                  <button type="button" id="ia2BtnAbaVisual" onclick="trocarAbaTranscricaoIA2('visual')" style="font-size:11px;padding:4px 9px;border:none;border-radius:6px;font-weight:700;background:#2563EB;color:#fff;cursor:pointer">💬 Diálogo Organizado</button>
+                  <button type="button" id="ia2BtnAbaTexto" onclick="trocarAbaTranscricaoIA2('texto')" style="font-size:11px;padding:4px 9px;border:none;border-radius:6px;font-weight:700;background:transparent;color:#64748B;cursor:pointer">📝 Texto Puro</button>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" onclick="organizarTranscricaoManualmenteIA2()" title="Estruturar fala em Perguntas & Respostas e destacar dúvidas em amarelo" style="font-size:11px;padding:4px 9px;color:#0284C7;border-color:#BAE6FD;background:#F0F9FF;font-weight:700">✨ Organizar</button>
                 <button type="button" class="btn btn-outline btn-sm" onclick="copiarTranscricaoIA2()" style="font-size:11px;padding:4px 8px">📋 Copiar</button>
                 <button type="button" class="btn btn-outline btn-sm" onclick="limparTranscricaoIA2()" style="font-size:11px;padding:4px 8px;color:#EF4444">🗑️ Limpar</button>
               </div>
@@ -2291,11 +2421,23 @@ body:not(.mode-agil-active) #containerModoAgil {
               <span id="ia2InterimText" style="font-style:italic">...</span>
             </div>
 
-            <!-- Textarea com a transcrição acumulada e editável -->
-            <textarea id="ia2GravacaoTranscricao" class="ia2-transcript-textarea" placeholder="A transcrição da médica e da periciada aparecerá aqui automaticamente conforme o diálogo for ocorrendo... Você também pode digitar observações ou colar textos a qualquer momento."></textarea>
+            <!-- Visualizador do Diálogo Organizado com destaque em amarelo para dúvidas -->
+            <div id="ia2GravacaoVisual" class="ia2-transcript-visual" style="display:block">
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94A3B8;text-align:center;padding:20px">
+                <span style="font-size:32px;margin-bottom:8px">💬</span>
+                <p style="font-size:13.5px;max-width:380px;margin:0 0 6px;color:#64748B;font-weight:600">A conversa será estruturada aqui automaticamente em Perguntas e Respostas.</p>
+                <span style="font-size:11.5px;color:#94A3B8">Palavras ou dosagens com possível dúvida aparecerão destacadas em <mark class="ia2-doubt-word" style="cursor:default">amarelo</mark> para conferência rápida.</span>
+              </div>
+            </div>
 
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11.5px;color:#64748B">
+            <!-- Textarea com a transcrição acumulada e editável -->
+            <textarea id="ia2GravacaoTranscricao" class="ia2-transcript-textarea" style="display:none" placeholder="A transcrição da médica e da periciada aparecerá aqui automaticamente conforme o diálogo for ocorrendo... Você também pode digitar observações ou colar textos a qualquer momento."></textarea>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11.5px;color:#64748B;flex-wrap:wrap;gap:8px">
               <span id="ia2GravacaoContador">0 palavras • 0 caracteres</span>
+              <span id="ia2DuvidasLegenda" style="display:none;color:#B45309;font-weight:600">
+                💡 Termos em <mark class="ia2-doubt-word" style="cursor:default">amarelo</mark> possuem dúvida/inconsistência. Clique neles para editar.
+              </span>
               <span>💡 Pressione <strong>Finalizar Atendimento</strong> para preencher o prontuário pela IA.</span>
             </div>
           </div>
@@ -5801,6 +5943,329 @@ let ia2DitadoEscritaRestartTimeout = null;
 window.__ia2UltimoTextoProcessado = "";
 window._ia2BaseTextGravacao = "";
 window._ia2BaseTextEscrita = "";
+window._ia2AbaTranscricaoAtual = "visual";
+window._ia2DuvidasLowConfidence = [];
+
+function destacarDuvidasHtml(texto, duvidasPersonalizadas = []) {
+  if (!texto) return { html: "", totalDuvidas: 0 };
+  let html = esc(texto);
+  let totalDuvidas = 0;
+
+  // 1. Padrões clínicos, correções e hesitações
+  const padroesDuvida = [
+    {
+      re: /\b(?:ano\s+é\s+\d+\s+não\s+é\s+\d+|\d+\s+não\s+é\s+\d+|não\s+é\s+\d+|ano\s+é\s+\d+)\b/gi,
+      motivo: "Inconsistência ou autocorreção de data/ano detectada"
+    },
+    {
+      re: /\bas\s+(?:psicoterapia|fisioterapia)\b/gi,
+      motivo: "Possível falha fonética (esperado: 'faz psicoterapia/fisioterapia')"
+    },
+    {
+      re: /\b10\s*mg\b/gi,
+      motivo: "Dose de 10 mg atípica (conferir medicamento/dosagem)"
+    },
+    {
+      re: /\b\d+\s+vezes\s+no\s+mês\b/gi,
+      motivo: "Frequência mensal atípica para tratamento continuado"
+    },
+    {
+      re: /\b(?:ou\s+melhor|acho\s+que|se\s+não\s+me\s+engano|talvez|não\s+tenho\s+certeza|não\s+lembro|mais\s+ou\s+menos|por\s+aí|esqueci)\b/gi,
+      motivo: "Hesitação, dúvida ou incerteza relatada pelo interlocutor"
+    },
+    {
+      re: /\b(?:inaud[íi]vel|indeterminado|inconclusivo|\?{2,})\b/gi,
+      motivo: "Termo inaudível ou não identificado com clareza pelo áudio"
+    }
+  ];
+
+  padroesDuvida.forEach(p => {
+    html = html.replace(p.re, (m) => {
+      totalDuvidas++;
+      return `<mark class="ia2-doubt-word" title="${p.motivo} — clique para editar">${m}</mark>`;
+    });
+  });
+
+  // 2. Termos com baixa confiança acústica do SpeechRecognition (< 0.82)
+  if (Array.isArray(duvidasPersonalizadas)) {
+    duvidasPersonalizadas.forEach(trecho => {
+      if (!trecho || trecho.length < 2) return;
+      const safe = esc(trecho);
+      const reTrecho = new RegExp(`(?<!<mark[^>]*>)\\b${safe.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b(?![^<]*<\/mark>)`, "gi");
+      html = html.replace(reTrecho, (m) => {
+        totalDuvidas++;
+        return `<mark class="ia2-doubt-word" title="Baixa confiança acústica do microfone — confira se a palavra está correta">${m}</mark>`;
+      });
+    });
+  }
+
+  return { html, totalDuvidas };
+}
+
+function estruturarTranscricaoEmDialogo(textoBruto) {
+  if (!textoBruto || !textoBruto.trim()) {
+    return { itens: [], plainText: "", totalDuvidas: 0, html: "" };
+  }
+
+  const raw = textoBruto.trim();
+
+  // Lista de padrões de perguntas clínicas com títulos padronizados
+  const listaPerguntas = [
+    { re: /\b(?:qual\s+(?:é\s+)?a\s+sua\s+idade|qual\s+(?:é\s+)?a\s+idade|qual\s+sua\s+idade|quantos\s+anos(?:\s+tem)?)\b/i, label: "Qual a sua idade?" },
+    { re: /\b(?:qual\s+(?:é\s+)?o\s+seu\s+cargo|qual\s+o\s+cargo|qual\s+a\s+sua\s+fun[çc][ãa]o|qual\s+a\s+fun[çc][ãa]o|qual\s+sua\s+profiss[ãa]o)\b/i, label: "Qual o seu cargo?" },
+    { re: /\b(?:quanto\s+tempo\s+est[áa]\s+no\s+cargo|quanto\s+tempo\s+de\s+servi[çc]o|quanto\s+tempo\s+no\s+cargo|quanto\s+tempo)\b/i, label: "Quanto tempo está no cargo?" },
+    { re: /\b(?:[ée]\s+readaptad[oa]|voc[êe]\s+[ée]\s+readaptad[oa]|tem\s+readapta[çc][ãa]o|est[áa]\s+readaptad[oa])\b/i, label: "É readaptado(a)? Quais atividades exerce?" },
+    { re: /\b(?:(?:qual\s+(?:foi\s+)?a\s+)?data\s+(?:do\s+)?diagn[óo]stico(?:\s+da\s+doen[çc]a)?|quando\s+come[çc]ou(?:\s+o\s+quadro|\s+a\s+doen[çc]a)?|quando\s+iniciou|in[íi]cio\s+dos\s+sintomas)\b/i, label: "Qual a data do diagnóstico / início da doença?" },
+    { re: /\b(?:qual\s+(?:a\s+)?doen[çc]a(?:\s+est[áa]\s+tratando)?|qual\s+o\s+motivo\s+do\s+afastamento|o\s+que\s+motivou\s+o\s+afastamento|qual\s+o\s+diagn[óo]stico)\b/i, label: "Qual doença motivou o afastamento?" },
+    { re: /\b(?:com\s+que\s+frequ[êe]ncia\s+comparece(?:\s+[àa]s\s+consultas)?|com\s+que\s+frequ[êe]ncia\s+vai(?:\s+ao\s+m[ée]dico)?|de\s+quanto\s+em\s+quanto\s+tempo|frequ[êe]ncia\s+das\s+consultas)\b/i, label: "Com que frequência comparece às consultas?" },
+    { re: /\b(?:quais\s+sintomas\s+causam\s+limita[çc][õo]es(?:\s+para\s+o\s+trabalho)?|quais\s+(?:os\s+)?sintomas|o\s+que\s+sente|quais\s+as\s+limita[çc][õo]es|sintomas\s+que\s+impedem)\b/i, label: "Quais sintomas causam limitações para o trabalho?" },
+    { re: /\b(?:faz\s+uso\s+de\s+qual\s+medica[çc][ãa]o|faz\s+uso\s+de\s+quais\s+medica[çc][õo]es|quais\s+rem[ée]dios(?:\s+toma|\s+est[áa]\s+tomando)?|toma\s+algum\s+rem[ée]dio|quais\s+medicamentos)\b/i, label: "Faz uso de quais medicações?" },
+    { re: /\b(?:qual\s+a\s+dosagem|qual\s+a\s+dose|quantos\s+miligramas|qual\s+a\s+posologia|houve\s+troca\s+de\s+dosagem)\b/i, label: "Qual a dosagem e posologia?" },
+    { re: /\b(?:(?:faz|as)\s+psicoterapia\s+ou\s+fisioterapia|(?:faz|as)\s+fisioterapia\s+ou\s+psicoterapia|faz\s+fisio\s+ou\s+psico|faz\s+fisioterapia|faz\s+psicoterapia)\b/i, label: "Faz psicoterapia ou fisioterapia?" }
+  ];
+
+  // Encontrar todas as ocorrências de perguntas no texto
+  const matches = [];
+  listaPerguntas.forEach(qDef => {
+    let m;
+    const regexGlobal = new RegExp(qDef.re.source, "gi");
+    while ((m = regexGlobal.exec(raw)) !== null) {
+      matches.push({
+        index: m.index,
+        length: m[0].length,
+        rawQuestion: m[0],
+        label: qDef.label
+      });
+    }
+  });
+
+  // Ordenar matches pela posição no texto
+  matches.sort((a, b) => a.index - b.index);
+
+  // Se não encontrar nenhuma pergunta formatada, trata como bloco clínico / observação
+  if (matches.length === 0) {
+    const resDuvida = destacarDuvidasHtml(raw, window._ia2DuvidasLowConfidence || []);
+    const plain = raw;
+    const html = `
+      <div class="ia2-qa-note">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span class="ia2-qa-badge-note">Observação / Fala Livre</span>
+        </div>
+        <div class="ia2-qa-note-text" contenteditable="true" onblur="salvarEdicaoVisualIA2()">${resDuvida.html}</div>
+      </div>
+    `;
+    return {
+      itens: [{ tipo: "nota", texto: raw }],
+      plainText: plain,
+      totalDuvidas: resDuvida.totalDuvidas,
+      html
+    };
+  }
+
+  const itens = [];
+  let totalDuvidas = 0;
+
+  // Se houver texto ANTES da primeira pergunta (ex: introdução do atendimento)
+  if (matches[0].index > 0) {
+    const preTexto = raw.substring(0, matches[0].index).trim();
+    if (preTexto) {
+      itens.push({ tipo: "nota", texto: preTexto });
+    }
+  }
+
+  // Fatiar cada par Pergunta -> Resposta
+  for (let i = 0; i < matches.length; i++) {
+    const curr = matches[i];
+    const nextStart = (i + 1 < matches.length) ? matches[i + 1].index : raw.length;
+    const respRaw = raw.substring(curr.index + curr.length, nextStart).trim();
+
+    itens.push({
+      tipo: "qa",
+      pergunta: curr.label || curr.rawQuestion,
+      perguntaOriginal: curr.rawQuestion,
+      resposta: respRaw || "Não informado"
+    });
+  }
+
+  // Gerar plainText formatado (para o textarea e backend) e HTML rico (para o visual)
+  let plainTextLines = [];
+  let htmlCards = "";
+
+  itens.forEach((it, idx) => {
+    if (it.tipo === "nota") {
+      const d = destacarDuvidasHtml(it.texto, window._ia2DuvidasLowConfidence || []);
+      totalDuvidas += d.totalDuvidas;
+      plainTextLines.push(`[Observação]: ${it.texto}\n`);
+      htmlCards += `
+        <div class="ia2-qa-note">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <span class="ia2-qa-badge-note">Observação / Fala</span>
+          </div>
+          <div class="ia2-qa-note-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${d.html}</div>
+        </div>
+      `;
+    } else {
+      const dQ = destacarDuvidasHtml(it.perguntaOriginal || it.pergunta, window._ia2DuvidasLowConfidence || []);
+      const dA = destacarDuvidasHtml(it.resposta, window._ia2DuvidasLowConfidence || []);
+      totalDuvidas += dQ.totalDuvidas + dA.totalDuvidas;
+
+      plainTextLines.push(`• ${it.pergunta}\n  ${it.resposta}\n`);
+      htmlCards += `
+        <div class="ia2-qa-card">
+          <div class="ia2-qa-q-row">
+            <span class="ia2-qa-badge-q">Pergunta</span>
+            <span class="ia2-qa-q-text">${dQ.html}</span>
+          </div>
+          <div class="ia2-qa-a-row">
+            <span class="ia2-qa-badge-a">Resposta</span>
+            <div class="ia2-qa-a-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${dA.html}</div>
+          </div>
+        </div>
+      `;
+    }
+  });
+
+  return {
+    itens,
+    plainText: plainTextLines.join("\n").trim(),
+    totalDuvidas,
+    html: htmlCards
+  };
+}
+
+function trocarAbaTranscricaoIA2(aba) {
+  window._ia2AbaTranscricaoAtual = aba;
+  const visual = $("ia2GravacaoVisual");
+  const textarea = $("ia2GravacaoTranscricao");
+  const btnVisual = $("ia2BtnAbaVisual");
+  const btnTexto = $("ia2BtnAbaTexto");
+
+  if (aba === "visual") {
+    if (visual) visual.style.display = "block";
+    if (textarea) textarea.style.display = "none";
+    if (btnVisual) {
+      btnVisual.style.background = "#2563EB";
+      btnVisual.style.color = "#fff";
+    }
+    if (btnTexto) {
+      btnTexto.style.background = "transparent";
+      btnTexto.style.color = "#64748B";
+    }
+    atualizarVisualTranscricaoIA2(false);
+  } else {
+    if (visual) visual.style.display = "none";
+    if (textarea) textarea.style.display = "block";
+    if (btnVisual) {
+      btnVisual.style.background = "transparent";
+      btnVisual.style.color = "#64748B";
+    }
+    if (btnTexto) {
+      btnTexto.style.background = "#2563EB";
+      btnTexto.style.color = "#fff";
+    }
+    if (textarea) setTimeout(() => { try { textarea.focus(); } catch (_) {} }, 50);
+  }
+}
+
+function atualizarVisualTranscricaoIA2(forcarSincronizacaoTexto = false) {
+  const container = $("ia2GravacaoVisual");
+  const tArea = $("ia2GravacaoTranscricao");
+  if (!container || !tArea) return;
+
+  const raw = tArea.value || "";
+  if (!raw.trim()) {
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94A3B8;text-align:center;padding:20px">
+        <span style="font-size:32px;margin-bottom:8px">💬</span>
+        <p style="font-size:13.5px;max-width:380px;margin:0 0 6px;color:#64748B;font-weight:600">A conversa será estruturada aqui automaticamente em Perguntas e Respostas.</p>
+        <span style="font-size:11.5px;color:#94A3B8">Palavras ou dosagens com possível dúvida aparecerão destacadas em <mark class="ia2-doubt-word" style="cursor:default">amarelo</mark> para conferência rápida.</span>
+      </div>
+    `;
+    const bDuvidas = $("ia2BadgeDuvidas");
+    if (bDuvidas) bDuvidas.style.display = "none";
+    const lDuvidas = $("ia2DuvidasLegenda");
+    if (lDuvidas) lDuvidas.style.display = "none";
+    return;
+  }
+
+  const res = estruturarTranscricaoEmDialogo(raw);
+  container.innerHTML = res.html;
+
+  const bDuvidas = $("ia2BadgeDuvidas");
+  const qDuvidas = $("ia2QtdDuvidas");
+  const lDuvidas = $("ia2DuvidasLegenda");
+
+  if (res.totalDuvidas > 0) {
+    if (bDuvidas) bDuvidas.style.display = "inline-flex";
+    if (qDuvidas) qDuvidas.textContent = res.totalDuvidas;
+    if (lDuvidas) lDuvidas.style.display = "inline";
+  } else {
+    if (bDuvidas) bDuvidas.style.display = "none";
+    if (lDuvidas) lDuvidas.style.display = "none";
+  }
+
+  if (forcarSincronizacaoTexto && res.plainText) {
+    tArea.value = res.plainText;
+    window._ia2BaseTextGravacao = res.plainText;
+    analisarColinhaEmTempoReal(res.plainText);
+    atualizarContadorGravacaoIA2();
+  }
+}
+
+function salvarEdicaoVisualIA2() {
+  const container = $("ia2GravacaoVisual");
+  const tArea = $("ia2GravacaoTranscricao");
+  if (!container || !tArea) return;
+
+  const cards = container.querySelectorAll(".ia2-qa-card, .ia2-qa-note");
+  if (!cards || cards.length === 0) return;
+
+  const lines = [];
+  cards.forEach(card => {
+    if (card.classList.contains("ia2-qa-note")) {
+      const txt = (card.querySelector(".ia2-qa-note-text")?.innerText || "").trim();
+      if (txt) lines.push(`[Observação]: ${txt}\n`);
+    } else {
+      const q = (card.querySelector(".ia2-qa-q-text")?.innerText || "").trim();
+      const a = (card.querySelector(".ia2-qa-a-text")?.innerText || "").trim();
+      if (q || a) {
+        lines.push(`• ${q}\n  ${a}\n`);
+      }
+    }
+  });
+
+  const fullText = lines.join("\n").trim();
+  if (fullText) {
+    tArea.value = fullText;
+    window._ia2BaseTextGravacao = fullText;
+    analisarColinhaEmTempoReal(fullText);
+    atualizarContadorGravacaoIA2();
+  }
+}
+
+function organizarTranscricaoManualmenteIA2() {
+  const tArea = $("ia2GravacaoTranscricao");
+  if (!tArea || !tArea.value.trim()) {
+    toast("Nenhuma transcrição para organizar.");
+    return;
+  }
+
+  const res = estruturarTranscricaoEmDialogo(tArea.value);
+  if (res.plainText) {
+    tArea.value = res.plainText;
+    window._ia2BaseTextGravacao = res.plainText;
+  }
+  atualizarVisualTranscricaoIA2(false);
+  analisarColinhaEmTempoReal(tArea.value);
+  atualizarContadorGravacaoIA2();
+
+  trocarAbaTranscricaoIA2("visual");
+
+  const msg = res.totalDuvidas > 0 
+    ? `✨ Diálogo organizado! ${res.totalDuvidas} termo(s) em dúvida sinalizados em amarelo.`
+    : "✨ Diálogo organizado em Perguntas & Respostas com sucesso!";
+  toast(msg);
+}
 
 function abrirModoIA2(view = "selecao") {
   syncState();
@@ -5855,6 +6320,7 @@ function trocarSubViewIA2(view) {
       window._ia2BaseTextGravacao = (tArea.value || "").trim();
       analisarColinhaEmTempoReal(tArea.value || "");
       atualizarContadorGravacaoIA2();
+      atualizarVisualTranscricaoIA2(false);
     }
   } else if (view === "escrita") {
     const tEsc = $("ia2EscritaText");
@@ -6118,6 +6584,13 @@ function iniciarMotorSpeechRecognition() {
       for (let i = 0; i < event.results.length; ++i) {
         const item = event.results[i];
         const transcript = item[0]?.transcript || "";
+        const confidence = item[0]?.confidence;
+        if (typeof confidence === "number" && confidence > 0 && confidence < 0.82) {
+          const w = transcript.trim();
+          if (w && !window._ia2DuvidasLowConfidence.includes(w)) {
+            window._ia2DuvidasLowConfidence.push(w);
+          }
+        }
         if (item.isFinal) {
           sessionFinal += transcript + " ";
         } else {
@@ -6140,6 +6613,7 @@ function iniciarMotorSpeechRecognition() {
         tArea.scrollTop = tArea.scrollHeight;
         analisarColinhaEmTempoReal(fullComposed);
         atualizarContadorGravacaoIA2();
+        atualizarVisualTranscricaoIA2(false);
       }
 
       const bubble = $("ia2InterimBubble");
@@ -6155,6 +6629,7 @@ function iniciarMotorSpeechRecognition() {
     };
 
     rec.onend = () => {
+      atualizarVisualTranscricaoIA2(false);
       if (ia2Gravando) {
         const tArea = $("ia2GravacaoTranscricao");
         if (tArea) {
@@ -6198,6 +6673,7 @@ function pausarGravacaoIA2() {
   const tArea = $("ia2GravacaoTranscricao");
   if (tArea) {
     window._ia2BaseTextGravacao = tArea.value.trim();
+    atualizarVisualTranscricaoIA2(false);
   }
 
   const btnText = $("ia2BtnGravacaoText");
@@ -6268,6 +6744,7 @@ function limparTranscricaoIA2() {
   if (confirm("Deseja realmente limpar toda a transcrição atual?")) {
     if ($("ia2GravacaoTranscricao")) $("ia2GravacaoTranscricao").value = "";
     window._ia2BaseTextGravacao = "";
+    window._ia2DuvidasLowConfidence = [];
     COLINHA_IA2_CONFIG.forEach(q => {
       ia2ColinhaStatus[q.id].matched = false;
       ia2ColinhaStatus[q.id].snippet = "";
@@ -6275,6 +6752,7 @@ function limparTranscricaoIA2() {
     });
     renderizarColinhaIA2();
     atualizarContadorGravacaoIA2();
+    atualizarVisualTranscricaoIA2(false);
     if (ia2Gravando && ia2SpeechRecognition) {
       try { ia2SpeechRecognition.abort(); } catch (_) {}
     }
@@ -6294,6 +6772,7 @@ $("ia2GravacaoTranscricao")?.addEventListener("input", function() {
   window._ia2BaseTextGravacao = this.value.trim();
   analisarColinhaEmTempoReal(this.value);
   atualizarContadorGravacaoIA2();
+  atualizarVisualTranscricaoIA2(false);
   if (ia2Gravando && ia2SpeechRecognition) {
     try { ia2SpeechRecognition.abort(); } catch (_) {}
   }
@@ -6477,6 +6956,7 @@ function inserirExemploEscritaIA2() {
 // Finalização do Modo IA 2.0
 function finalizarAtendimentoIA2(origem) {
   if (origem === "gravacao") {
+    salvarEdicaoVisualIA2();
     const pendentes = COLINHA_IA2_CONFIG.filter(q => {
       const st = ia2ColinhaStatus[q.id];
       const isChecked = (st?.manualState !== undefined && st?.manualState !== null) ? st.manualState : st?.matched;
@@ -6526,6 +7006,7 @@ function fecharModalAvisoColinhaIA2() {
 
 function confirmarFinalizacaoIA2MesmoComPendencias() {
   fecharModalAvisoColinhaIA2();
+  salvarEdicaoVisualIA2();
   const txt = ($("ia2GravacaoTranscricao")?.value || "").trim();
   executarPreenchimentoIA2(txt, "gravacao");
 }
