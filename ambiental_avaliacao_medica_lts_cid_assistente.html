@@ -5822,10 +5822,11 @@ const COLINHA_IA2_CONFIG = [
     pergunta: "É readaptado? Se sim, quais atividades exerce atualmente?",
     subtexto: "Readaptação funcional e atribuições vigentes",
     validar: (text) => {
-      const m = text.match(/\b(?:readaptad[oa]|readapta[çc][ãa]o)\b/i) ||
-                text.match(/\bn[ãa]o\s+sou\s+readaptad[oa]\b/i) ||
-                text.match(/\bnunca\s+fui\s+readaptad[oa]\b/i) ||
-                text.match(/\bsem\s+readapta[çc][ãa]o\b/i) ||
+      const m = text.match(/\b(?:(?:re)?adaptad[oa]|(?:re)?adapta[çc][ãa]o)\b/i) ||
+                text.match(/\bn[ãa]o\s+sou\s+(?:re)?adaptad[oa]\b/i) ||
+                text.match(/\bnunca\s+fui\s+(?:re)?adaptad[oa]\b/i) ||
+                text.match(/\bsem\s+(?:re)?adapta[çc][ãa]o\b/i) ||
+                text.match(/\b(?:é|sou|fui)\s+(?:re)?adaptad[oa]\b/i) ||
                 text.match(/\batividades\s+(?:que\s+)?exerce\s*[:=]?\s*([^\.\,\;\n]+)/i) ||
                 text.match(/\btrabalhando\s+no\s+(?:setor|desvio|administrativo|secretaria|biblioteca)\b/i) ||
                 text.match(/\batribui[çc][õo]es\s+atuais\b/i);
@@ -5868,6 +5869,7 @@ const COLINHA_IA2_CONFIG = [
       const m = text.match(/\b(?:frequ[êe]ncia|periodicidade|consultas?|retornos?|comparece|acompanhamento)\s*[:=]?\s*([^\.\;\n]+)/i) ||
                 text.match(/\b(?:mensal(?:mente)?|quinzenal(?:mente)?|semanal(?:mente)?|bimestral|trimestral|semestral)\b/i) ||
                 text.match(/\ba\s+cada\s+(\d+|um|dois|tr[êe]s|quinze)\s+(?:dias|semanas|meses)\b/i) ||
+                text.match(/\bde\s+(\d+|um|dois|tr[êe]s|dez|quinze|vinte|trinta)\s+em\s+\d+\s+dias\b/i) ||
                 text.match(/\b(?:todo\s+m[êe]s|toda\s+semana|uma\s+vez\s+por\s+m[êe]s|duas\s+vezes\s+por\s+m[êe]s|1x\s+ao\s+m[êe]s|1x\/m[êe]s)\b/i) ||
                 text.match(/\b(?:passo|vou)\s+no\s+m[ée]dico\b/i) ||
                 text.match(/\bconsultas?\s+regulares\b/i);
@@ -6022,12 +6024,12 @@ function estruturarTranscricaoEmDialogo(textoBruto) {
   // Lista de padrões de perguntas clínicas com títulos padronizados
   const listaPerguntas = [
     { re: /\b(?:qual\s+(?:é\s+)?a\s+sua\s+idade|qual\s+(?:é\s+)?a\s+idade|qual\s+sua\s+idade|quantos\s+anos(?:\s+tem)?)\b/i, label: "Qual a sua idade?" },
-    { re: /\b(?:qual\s+(?:é\s+)?o\s+seu\s+cargo|qual\s+o\s+cargo|qual\s+a\s+sua\s+fun[çc][ãa]o|qual\s+a\s+fun[çc][ãa]o|qual\s+sua\s+profiss[ãa]o)\b/i, label: "Qual o seu cargo?" },
+    { re: /\b(?:(?:qual\s+(?:é\s+)?|e\s+)?(?:o\s+)?(?:seu\s+)?cargo|qual\s+(?:é\s+)?o\s+cargo|qual\s+a\s+(?:sua\s+)?fun[çc][ãa]o|qual\s+sua\s+profiss[ãa]o|sua\s+fun[çc][ãa]o|sua\s+profiss[ãa]o)\b/i, label: "Qual o seu cargo?" },
     { re: /\b(?:quanto\s+tempo\s+est[áa]\s+no\s+cargo|quanto\s+tempo\s+de\s+servi[çc]o|quanto\s+tempo\s+no\s+cargo|quanto\s+tempo)\b/i, label: "Quanto tempo está no cargo?" },
-    { re: /\b(?:[ée]\s+readaptad[oa]|voc[êe]\s+[ée]\s+readaptad[oa]|tem\s+readapta[çc][ãa]o|est[áa]\s+readaptad[oa])\b/i, label: "É readaptado(a)? Quais atividades exerce?" },
+    { re: /\b(?:(?:voc[êe]\s+)?[ée]\s+(?:re)?adaptad[oa]|tem\s+(?:re)?adapta[çc][ãa]o|est[áa]\s+(?:re)?adaptad[oa])\b/i, label: "É readaptado(a)? Quais atividades exerce?" },
     { re: /\b(?:(?:qual\s+(?:foi\s+)?a\s+)?data\s+(?:do\s+)?diagn[óo]stico(?:\s+da\s+doen[çc]a)?|quando\s+come[çc]ou(?:\s+o\s+quadro|\s+a\s+doen[çc]a)?|quando\s+iniciou|in[íi]cio\s+dos\s+sintomas)\b/i, label: "Qual a data do diagnóstico / início da doença?" },
     { re: /\b(?:qual\s+(?:a\s+)?doen[çc]a(?:\s+est[áa]\s+tratando)?|qual\s+o\s+motivo\s+do\s+afastamento|o\s+que\s+motivou\s+o\s+afastamento|qual\s+o\s+diagn[óo]stico)\b/i, label: "Qual doença motivou o afastamento?" },
-    { re: /\b(?:com\s+que\s+frequ[êe]ncia\s+comparece(?:\s+[àa]s\s+consultas)?|com\s+que\s+frequ[êe]ncia\s+vai(?:\s+ao\s+m[ée]dico)?|de\s+quanto\s+em\s+quanto\s+tempo|frequ[êe]ncia\s+das\s+consultas)\b/i, label: "Com que frequência comparece às consultas?" },
+    { re: /\b(?:com\s+que\s+frequ[êe]ncia\s+comparece(?:\s+[àa]s\s+consultas)?|com\s+que\s+frequ[êe]ncia\s+vai(?:\s+ao\s+m[ée]dico)?|de\s+quanto\s+em\s+quanto\s+tempo|frequ[êe]ncia\s+das\s+consultas|(?:e\s+|quanto\s+[àa]s\s+|sobre\s+as\s+|[àa]s\s+)?consultas(?:\s+m[ée]dicas)?)\b/i, label: "Com que frequência comparece às consultas?" },
     { re: /\b(?:quais\s+sintomas\s+causam\s+limita[çc][õo]es(?:\s+para\s+o\s+trabalho)?|quais\s+(?:os\s+)?sintomas|o\s+que\s+sente|quais\s+as\s+limita[çc][õo]es|sintomas\s+que\s+impedem)\b/i, label: "Quais sintomas causam limitações para o trabalho?" },
     { re: /\b(?:faz\s+uso\s+de\s+qual\s+medica[çc][ãa]o|faz\s+uso\s+de\s+quais\s+medica[çc][õo]es|quais\s+rem[ée]dios(?:\s+toma|\s+est[áa]\s+tomando)?|toma\s+algum\s+rem[ée]dio|quais\s+medicamentos)\b/i, label: "Faz uso de quais medicações?" },
     { re: /\b(?:qual\s+a\s+dosagem|qual\s+a\s+dose|quantos\s+miligramas|qual\s+a\s+posologia|houve\s+troca\s+de\s+dosagem)\b/i, label: "Qual a dosagem e posologia?" },
@@ -6289,8 +6291,15 @@ async function refinarDialogoComIA2(automatico = false) {
       formData.append("texto_rascunho", rawText);
     }
 
-    const resp = await fetch("/api/ai/refinar-dialogo-ia2", {
+    const apiUrl = `${getApiBase()}/api/ai/refinar-dialogo-ia2`;
+    const authHeaders = (typeof AmbientalAuth !== "undefined" && AmbientalAuth.headers) 
+      ? AmbientalAuth.headers() 
+      : {};
+    delete authHeaders["Content-Type"];
+
+    const resp = await fetch(apiUrl, {
       method: "POST",
+      headers: authHeaders,
       body: formData
     });
 
@@ -6301,6 +6310,7 @@ async function refinarDialogoComIA2(automatico = false) {
     const resJson = await resp.json();
     if (resJson && resJson.ok && resJson.data) {
       const { dialogo, colinha_status, texto_formatado, total_duvidas } = resJson.data;
+      window._ia2DuvidasLowConfidence = [];
 
       // 1. Atualizar colinha pericial semanticamente (Melhoria 2)
       if (Array.isArray(colinha_status)) {
@@ -6724,9 +6734,9 @@ function iniciarMotorSpeechRecognition() {
         const item = event.results[i];
         const transcript = item[0]?.transcript || "";
         const confidence = item[0]?.confidence;
-        if (typeof confidence === "number" && confidence > 0 && confidence < 0.82) {
+        if (typeof confidence === "number" && confidence > 0 && confidence < 0.35) {
           const w = transcript.trim();
-          if (w && !window._ia2DuvidasLowConfidence.includes(w)) {
+          if (w && w.length < 20 && !window._ia2DuvidasLowConfidence.includes(w)) {
             window._ia2DuvidasLowConfidence.push(w);
           }
         }

@@ -773,7 +773,7 @@ def request_security_context():
     path = request.path
 
     # Endpoints públicos e TODAS as rotas de autenticação (evita o bloqueio prematuro)
-    if path in {"/login.html", "/reset-password.html", "/acesso-negado.html", "/404.html", "/health", "/api/extensao-esisla/download"} or path.startswith("/api/auth/") or path.startswith("/api/ai/benchmark-cid") or path in {"/ready", "/metrics"}:
+    if path in {"/login.html", "/reset-password.html", "/acesso-negado.html", "/404.html", "/health", "/api/extensao-esisla/download", "/api/ai/refinar-dialogo-ia2", "/api/ai/transcribe"} or path.startswith("/api/auth/") or path.startswith("/api/ai/benchmark-cid") or path in {"/ready", "/metrics"}:
         return
 
     if path in PROTECTED_HTML_PATHS:
