@@ -15,7 +15,16 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 APP_PY = (ROOT / "app.py").read_text(encoding="utf-8")
 ATTENDANCE_HTML = (ROOT / "ambiental_avaliacao_medica_lts_cid_assistente.html").read_text(encoding="utf-8")
+if (ROOT / "ambiental_assistente.js").exists():
+    ATTENDANCE_HTML += "\n" + (ROOT / "ambiental_assistente.js").read_text(encoding="utf-8")
+if (ROOT / "ambiental_assistente.css").exists():
+    ATTENDANCE_HTML += "\n" + (ROOT / "ambiental_assistente.css").read_text(encoding="utf-8")
+
 GESTAO_HTML = (ROOT / "gestao_atendimentos.html").read_text(encoding="utf-8")
+if (ROOT / "gestao_atendimentos.js").exists():
+    GESTAO_HTML += "\n" + (ROOT / "gestao_atendimentos.js").read_text(encoding="utf-8")
+if (ROOT / "gestao_atendimentos.css").exists():
+    GESTAO_HTML += "\n" + (ROOT / "gestao_atendimentos.css").read_text(encoding="utf-8")
 
 def test_colinha_11_perguntas_verbatim():
     """Valida se as 11 perguntas da colinha constam rigorosamente como solicitadas."""
@@ -185,7 +194,7 @@ def test_clean_esisla_text_corrections():
 
 def test_modo_ia2_voice_uses_get_user_media_and_speech_recognition():
     """Valida se o Modo IA 2.0 solicita permissão explícita ao navegador via getUserMedia no ditado e na gravação."""
-    attendance_content = (ROOT / "ambiental_avaliacao_medica_lts_cid_assistente.html").read_text(encoding="utf-8")
+    attendance_content = ATTENDANCE_HTML
     
     # Gravação ao vivo
     assert "navigator.mediaDevices.getUserMedia" in attendance_content
@@ -200,7 +209,7 @@ def test_modo_ia2_voice_uses_get_user_media_and_speech_recognition():
 
 def test_modo_ia2_finalizar_atendimento_official_flow():
     """Valida se o botão de finalizar após a IA segue o fluxo oficial de atendimento e não apenas rascunho."""
-    attendance_content = (ROOT / "ambiental_avaliacao_medica_lts_cid_assistente.html").read_text(encoding="utf-8")
+    attendance_content = ATTENDANCE_HTML
     
     # Botão Finalizar Atendimento presente no modal de sucesso
     assert 'id="ia2BtnFinalizarDefinitivo"' in attendance_content
@@ -214,5 +223,143 @@ def test_modo_ia2_finalizar_atendimento_official_flow():
     
     # Opção explícita de salvar rascunho preservada
     assert "salvarComoRascunhoIA2" in attendance_content
+
+def test_modo_ia2_dialogue_cards_and_yellow_doubts():
+    """Valida os elementos e funções da transcrição estruturada em diálogo e destaque de dúvidas em amarelo."""
+    attendance_content = ATTENDANCE_HTML
+
+    # 1. Elementos HTML do Diálogo e Dúvidas
+    assert 'id="ia2BadgeDuvidas"' in attendance_content
+    assert 'id="ia2QtdDuvidas"' in attendance_content
+    assert 'id="ia2BtnAbaVisual"' in attendance_content
+    assert 'id="ia2BtnAbaTexto"' in attendance_content
+    assert 'id="ia2GravacaoVisual"' in attendance_content
+    assert 'ia2-transcript-visual' in attendance_content
+    assert 'ia2-doubt-word' in attendance_content
+    assert 'ia2DuvidasLegenda' in attendance_content
+
+    # 2. Funções JavaScript de Suporte
+    assert "function destacarDuvidasHtml" in attendance_content
+    assert "function estruturarTranscricaoEmDialogo" in attendance_content
+    assert "function trocarAbaTranscricaoIA2" in attendance_content
+    assert "function atualizarVisualTranscricaoIA2" in attendance_content
+    assert "function salvarEdicaoVisualIA2" in attendance_content
+    assert "function organizarTranscricaoManualmenteIA2" in attendance_content
+
+    # 3. Estilos CSS de destaque em amarelo
+    assert ".ia2-doubt-word {" in attendance_content
+    assert "background-color: #FEF08A;" in attendance_content
+    assert "color: #854D0E;" in attendance_content
+
+def test_modo_ia2_exact_user_sample_transcription_dialogue():
+    """Valida a extração e marcação de dúvidas sobre o exemplo exato fornecido pelo usuário."""
+    import re
+
+    raw_user_sample = (
+        "Qual a sua idade  tenho 22 anos  Qual o seu cargo  policial penal  "
+        "quanto tempo  cinco anos  é readaptado  não  data do diagnóstico da doença  "
+        "dia 10/10/2016  ano é 16 não é 2026  Com que frequência comparece as consultas "
+        "a cada cinco meses  Quais sintomas causam limitações para o trabalho dor nas costas "
+        "do Movimento dos braços dor nas mãos dor na cabeça  e dor nas pernas ao esticá-las  "
+        "faz uso de qual medicação Dipirona injetável  benzetacil injetável  qual a dosagem  "
+        "de dipirona é 10 mg  e de benzetacil é injetável  as psicoterapia ou fisioterapia faço psico  "
+        "10 vezes  no mês"
+    )
+
+    padroes_perguntas = [
+        r"\b(?:qual\s+(?:é\s+)?a\s+sua\s+idade|qual\s+a\s+sua\s+idade)\b",
+        r"\b(?:qual\s+(?:é\s+)?o\s+seu\s+cargo|qual\s+o\s+cargo)\b",
+        r"\b(?:quanto\s+tempo)\b",
+        r"\b(?:[ée]\s+readaptad[oa])\b",
+        r"\b(?:data\s+(?:do\s+)?diagn[óo]stico(?:\s+da\s+doen[çc]a)?)\b",
+        r"\b(?:com\s+que\s+frequ[êe]ncia\s+comparece(?:\s+[àa]s\s+consultas)?)\b",
+        r"\b(?:quais\s+sintomas\s+causam\s+limita[çc][õo]es(?:\s+para\s+o\s+trabalho)?)\b",
+        r"\b(?:faz\s+uso\s+de\s+qual\s+medica[çc][ãa]o)\b",
+        r"\b(?:qual\s+a\s+dosagem)\b",
+        r"\b(?:(?:faz|as)\s+psicoterapia\s+ou\s+fisioterapia)\b",
+    ]
+
+    # Verifica se todas as perguntas do exemplo são identificadas
+    for pat in padroes_perguntas:
+        assert re.search(pat, raw_user_sample, re.IGNORECASE) is not None, f"Padrão {pat} não encontrou no exemplo"
+
+    # Verifica se os padrões de dúvidas clínicas cobrem os casos do exemplo
+    re_inconsistencia = re.search(r"\b(?:ano\s+é\s+\d+\s+não\s+é\s+\d+|\d+\s+não\s+é\s+\d+)\b", raw_user_sample, re.IGNORECASE)
+    assert re_inconsistencia is not None
+    assert "ano é 16 não é 2026" in re_inconsistencia.group(0)
+
+    re_dosagem = re.search(r"\b10\s*mg\b", raw_user_sample, re.IGNORECASE)
+    assert re_dosagem is not None
+    assert "10 mg" in re_dosagem.group(0)
+
+    re_fonetica = re.search(r"\bas\s+(?:psicoterapia|fisioterapia)\b", raw_user_sample, re.IGNORECASE)
+    assert re_fonetica is not None
+    assert "as psicoterapia" in re_fonetica.group(0)
+
+    re_freq = re.search(r"\b\d+\s+vezes\s+no\s+mês\b", re.sub(r"\s+", " ", raw_user_sample), re.IGNORECASE)
+    assert re_freq is not None
+    assert "10 vezes no mês" in re_freq.group(0)
+
+def test_modo_ia2_refinamento_automatico_integrations():
+    """Valida a integração da Melhoria 1 (Refinamento por IA) e Melhoria 2 (Semântica) no backend e frontend."""
+    app_content = (ROOT / "app.py").read_text(encoding="utf-8")
+    attendance_content = ATTENDANCE_HTML
+
+    # 1. Endpoint no backend
+    assert '@app.post("/api/ai/refinar-dialogo-ia2")' in app_content
+    assert "def api_ai_refinar_dialogo_ia2():" in app_content
+    assert "colinha_status" in app_content
+    assert "dialogo" in app_content
+    assert "texto_formatado" in app_content
+
+    # 2. Elementos e funções no frontend
+    assert 'id="ia2RefinandoBar"' in attendance_content
+    assert 'id="ia2RefinandoText"' in attendance_content
+    assert "function refinarDialogoComIA2" in attendance_content
+    assert "refinarDialogoComIA2(true)" in attendance_content
+    assert "window.refinarDialogoComIA2 = refinarDialogoComIA2;" in attendance_content
+    assert '/api/ai/refinar-dialogo-ia2' in attendance_content
+
+def test_modo_ia2_screenshot_scenario_dialogue_and_colinha():
+    """Valida a separação perfeita das perguntas do print do usuário e validação da colinha."""
+    import re
+
+    user_screenshot_text = (
+        "Qual sua idade tenho 22 anos o seu cargo tenho sou policial penal quanto tempo "
+        "há 20 anos é adaptado não qual foi a data do diagnóstico da doença 05/02 /2016 "
+        "às consultas de 10 em 10 dias"
+    )
+
+    lista_perguntas = [
+        re.compile(r"\b(?:qual\s+(?:é\s+)?a\s+sua\s+idade|qual\s+(?:é\s+)?a\s+idade|qual\s+sua\s+idade|quantos\s+anos(?:\s+tem)?)\b", re.I),
+        re.compile(r"\b(?:(?:qual\s+(?:é\s+)?|e\s+)?(?:o\s+)?(?:seu\s+)?cargo|qual\s+(?:é\s+)?o\s+cargo|qual\s+a\s+(?:sua\s+)?fun[çc][ãa]o|qual\s+sua\s+profiss[ãa]o|sua\s+fun[çc][ãa]o|sua\s+profiss[ãa]o)\b", re.I),
+        re.compile(r"\b(?:quanto\s+tempo\s+est[áa]\s+no\s+cargo|quanto\s+tempo\s+de\s+servi[çc]o|quanto\s+tempo\s+no\s+cargo|quanto\s+tempo)\b", re.I),
+        re.compile(r"\b(?:(?:voc[êe]\s+)?[ée]\s+(?:re)?adaptad[oa]|tem\s+(?:re)?adapta[çc][ãa]o|est[áa]\s+(?:re)?adaptad[oa])\b", re.I),
+        re.compile(r"\b(?:(?:qual\s+(?:foi\s+)?a\s+)?data\s+(?:do\s+)?diagn[óo]stico(?:\s+da\s+doen[çc]a)?|quando\s+come[çc]ou(?:\s+o\s+quadro|\s+a\s+doen[çc]a)?|quando\s+iniciou|in[íi]cio\s+dos\s+sintomas)\b", re.I),
+        re.compile(r"\b(?:com\s+que\s+frequ[êe]ncia\s+comparece(?:\s+[àa]s\s+consultas)?|com\s+que\s+frequ[êe]ncia\s+vai(?:\s+ao\s+m[ée]dico)?|de\s+quanto\s+em\s+quanto\s+tempo|frequ[êe]ncia\s+das\s+consultas|(?:e\s+|quanto\s+[àa]s\s+|sobre\s+as\s+|[àa]s\s+)?consultas(?:\s+m[ée]dicas)?)\b", re.I),
+    ]
+
+    matches = []
+    for pat in lista_perguntas:
+        for m in pat.finditer(user_screenshot_text):
+            matches.append((m.start(), m.end(), m.group(0)))
+    matches.sort(key=lambda x: x[0])
+
+    # Devem ser identificadas 6 perguntas independentes
+    assert len(matches) == 6
+    matched_questions = [m[2] for m in matches]
+    assert "Qual sua idade" in matched_questions
+    assert "o seu cargo" in matched_questions
+    assert "quanto tempo" in matched_questions
+    assert "é adaptado" in matched_questions
+    assert "qual foi a data do diagnóstico da doença" in matched_questions
+    assert "às consultas" in matched_questions
+
+    # Validação da colinha
+    # Q04 (Readaptação)
+    assert re.search(r"\b(?:(?:re)?adaptad[oa]|(?:re)?adapta[çc][ãa]o)\b", user_screenshot_text, re.I) is not None
+    # Q07 (Consultas de 10 em 10 dias)
+    assert re.search(r"\bde\s+(\d+|dez)\s+em\s+\d+\s+dias\b", user_screenshot_text, re.I) is not None
+
 
 
