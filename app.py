@@ -1284,14 +1284,17 @@ OBJETIVO DA REDAÇÃO:
 PADRÕES TÉCNICOS OFICIAIS (Programa de Melhoria Contínua):
 - Se Parecer FAVORÁVEL: Estruture obrigatoriamente a classificação da capacidade laborativa em 1ª pessoa alinhado à diretriz oficial:
   "Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol, em razão de limitações na esfera [psicoemocional/osteomuscular] que compromete para [atividades comprometidas informadas], referente ao período pleiteado."
+  * Se Exame Físico no ato pericial estiver NORMAL (Perícia Retrospectiva / Homologação Pretérita de atestado em que o servidor já se recuperou dos sintomas agudos na data da perícia, com guia expedida no prazo de até 3 dias):
+    "Considerando o histórico clínico, os documentos médicos comprobatórios acostados e a sintomatologia referida à época compatível com o CID {cid} — {doenca_motivo}, embora no presente ato pericial o exame físico já se apresente sem alterações agudas em razão da convalescença clínica e do tempo decorrido, considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo}, referente ao período pleiteado."
   * Se houver perfil de cronicidade/incapacidade definitiva para a função habitual:
     Indique formalmente o direcionamento pericial para readaptação funcional.
   * Não inclua na justificativa expressões de concessão de dias ou prazos de afastamento (ex.: "Concedo X dias...", "tempo este considerado suficiente para restabelecimento da capacidade laborativa para a função periciada."). O número de dias concedidos possui campo próprio.
-- Se Parecer CONTRÁRIO: Estruture obrigatoriamente em 1ª pessoa alinhado à diretriz oficial:
-  "Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações de ordem [osteomuscular/psíquica] incapacitantes para as atribuições rotineiras do cargo atual."
+- Se Parecer CONTRÁRIO:
+  * Retroação de guia (> 3 dias): MANTENHA todo o relato de queixas e limitações das funções do cargo colhidas no atendimento, redigindo com alta densidade técnica em 1ª pessoa:
+    "Embora o(a) periciado(a) tenha apresentado histórico e documentos compatíveis com o CID {cid} — {doenca_motivo}, com relato de limitações para as atribuições do rol do cargo de {cargo}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação em relação à emissão do atestado médico sem comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo-normativo do DPME/SP, o parecer CONTRÁRIO."
+  * Por capacidade laborativa preservada (sem retroação):
+    "Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações de ordem [osteomuscular/psíquica] incapacitantes para as atribuições rotineiras do cargo atual de {cargo}."
 - Pareceres contrários administrativos por erros de finalização DPME:
-  * Retroação de guia (> 3 dias): Quando o intervalo da data de expedição da guia e a data do atestado ultrapassar 3 dias sem comprovação de internamento hospitalar:
-    "Guia com mais de 3 dias de retroação, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão da guia."
   * Sobreposição de períodos: Quando é gerado afastamento na vigência de outro anterior:
     "Período solicitado já contemplado em licença anteriormente concedida, caracterizando sobreposição de períodos."
 
@@ -1302,7 +1305,10 @@ Quando o tipo de exame físico/mental for "Outros" ou quando for indicada uma á
    - Se a área for classificada como ALTERADA (ou Parecer Favorável):
      Identifique e explicite as limitações práticas funcionais associadas ao CID {cid} — {doenca_motivo} em relação às tarefas do cargo de {cargo} (por exemplo, limitações para esforço físico, posturas estáticas/dinâmicas, sobrecarga articular/muscular, ritmo de trabalho ou atividades do rol). Estruture obrigatoriamente em 1ª pessoa:
      "Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo}, em razão de limitações na esfera de {area_exame_clinico} decorrentes do CID {cid} — {doenca_motivo}, tais como [descrever as limitações funcionais específicas do CID em relação às atividades do cargo, ex.: impedimento temporário para esforços físicos intensos, sobrecarga mecânica ou atividades habituais que demandem higidez plena da área afetada]."
-   - Se a área for classificada como NORMAL (ou Parecer Contrário):
+   - Se a área for classificada como NORMAL com Parecer FAVORÁVEL (Homologação Retrospectiva):
+     Estruture em 1ª pessoa fundamentando a incapacidade no período do atestado em razão do tempo decorrido até a perícia:
+     "Considerando o histórico clínico, a documentação médica apresentada e a sintomatologia referida à época compatível com o CID {cid} — {doenca_motivo}, embora no presente ato pericial o exame físico já se apresente sem alterações agudas em razão da regressão clínica dos sintomas, considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo}, referente ao período pleiteado."
+   - Se a área for classificada como NORMAL com Parecer CONTRÁRIO (sem retroação):
      Estruture obrigatoriamente em 1ª pessoa constatando a capacidade preservada diante da ausência de limitações laborais decorrentes do CID {cid}:
      "Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam limitações funcionais incapacitantes relacionadas ao CID {cid} para as atribuições rotineiras do cargo atual de {cargo}."
 3. Respeite sempre a regra terminológica: NUNCA utilize o termo "Paciente" ou "paciente", utilize SEMPRE "Servidor", "Periciado" ou redija em 1ª pessoa ("constato", "considero", "observo").
@@ -1560,22 +1566,30 @@ REGRA MANDATÓRIA DE DATAS NO PADRÃO OFICIAL E-SISLA (DD/MM/AAAA):
        - Ombro: "Limitação para elevação de membros superiores acima do nível dos ombros e sustentação de peso de modo habitual, atividades estas constantes no Rol de Atividades do cargo de [cargo]."
        - Cotovelo / Punho / Mão: "Limitação para movimentos repetitivos de membros superiores, pronação/supinação sob carga e preensão manual com força, atividades estas constantes no Rol de Atividades do cargo de [cargo]."
      * Sempre finalizar vinculando expressamente ao: "Rol de Atividades do cargo de [cargo]." (ex.: "atividades estas constantes no Rol de Atividades do cargo de [cargo].")
-   - Quando o Parecer for CONTRÁRIO (indeferido):
-     "Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de [cargo], constantes no rol de atividades."
+    - Quando o Parecer for CONTRÁRIO (indeferido):
+      * Se o indeferimento for por RETROAÇÃO DE GUIA (> 3 dias):
+        NÃO APAGUE as queixas e limitações clínicas referidas pelo periciado! Mantenha a descrição rica e robusta das limitações apresentadas para as atribuições do cargo, adicionando a ressalva legal expressa:
+        "Apresentou relato de limitações funcionais decorrentes do quadro clínico pleiteado ([CID — motivo]), tais como [descrever os sintomas e limitações funcionais referidas pelo periciado/médico com robustez pericial], com repercussão para as tarefas que demandam higidez plena no rol de atividades do cargo de [cargo]. Todavia, em razão da emissão extemporânea da guia pericial com mais de 3 dias de retroação em relação ao atestado médico sem comprovação de internamento hospitalar, a concessão resta obstada por determinação regulamentar do DPME."
+      * Se o Parecer for Contrário por capacidade laborativa preservada (sem retroação):
+        "Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de [cargo], constantes no rol de atividades."
 
 6. “(*)Justificativa Parecer Médico”
    Apresente OBRIGATORIAMENTE a conclusão pericial fundamentada conforme o padrão do Programa de Melhoria Contínua (NUNCA DEIXE ESTE CAMPO VAZIO quando houver parecer e dados do atendimento):
    - PRESERVAÇÃO INTEGRAL: Se o médico perito preencheu o campo de justificativa no momento do atendimento, preserve estritamente o seu texto, mantendo a redação registrada pelo perito.
    - Se Parecer FAVORÁVEL:
-     "Capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol, em razão de limitações na esfera [psicoemocional/osteomuscular] que compromete para [atividades comprometidas informadas]."
+     * Para exame clínico normal com atestado antigo e guia no prazo (Perícia Retrospectiva / Homologação Pretérita):
+       "Considerando o histórico clínico, a documentação médica comprobatória acostada e a sintomatologia referida à época compatível com o CID [CID — motivo], embora no presente ato pericial o exame físico já se apresente sem alterações agudas em razão da convalescença clínica e do tempo decorrido, considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de [cargo], referente ao período pleiteado."
+     * Padrão oficial habitual:
+       "Capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol, em razão de limitações na esfera [psicoemocional/osteomuscular] que compromete para [atividades comprometidas informadas]."
      * Caso haja cronicidade ou perfil de incapacidade definitiva para a função habitual:
        Indique formalmente o direcionamento pericial para readaptação funcional.
      * Não inclua na justificativa expressões de concessão de dias ou prazos de afastamento (ex.: "Concedido X dias...", "tempo este considerado suficiente para restabelecimento da capacidade laborativa para a função periciada."). O número de dias concedidos possui campo próprio.
    - Se Parecer CONTRÁRIO:
-     "Capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações de ordem [osteomuscular/psíquica] incapacitantes para as atribuições rotineiras do cargo atual."
-     Caso o parecer contrário decorra de regras periciais específicas informadas:
-     - Retroação de guia (> 3 dias): "Guia com mais de 3 dias de retroação, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão da guia."
-     - Sobreposição: "Período solicitado já contemplado em licença anteriormente concedida, caracterizando sobreposição de períodos."
+     * Retroação de guia (> 3 dias): MANTENHA o relato clínico e as limitações do periciado, redigindo com alta densidade técnica em 1ª pessoa:
+       "Embora o(a) periciado(a) tenha apresentado histórico e documentos compatíveis com o CID [CID — motivo], com relato de limitações para as atribuições do rol do cargo de [cargo], constata-se que a guia pericial foi expedida com mais de 3 dias de retroação em relação à emissão do atestado médico sem comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo-normativo do DPME/SP, o parecer CONTRÁRIO."
+     * Por capacidade laborativa preservada (sem retroação):
+       "Capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações de ordem [osteomuscular/psíquica] incapacitantes para as atribuições rotineiras do cargo atual."
+     * Sobreposição: "Período solicitado já contemplado em licença anteriormente concedida, caracterizando sobreposição de períodos."
    Se o perito tiver fornecido justificativa própria em justificativa, incorpore harmonicamente suas palavras a esta fundamentação padrão. Não acrescente o texto legal da justificativa final nem qualquer texto fixo que não esteja presente nos dados fornecidos.
 
 OUTROS CAMPOS — TRANSCRIÇÃO FIEL:
@@ -6390,12 +6404,27 @@ def api_ai_preencher_ficha():
         with _cadastro_ai_lock(atendimento_id, "/api/ai/preencher-ficha"):
             esisla_pre = parse_esisla_text(texto_bruto)
             ctx_atual = raw.get("contexto_atual") if isinstance(raw.get("contexto_atual"), dict) else {}
+            decisao_medico = raw.get("decisao_medico") if isinstance(raw.get("decisao_medico"), dict) else {}
 
             instruction = (
                 TASK_PROMPTS["preencher_ficha"]
                 + "\n\nTEXTO BRUTO FORNECIDO PELO USUÁRIO (ANOTAÇÕES DO MÉDICO E/OU DADOS DO SISTEMA):\n"
                 + texto_bruto
             )
+
+            if decisao_medico:
+                dec_inst = "\n\nDECISÃO CLÍNICA/PERICIAL DEFINIDA PELO MÉDICO PERITO NO SISTEMA:\n"
+                if decisao_medico.get("parecer"):
+                    dec_inst += f"- Parecer definido pelo médico: {decisao_medico['parecer']}\n"
+                if decisao_medico.get("exameFisicoResultado"):
+                    dec_inst += f"- Avaliação do exame físico pelo perito: {decisao_medico['exameFisicoResultado']}\n"
+                if decisao_medico.get("diasConcedidos") is not None:
+                    dec_inst += f"- Dias concedidos pelo médico: {decisao_medico['diasConcedidos']}\n"
+                if decisao_medico.get("observacoesMedico"):
+                    dec_inst += f"- Observações clínicas / anotações confidenciais do perito: {decisao_medico['observacoesMedico']}\n"
+                dec_inst += "ATENÇÃO: A decisão do médico perito acima É SOBERANA. Você deve alinhar estritamente o parecer, exame clínico, justificativa e limitações a essas escolhas do perito, integrando-as com os fatos relatados na consulta.\n"
+                instruction += dec_inst
+
             result = _generate_structured(instruction, PreenchimentoCompletoResult)
 
             # Mesclagem determinística de dados cadastrais e de guia extraídos do texto bruto / contexto atual
@@ -6771,45 +6800,114 @@ def api_ai_preencher_ficha():
 
             result.cids_secundarios = all_secondary
 
-            # Garantir robustez de desc_limitacao e justificativa conforme parecer
+            # Aplicar escolhas explícitas e soberanas do médico perito (Modo IA 2.0)
+            if decisao_medico:
+                user_parecer = str(decisao_medico.get("parecer") or "").strip().upper()
+                if user_parecer and not retro_invalida:
+                    if "FAV" in user_parecer:
+                        result.parecer = "FAVORÁVEL"
+                    elif "CONT" in user_parecer:
+                        result.parecer = "CONTRÁRIO"
+
+                user_exame = str(decisao_medico.get("exameFisicoResultado") or "").strip().lower()
+                if "normal" in user_exame:
+                    result.outros_resultado = "Normal"
+                elif "alterado" in user_exame:
+                    result.outros_resultado = "Alterado"
+                elif "documental" in user_exame:
+                    result.outros_resultado = "Normal"
+
+                user_dias = decisao_medico.get("diasConcedidos")
+                if user_dias is not None and str(user_dias).strip() != "":
+                    result.dias_solicitados = str(user_dias).strip()
+
+                user_obs = str(decisao_medico.get("observacoesMedico") or "").strip()
+                if user_obs and user_obs not in (result.exame_fisico_descricao or ""):
+                    result.exame_fisico_descricao = (
+                        (result.exame_fisico_descricao or "").rstrip(". ") + f". Anotações periciais complementares do médico: {user_obs}."
+                    ).strip()
+
+            # Garantir robustez de desc_limitacao e justificativa conforme parecer e regras periciais DPME
             par_upper = (result.parecer or "").strip().upper()
-            is_fav = "FAV" in par_upper or par_upper == "FAVORÁVEL"
             cargo_label = (result.cargo or "servidor").strip()
-            if is_fav:
-                result.parecer = "FAVORÁVEL"
-                if not (result.limitacao_funcional or "").strip():
-                    result.limitacao_funcional = "Sim"
-                if not (result.limitacao_rol or "").strip():
-                    result.limitacao_rol = "Sim"
-                if not (result.capacidade or "").strip():
-                    result.capacidade = "Capacidade parcial e temporariamente prejudicada"
-                if not (result.desc_limitacao or "").strip():
-                    result.desc_limitacao = _resolve_favorable_limitation(
-                        {"cid": result.cid, "exame_fisico_tipo": result.exame_fisico_tipo, "desc_limitacao": result.sintomas_limitacao},
-                        cargo_label
-                    )
-                elif "rol de atividades" not in result.desc_limitacao.lower():
-                    result.desc_limitacao = f"{result.desc_limitacao.rstrip('.,; ')}, atividades estas constantes no Rol de Atividades do cargo de {cargo_label}."
-            elif "CONTR" in par_upper:
+
+            if retro_invalida:
+                # Regra DPME: Guia com mais de 3 dias de retroação sem internação hospitalar é CONTRÁRIO obrigatório
                 result.parecer = "CONTRÁRIO"
                 result.limitacao_funcional = "Não"
                 result.limitacao_rol = "Não"
                 result.capacidade = "Capacidade laborativa preservada"
-                if not (result.desc_limitacao or "").strip() or not _is_contrary_limitation_text(result.desc_limitacao):
-                    result.desc_limitacao = f"Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo_label}, constantes no rol de atividades."
+
+                lim_base = (result.desc_limitacao or result.sintomas_limitacao or "").strip()
+                cid_clause = f" ({result.cid})" if result.cid else ""
+                mot_clause = result.doenca_motivo or "patologia alegada"
+                if lim_base and not _is_contrary_limitation_text(lim_base):
+                    result.desc_limitacao = (
+                        f"Apresentou histórico com relato de limitações funcionais decorrentes de {mot_clause}{cid_clause}, tais como: {lim_base.rstrip('. ')}, "
+                        f"com repercussão sobre as atividades que demandam higidez plena no Rol de Atividades do cargo de {cargo_label}. "
+                        f"Todavia, em razão da emissão extemporânea da guia pericial ({retro_dias} dias de retroação > limite regulamentar de 3 dias) "
+                        f"sem comprovação documental de internamento hospitalar, a concessão resta obstada por determinação regulamentar oficial do DPME/SP."
+                    )
+                else:
+                    result.desc_limitacao = (
+                        f"Apresentou histórico pericial referente ao cargo de {cargo_label}, todavia a guia pericial foi expedida com {retro_dias} dias de retroação "
+                        f"em relação ao atestado médico sem comprovação documental de internamento hospitalar, ensejando parecer administrativo CONTRÁRIO por determinação expressa do DPME/SP."
+                    )
+
+                result.justificativa = (
+                    f"Embora o(a) servidor(a) tenha apresentado histórico compatível com {mot_clause}{cid_clause}, com relato de limitações para as atribuições rotineiras do cargo atual de {cargo_label}, "
+                    f"constata-se que a guia pericial foi expedida com mais de 3 dias de retroação ({retro_dias} dias) em relação à emissão do documento médico, "
+                    f"não havendo comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, "
+                    f"ensejando, por estrito critério administrativo-normativo do DPME/SP, o parecer CONTRÁRIO."
+                )
+            else:
+                is_fav = "FAV" in par_upper or par_upper == "FAVORÁVEL"
+                if is_fav:
+                    result.parecer = "FAVORÁVEL"
+                    if not (result.limitacao_funcional or "").strip():
+                        result.limitacao_funcional = "Sim"
+                    if not (result.limitacao_rol or "").strip():
+                        result.limitacao_rol = "Sim"
+                    if not (result.capacidade or "").strip():
+                        result.capacidade = "Capacidade parcial e temporariamente prejudicada"
+                    if not (result.desc_limitacao or "").strip():
+                        result.desc_limitacao = _resolve_favorable_limitation(
+                            {"cid": result.cid, "exame_fisico_tipo": result.exame_fisico_tipo, "desc_limitacao": result.sintomas_limitacao},
+                            cargo_label
+                        )
+                    elif "rol de atividades" not in result.desc_limitacao.lower():
+                        result.desc_limitacao = f"{result.desc_limitacao.rstrip('.,; ')}, atividades estas constantes no Rol de Atividades do cargo de {cargo_label}."
+
+                    # Verificação de Perícia Retrospectiva (Exame Físico Normal no ato pericial com atestado e guia no prazo)
+                    is_exame_normal = (
+                        str(result.outros_resultado or "").strip().lower() == "normal"
+                        or "normal" in str(result.exame_fisico_descricao or "").lower()
+                        or "sem alterações" in str(result.exame_fisico_descricao or "").lower()
+                    )
+                    if is_exame_normal:
+                        cid_clause = f" (CID {result.cid})" if result.cid else ""
+                        mot_clause = result.doenca_motivo or "patologia clínica avaliada"
+                        result.justificativa = (
+                            f"Considerando o histórico clínico, a documentação médica comprobatória acostada e a sintomatologia referida à época compatível com {mot_clause}{cid_clause}, "
+                            f"embora no presente ato pericial o exame físico já se apresente sem alterações agudas em razão da convalescença clínica e do tempo decorrido, "
+                            f"considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}, referente ao período pleiteado."
+                        )
+                    elif not (result.justificativa or "").strip():
+                        cid_clause = f" (CID {result.cid})" if result.cid else ""
+                        mot_clause = result.doenca_motivo or "patologia clínica avaliada"
+                        result.justificativa = f"Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}, em razão de limitações funcionais decorrentes de {mot_clause}{cid_clause}, referente ao período pleiteado."
+                else:
+                    result.parecer = "CONTRÁRIO"
+                    result.limitacao_funcional = "Não"
+                    result.limitacao_rol = "Não"
+                    result.capacidade = "Capacidade laborativa preservada"
+                    if not (result.desc_limitacao or "").strip() or not _is_contrary_limitation_text(result.desc_limitacao):
+                        result.desc_limitacao = f"Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo_label}, constantes no rol de atividades."
+                    if not (result.justificativa or "").strip():
+                        result.justificativa = f"Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações incapacitantes para as atribuições rotineiras do cargo atual de {cargo_label}."
 
             if result.justificativa:
                 result.justificativa = _clean_justificativa_text(result.justificativa)
-            if not (result.justificativa or "").strip():
-                if result.parecer == "CONTRÁRIO":
-                    if retro_invalida:
-                        result.justificativa = "Guia com mais de 3 dias de retroação, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão da guia."
-                    else:
-                        result.justificativa = f"Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações incapacitantes para as atribuições rotineiras do cargo atual de {cargo_label}."
-                else:
-                    cid_clause = f" (CID {result.cid})" if result.cid else ""
-                    mot_clause = result.doenca_motivo or "patologia clínica avaliada"
-                    result.justificativa = f"Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}, em razão de limitações funcionais decorrentes de {mot_clause}{cid_clause}, referente ao período pleiteado."
 
             # Garantir conformidade de quesitos oficiais
             if not result.quesitos:

@@ -54,6 +54,7 @@
       <button type="button" class="btn btn-outline btn-sm" onclick="openManagement()">Gestão</button>
       <button type="button" class="btn btn-danger btn-sm" onclick="deleteAtendimento()">Excluir</button>
       <button type="button" class="btn btn-outline btn-sm" onclick="saveNow()" title="Atalho: Ctrl + S">Salvar rascunho</button>
+      <span id="retroacaoHeaderAviso" style="display:none;background:#FEE2E2;border:1px solid #F87171;color:#991B1B;font-size:11px;font-weight:800;padding:4px 8px;border-radius:8px">⛔ Guia fora do prazo</span>
       <button type="button" class="btn btn-green btn-sm" onclick="finalizarAtendimentoHeader()" title="Atalho: Ctrl + Enter">Finalizar</button>
     </div>
   </div>
@@ -116,7 +117,7 @@
     <div id="containerModoIA2">
       <!-- Barra de Identificação do Paciente -->
       <div class="ia2-patient-bar">
-        <div class="ia2-patient-info">
+        <div class="ia2-patient-info" style="flex-wrap:wrap;gap:6px 12px">
           <span style="font-size:22px">🩺</span>
           <div class="ia2-patient-item">Servidor(a): <strong id="ia2PatientNome">—</strong></div>
           <span style="color:#CBD5E1">•</span>
@@ -125,8 +126,13 @@
           <div class="ia2-patient-item">Cargo: <strong id="ia2PatientCargo">—</strong></div>
           <span style="color:#CBD5E1">•</span>
           <div class="ia2-patient-item">Atendimento: <strong id="ia2PatientAtd">—</strong></div>
+          <span style="color:#CBD5E1">•</span>
+          <div class="ia2-patient-item">Atestado: <strong id="ia2PatientDataAtestado">—</strong> (<strong id="ia2PatientDias">—</strong>)</div>
+          <span style="color:#CBD5E1">•</span>
+          <div class="ia2-patient-item">Expedição: <strong id="ia2PatientExpedicao">—</strong></div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span id="ia2BadgeRetroacaoBarra" class="badge" style="display:none;background:#FEE2E2;color:#991B1B;font-weight:800;border:1px solid #FCA5A5;padding:5px 10px;border-radius:8px">⛔ Guia Fora do Prazo (&gt; 3d)</span>
           <span class="badge" style="background:linear-gradient(135deg, #4F46E5, #7C3AED);color:#fff;font-weight:800;padding:6px 12px;border-radius:8px">🚀 Modo IA 2.0</span>
           <button type="button" class="btn btn-outline btn-sm" onclick="sairModoIA2()" style="font-weight:700" title="Alternar para visualização tradicional do prontuário médico">👁️ Ver Prontuário Padrão</button>
         </div>
@@ -224,6 +230,10 @@
 
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <button type="button" class="btn btn-outline btn-sm" onclick="trocarSubViewIA2('escrita')" style="font-weight:700">✍️ Modo Escrita</button>
+            <div id="ia2RetroacaoAvisoGravacao" style="display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:#FEE2E2;border:1.5px solid #F87171;color:#991B1B;font-size:12px;font-weight:800">
+              <span>⛔</span>
+              <span>Guia fora do prazo (&gt; 3 dias) • Parecer CONTRÁRIO</span>
+            </div>
             <button type="button" class="btn btn-green" onclick="finalizarAtendimentoIA2('gravacao')" style="font-weight:900;font-size:13px;padding:10px 20px;border-radius:10px;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;box-shadow:0 3px 12px rgba(16,185,129,0.35);display:flex;align-items:center;gap:8px">
               <span>🏁</span> Finalizar Atendimento
             </button>
@@ -333,7 +343,7 @@
           </div>
 
           <!-- Barra de Ações Rápidas -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
             <button type="button" class="btn btn-outline btn-sm" onclick="colarTextoClipboardIA2()" style="font-weight:700;display:flex;align-items:center;gap:6px">
               <span>📋</span> Colar da Área de Transferência
             </button>
@@ -341,11 +351,20 @@
               <span>🎤</span> <span id="ia2DitadoEscritaText">Ditar por Voz</span>
             </button>
             <button type="button" class="btn btn-outline btn-sm" onclick="inserirExemploEscritaIA2()" style="font-size:12px">
-              <span>📄</span> Inserir Exemplo
+              <span>📄</span> Inserir Exemplo Completo
             </button>
             <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('ia2EscritaText').value='';atualizarContadorEscritaIA2();" style="font-size:12px;color:#EF4444">
               <span>🗑️</span> Limpar
             </button>
+          </div>
+
+          <!-- Modelos Clínicos Rápidos de Apoio -->
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+            <span style="font-size:11.5px;color:#64748B;font-weight:700">Modelos Rápidos:</span>
+            <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('lombar')" style="font-size:11.5px;padding:3px 9px;border-radius:12px;background:#F8FAFC">🦴 Músculo-esquelético</button>
+            <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('respiratorio')" style="font-size:11.5px;padding:3px 9px;border-radius:12px;background:#F8FAFC">🫁 Respiratório / Gripe</button>
+            <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('mental')" style="font-size:11.5px;padding:3px 9px;border-radius:12px;background:#F8FAFC">🧠 Saúde Mental</button>
+            <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('retrospectivo')" style="font-size:11.5px;padding:3px 9px;border-radius:12px;background:#F8FAFC">🩺 Normal Retrospectivo</button>
           </div>
 
           <!-- Bubble de fala interina ao vivo para o Modo Escrita -->
@@ -359,9 +378,15 @@
 
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:12px">
             <span id="ia2EscritaContador" style="font-size:12px;color:#64748B">0 palavras • 0 caracteres</span>
-            <button type="button" class="btn btn-primary" onclick="finalizarAtendimentoIA2('escrita')" style="font-weight:900;font-size:14px;padding:12px 24px;border-radius:10px;background:linear-gradient(135deg, #2563EB 0%, #4F46E5 100%);color:#fff;border:none;box-shadow:0 3px 12px rgba(37,99,235,0.35);display:flex;align-items:center;gap:8px">
-              <span>✨</span> Finalizar Atendimento e Preencher Ficha (IA)
-            </button>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div id="ia2RetroacaoAvisoEscrita" style="display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:#FEE2E2;border:1.5px solid #F87171;color:#991B1B;font-size:12px;font-weight:800">
+                <span>⛔</span>
+                <span>Guia fora do prazo (&gt; 3 dias) • Parecer CONTRÁRIO</span>
+              </div>
+              <button type="button" class="btn btn-primary" onclick="finalizarAtendimentoIA2('escrita')" style="font-weight:900;font-size:14px;padding:12px 24px;border-radius:10px;background:linear-gradient(135deg, #2563EB 0%, #4F46E5 100%);color:#fff;border:none;box-shadow:0 3px 12px rgba(37,99,235,0.35);display:flex;align-items:center;gap:8px">
+                <span>✨</span> Finalizar Atendimento e Preencher Ficha (IA)
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1347,6 +1372,10 @@
           <button type="button" class="btn btn-outline" onclick="copiarLaudoEsislaAtendimento()" title="Copiar todos os dados clínicos formatados para preenchimento com o Favorito e-SISLA">⚡ Copiar p/ e-SISLA</button>
           <button type="button" class="btn btn-outline" onclick="abrirModalComprovanteComparecimento()" title="Emitir Declaração/Comprovante de Comparecimento à Perícia para o servidor">📄 Comprovante</button>
           <button type="button" class="btn btn-outline" onclick="saveNow()" title="Atalho: Ctrl + S">💾 Salvar rascunho</button>
+          <div id="retroacaoFinalizarAviso" style="display:none;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:#FEE2E2;border:1.5px solid #F87171;color:#991B1B;font-size:12.5px;font-weight:800" title="Guia com mais de 3 dias de retroação sem comprovação de internação hospitalar">
+            <span>⛔</span>
+            <span id="retroacaoFinalizarAvisoTxt">Guia fora do prazo (&gt; 3 dias) • Parecer CONTRÁRIO</span>
+          </div>
           <button type="button" class="btn btn-green" id="btnAgilFinalizar" onclick="finalizarAtendimentoAgil()" style="padding:10px 24px;font-size:14px;font-weight:800;display:flex;align-items:center;gap:8px" title="Atalho: Ctrl + Enter">
             <span>Finalizar atendimento</span>
             <span>✓</span>
@@ -2096,6 +2125,136 @@
       </button>
       <button type="button" class="btn btn-green" onclick="confirmarFinalizacaoIA2MesmoComPendencias()" style="font-weight:800;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none">
         ➡️ Finalizar Mesmo Assim
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 2.5. MODAL: DECISÃO PERICIAL DO MÉDICO (SELEÇÃO DISCRETA ANTES DE ESTRUTURAR COM IA) -->
+<div class="modal-backdrop" id="ia2ModalDecisaoMedico" style="display:none;z-index:99998">
+  <div class="modal" style="width:min(720px,95vw);border-radius:22px;overflow:hidden;box-shadow:0 20px 60px rgba(15,23,42,0.3)">
+    <div style="background:linear-gradient(135deg, #1E293B 0%, #0F172A 100%);padding:20px 24px;color:#ffffff;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:22px">⚖️</div>
+        <div>
+          <strong style="font-size:16.5px;font-weight:900;display:block">Decisão Pericial do Médico</strong>
+          <span style="font-size:12px;color:#94A3B8">Defina o parecer e os parâmetros periciais de forma discreta antes de estruturar com a IA.</span>
+        </div>
+      </div>
+      <button type="button" onclick="fecharModalDecisaoMedicoIA2()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:900">✕</button>
+    </div>
+
+    <div style="padding:22px;max-height:calc(85vh - 120px);overflow-y:auto">
+      <!-- Alerta de Prazo / Retroação da Guia (se > 3 dias) -->
+      <div id="ia2DecisaoRetroAlerta" style="display:none;background:#FEF2F2;border:1.5px solid #F87171;border-radius:12px;padding:12px 16px;margin-bottom:16px;color:#991B1B;font-size:12.5px;line-height:1.5">
+        <strong style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px">
+          <span>⛔</span> Guia Expedida Fora do Prazo Regulamentar (&gt; 3 dias)
+        </strong>
+        <span>A guia foi emitida com mais de 3 dias de diferença do atestado. Conforme regulamentação do DPME/SP, o parecer administrativo é <strong>CONTRÁRIO</strong>, exceto se comprovado internamento hospitalar.</span>
+      </div>
+
+      <!-- Alerta Informativo de Perícia Retrospectiva -->
+      <div id="ia2DecisaoRetroInformativo" style="display:none;background:#ECFDF5;border:1.5px solid #6EE7B7;border-radius:12px;padding:10px 14px;margin-bottom:16px;color:#065F46;font-size:12px;line-height:1.4">
+        <span>💡 <strong>Dica Pericial:</strong> Guia dentro do prazo de 3 dias. Se o servidor estiver assintomático hoje mas teve incapacidade no período do atestado, selecione <strong>Normal (Retrospectivo)</strong> com Parecer <strong>FAVORÁVEL</strong>.</span>
+      </div>
+
+      <!-- SEÇÃO 1: PARECER PERICIAL -->
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:800;color:#0F172A;display:block;margin-bottom:8px">
+          1. Parecer Pericial:
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div id="ia2DecisaoCardFav" class="ia2-decision-card selected-fav" onclick="selecionarDecisaoParecerIA2('FAVORÁVEL')">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+              <span style="font-size:20px">🟢</span>
+              <strong style="font-size:15px;color:#065F46">FAVORÁVEL</strong>
+            </div>
+            <span style="font-size:12px;color:#047857;line-height:1.4">Homologar licença e conceder os dias de afastamento (parciais ou integrais).</span>
+          </div>
+
+          <div id="ia2DecisaoCardContr" class="ia2-decision-card" onclick="selecionarDecisaoParecerIA2('CONTRÁRIO')">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+              <span style="font-size:20px">🔴</span>
+              <strong style="font-size:15px;color:#991B1B">CONTRÁRIO</strong>
+            </div>
+            <span style="font-size:12px;color:#7F1D1D;line-height:1.4">Indeferir licença (capacidade laborativa preservada ou impedimento legal).</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEÇÃO 2: RESULTADO DO EXAME FÍSICO PERICIAL -->
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:800;color:#0F172A;display:block;margin-bottom:8px">
+          2. Constatação do Exame Físico Pericial no momento da consulta:
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div id="ia2DecisaoExameAlterado" class="ia2-decision-card selected-opt" onclick="selecionarDecisaoExameIA2('Alterado')">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span>🔍</span>
+              <strong style="font-size:13.5px;color:#1E293B">Alterado</strong>
+            </div>
+            <span style="font-size:11.5px;color:#475569;line-height:1.4">Sinais e sintomas clínicos ativos constatados hoje.</span>
+          </div>
+
+          <div id="ia2DecisaoExameNormal" class="ia2-decision-card" onclick="selecionarDecisaoExameIA2('Normal')">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span>🩺</span>
+              <strong style="font-size:13.5px;color:#1E293B">Normal (Retrospectivo)</strong>
+            </div>
+            <span style="font-size:11.5px;color:#475569;line-height:1.4">Perícia retrospectiva: assintomático hoje, mas justificado à época.</span>
+          </div>
+
+          <div id="ia2DecisaoExameDoc" class="ia2-decision-card" onclick="selecionarDecisaoExameIA2('Documental')">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span>📄</span>
+              <strong style="font-size:13.5px;color:#1E293B">Documental</strong>
+            </div>
+            <span style="font-size:11.5px;color:#475569;line-height:1.4">Avaliação baseada estritamente em relatórios médicos.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEÇÃO 3: DIAS DE AFASTAMENTO CONCEDIDOS -->
+      <div style="margin-bottom:18px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:14px">
+        <label style="font-size:13px;font-weight:800;color:#0F172A;display:block;margin-bottom:10px">
+          3. Dias de Licença Concedidos:
+        </label>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#1E293B">
+            <input type="radio" name="ia2DecisaoDiasModo" id="ia2RadioDiasOriginal" value="original" checked onchange="atualizarDecisaoDiasIA2('original')">
+            <span>Manter os mesmos dias solicitados no atestado original (<strong id="ia2DecisaoDiasOriginalTexto">—</strong> dias)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#1E293B">
+            <input type="radio" name="ia2DecisaoDiasModo" id="ia2RadioDiasCustom" value="custom" onchange="atualizarDecisaoDiasIA2('custom')">
+            <span>Conceder quantidade específica:</span>
+            <input type="number" id="ia2DecisaoDiasInput" min="1" max="180" placeholder="Ex: 3" style="width:75px;padding:4px 8px;border-radius:6px;border:1px solid #CBD5E1;font-weight:700;font-size:13px" onfocus="document.getElementById('ia2RadioDiasCustom').checked=true;atualizarDecisaoDiasIA2('custom');">
+            <span>dias</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#1E293B">
+            <input type="radio" name="ia2DecisaoDiasModo" id="ia2RadioDiasZero" value="zero" onchange="atualizarDecisaoDiasIA2('zero')">
+            <span>0 dias (Indeferimento total / Parecer Contrário)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- SEÇÃO 4: NOTAS CLÍNICAS CONFIDENCIAIS DO MÉDICO -->
+      <div>
+        <label style="font-size:13px;font-weight:800;color:#0F172A;display:block;margin-bottom:6px">
+          4. Observações / Anotações Confidenciais do Perito (Opcional):
+        </label>
+        <textarea id="ia2DecisaoObsMedico" rows="3" style="width:100%;box-sizing:border-box;border:1.5px solid #CBD5E1;border-radius:10px;padding:10px;font-size:12.5px;font-family:inherit;color:#1E293B;outline:none" placeholder="Digite impressões que você NÃO falou na frente do paciente... Ex: marcha normal na sala de espera, ausência de fácies álgica, boa amplitude de movimento, receituário sem assinatura digital, etc."></textarea>
+        <span style="font-size:11px;color:#64748B;display:block;margin-top:4px">
+          🔒 A IA integrará essas anotações confidenciais ao exame clínico e justificativa técnica do e-SISLA de forma legal e fundamentada.
+        </span>
+      </div>
+    </div>
+
+    <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <button type="button" class="btn btn-outline" onclick="fecharModalDecisaoMedicoIA2()" style="font-weight:700">
+        ⬅️ Voltar ao Atendimento
+      </button>
+      <button type="button" class="btn btn-green" onclick="confirmarDecisaoEEstruturarIA2()" style="font-weight:900;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;padding:10px 22px;border-radius:10px;box-shadow:0 3px 12px rgba(16,185,129,0.35);display:flex;align-items:center;gap:8px">
+        <span>⚡</span> Confirmar Decisão e Estruturar com IA
       </button>
     </div>
   </div>

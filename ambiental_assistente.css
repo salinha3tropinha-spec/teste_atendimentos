@@ -1277,6 +1277,52 @@ body.modo-ia2-active #containerModoIA2 {
   gap: 8px;
 }
 
+.ia2-decision-card {
+  background: #ffffff;
+  border: 2px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  user-select: none;
+}
+.ia2-decision-card:hover {
+  border-color: #94A3B8;
+  background: #F8FAFC;
+  transform: translateY(-1px);
+}
+.ia2-decision-card.selected-fav {
+  border-color: #059669 !important;
+  background: #ECFDF5 !important;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.15);
+}
+.ia2-decision-card.selected-contr {
+  border-color: #DC2626 !important;
+  background: #FEF2F2 !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.15);
+}
+.ia2-decision-card.selected-opt {
+  border-color: #2563EB !important;
+  background: #EFF6FF !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.15);
+}
+.ia2-template-pill {
+  transition: all 0.15s ease;
+  border-color: #CBD5E1;
+  color: #334155;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ia2-template-pill:hover {
+  border-color: #3B82F6 !important;
+  color: #1D4ED8 !important;
+  background: #EFF6FF !important;
+  transform: translateY(-1px);
+}
+
 body.mode-agil-active .sidebar,
 body.mode-agil-active .progress-wrap,
 body.mode-agil-active .section {

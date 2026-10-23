@@ -1964,6 +1964,16 @@ function organizarTranscricaoManualmenteIA2() {
   refinarDialogoComIA2(false);
 }
 
+function formatarDataIsoParaBr(str) {
+  if (!str) return "";
+  const s = String(str).trim();
+  const mIso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (mIso) return `${mIso[3]}/${mIso[2]}/${mIso[1]}`;
+  const mBr = s.match(/^(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})/);
+  if (mBr) return `${mBr[1].padStart(2, "0")}/${mBr[2].padStart(2, "0")}/${mBr[3]}`;
+  return s;
+}
+
 function abrirModoIA2(view = "selecao") {
   syncState();
   const v = values();
@@ -1973,11 +1983,27 @@ function abrirModoIA2(view = "selecao") {
   const cpf = formatCPF(state.aux?.cpfPaciente || state.cpfPaciente || v.cpfPaciente || $("agilCpfPaciente")?.value || $("cpfPaciente")?.value || "");
   const cargo = state.aux?.cargo || state.cargo || v.cargo || $("agilCargo")?.value || $("cargo")?.value || "Não informado";
   const atd = state.atendimento || v.atendimento || $("atd")?.value || "—";
+  const diasSol = state.diasSolicitados || state.aux?.diasSolicitados || v.diasSolicitados || $("agilDiasSolicitados")?.value || $("diasSolicitados")?.value || "";
+  const dtDoc = state.dataDocumento || state.aux?.dataDocumento || v.dataDocumento || $("agilDataDocumento")?.value || $("dataDocumento")?.value || "";
+  const dtExp = state.aux?.dataExpedicao || state.dataExpedicao || v.dataExpedicao || $("agilDataExpedicao")?.value || $("dataExpedicao")?.value || "";
 
   if ($("ia2PatientNome")) $("ia2PatientNome").textContent = nome;
   if ($("ia2PatientCpf")) $("ia2PatientCpf").textContent = cpf || "Não informado";
   if ($("ia2PatientCargo")) $("ia2PatientCargo").textContent = cargo;
   if ($("ia2PatientAtd")) $("ia2PatientAtd").textContent = atd;
+  if ($("ia2PatientDataAtestado")) $("ia2PatientDataAtestado").textContent = formatarDataIsoParaBr(dtDoc) || "—";
+  if ($("ia2PatientDias")) $("ia2PatientDias").textContent = diasSol ? `${diasSol} dia${diasSol > 1 ? "s" : ""}` : "—";
+  if ($("ia2PatientExpedicao")) $("ia2PatientExpedicao").textContent = formatarDataIsoParaBr(dtExp) || "—";
+
+  if (typeof recalcularRetroacaoAgil === "function") {
+    try { recalcularRetroacaoAgil(); } catch (e) { /* ignore */ }
+  }
+
+  const isRetroInvalida = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  const badgeRetroBarra = $("ia2BadgeRetroacaoBarra");
+  if (badgeRetroBarra) {
+    badgeRetroBarra.style.display = isRetroInvalida ? "inline-flex" : "none";
+  }
 
   document.body.classList.add("modo-ia2-active");
   const container = $("containerModoIA2");
@@ -2655,6 +2681,61 @@ function inserirExemploEscritaIA2() {
   }
 }
 
+// Variáveis de Controle da Decisão Pericial do Médico (Modo IA 2.0)
+let ia2DecisaoParecerEscolhido = "FAVORÁVEL";
+let ia2DecisaoExameEscolhido = "Alterado";
+let ia2DecisaoDiasModo = "original";
+let ia2DecisaoDiasValorOriginal = 0;
+let ia2DecisaoOrigemPendente = null;
+let ia2DecisaoTextoPendente = "";
+
+// Modelos Clínicos Rápidos de Apoio para Modo Escrita
+function inserirTemplateClinicoEscritaIA2(tipo) {
+  const ta = $("ia2EscritaText");
+  if (!ta) return;
+
+  const templates = {
+    lombar: `QUEIXA PRINCIPAL: Dor lombar intensa com irradiação para membro inferior e limitação funcional para flexão da coluna e esforço físico.
+INÍCIO DOS SINTOMAS: Iniciou há 3 dias após movimentação atípica no trabalho.
+TRATAMENTO: Em uso de anti-inflamatório (cetoprofeno 150mg) e analgésico potente. Nega cirurgias prévias de coluna.
+EXAME FÍSICO: Marcha claudicante antiálgica, dor à palpação de musculatura paravertebral lombo-sacra com contratura muscular reflexa. Amplitude de movimento reduzida para flexão e rotação lombar. Teste de Lasègue negativo.
+DOCUMENTOS: Apresentou atestado médico assistente recomendando repouso.`,
+
+    respiratorio: `QUEIXA PRINCIPAL: Síndrome gripal com febre aferida, tosse produtiva, coriza hialina, cefaleia e mialgia generalizada.
+INÍCIO DOS SINTOMAS: Iniciou há 2 dias com evolução aguda.
+TRATAMENTO: Em uso de sintomáticos (dipirona, hidratação oral vigorosa e repouso domiciliar).
+EXAME FÍSICO: Bom estado geral, corado, hidratado, afebril no momento da perícia. Ausculta pulmonar com murmúrio vesicular universalmente audível, sem ruídos adventícios. Orofaringe sem placas exsudativas.
+DOCUMENTOS: Atestado emitido com indicação de afastamento temporário para recuperação.`,
+
+    mental: `QUEIXA PRINCIPAL: Sintomas ansiosos e depressivos reativos, com insônia intermediária, fadiga mental e labilidade emocional no contexto ocupacional.
+INÍCIO DOS SINTOMAS: Quadro insidioso com intensificação significativa nas últimas semanas.
+TRATAMENTO: Acompanhamento psiquiátrico com uso de antidepressivo e psicoterapia semanal.
+EXAME DO ESTADO MENTAL: Vigil, orientado no tempo e no espaço, contato e afeto preservados, congruente com o humor hipotímico, sem delírios ou ideação suicida ativa.
+DOCUMENTOS: Relatório médico detalhado emitido por médico psiquiatra assistente.`,
+
+    retrospectivo: `QUEIXA PRINCIPAL: Perícia retrospectiva. Servidor comparece para homologação de atestado de período anterior já cumprido.
+HISTÓRICO: Relata quadro incapacitante durante os dias do atestado, com melhora gradual após cumprimento do repouso domiciliar e uso das medicações prescritas.
+EXAME FÍSICO PERICIAL: No presente ato pericial, apresenta exame físico sem alterações agudas em razão do tempo decorrido e da convalescença clínica.
+DOCUMENTOS: Atestado médico tempestivo apresentado dentro do prazo regulamentar comprobatório da incapacidade à época.`
+  };
+
+  const texto = templates[tipo] || "";
+  if (!texto) return;
+
+  if (ta.value && ta.value.trim().length > 0) {
+    if (!confirm("O campo já contém texto. Deseja substituir pelo modelo selecionado? (Clique 'Cancelar' para apenas adicionar ao final)")) {
+      ta.value += "\n\n" + texto;
+      atualizarContadorEscritaIA2();
+      toast("Modelo adicionado ao final das anotações.");
+      return;
+    }
+  }
+
+  ta.value = texto;
+  atualizarContadorEscritaIA2();
+  toast("Modelo clínico inserido com sucesso!");
+}
+
 // Finalização do Modo IA 2.0
 function finalizarAtendimentoIA2(origem) {
   if (origem === "gravacao") {
@@ -2690,14 +2771,14 @@ function finalizarAtendimentoIA2(origem) {
       alert("A transcrição da gravação está vazia. Inicie a conversa ou digite observações antes de finalizar.");
       return;
     }
-    executarPreenchimentoIA2(txt, "gravacao");
+    abrirModalDecisaoMedicoIA2("gravacao", txt);
   } else if (origem === "escrita") {
     const txt = ($("ia2EscritaText")?.value || "").trim();
     if (!txt) {
       alert("Por favor, cole as anotações do atendimento ou digite as informações periciais antes de finalizar.");
       return;
     }
-    executarPreenchimentoIA2(txt, "escrita");
+    abrirModalDecisaoMedicoIA2("escrita", txt);
   }
 }
 
@@ -2710,7 +2791,132 @@ function confirmarFinalizacaoIA2MesmoComPendencias() {
   fecharModalAvisoColinhaIA2();
   salvarEdicaoVisualIA2();
   const txt = ($("ia2GravacaoTranscricao")?.value || "").trim();
-  executarPreenchimentoIA2(txt, "gravacao");
+  abrirModalDecisaoMedicoIA2("gravacao", txt);
+}
+
+// Modal de Decisão Discreta do Médico Perito
+function abrirModalDecisaoMedicoIA2(origem, texto) {
+  ia2DecisaoOrigemPendente = origem;
+  ia2DecisaoTextoPendente = texto || "";
+
+  syncState();
+  const v = values();
+  const diasSolStr = state.diasSolicitados || state.aux?.diasSolicitados || v.diasSolicitados || $("agilDiasSolicitados")?.value || $("diasSolicitados")?.value || "0";
+  const diasNum = parseInt(diasSolStr, 10) || 0;
+  ia2DecisaoDiasValorOriginal = diasNum;
+
+  const txtDiasOrig = $("ia2DecisaoDiasOriginalTexto");
+  if (txtDiasOrig) {
+    txtDiasOrig.textContent = diasNum > 0 ? String(diasNum) : "0";
+  }
+
+  const inputCustom = $("ia2DecisaoDiasInput");
+  if (inputCustom) {
+    inputCustom.value = diasNum > 0 ? String(diasNum) : "";
+  }
+
+  if (typeof recalcularRetroacaoAgil === "function") {
+    try { recalcularRetroacaoAgil(); } catch (e) { /* ignore */ }
+  }
+
+  const isRetroInvalida = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  const retroDias = state.aux?.retroacaoDias || state.retroacaoDias || 0;
+
+  const alertRetro = $("ia2DecisaoRetroAlerta");
+  const alertInfo = $("ia2DecisaoRetroInformativo");
+
+  if (isRetroInvalida) {
+    if (alertRetro) {
+      alertRetro.style.display = "block";
+      alertRetro.innerHTML = `
+        <strong style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px">
+          <span>⛔</span> Guia Expedida Fora do Prazo Regulamentar (${retroDias} dias de retroação > 3 dias)
+        </strong>
+        <span>A guia pericial foi emitida além do prazo legal de 3 dias do atestado. Pela regulamentação DPME/SP, o parecer administrativo é <strong>CONTRÁRIO</strong>, exceto se comprovado internamento hospitalar.</span>
+      `;
+    }
+    if (alertInfo) alertInfo.style.display = "none";
+    selecionarDecisaoParecerIA2("CONTRÁRIO");
+    selecionarDecisaoExameIA2("Normal");
+    atualizarDecisaoDiasIA2("zero");
+  } else {
+    if (alertRetro) alertRetro.style.display = "none";
+    if (alertInfo) alertInfo.style.display = "block";
+    selecionarDecisaoParecerIA2("FAVORÁVEL");
+    selecionarDecisaoExameIA2("Alterado");
+    atualizarDecisaoDiasIA2("original");
+  }
+
+  const obsEl = $("ia2DecisaoObsMedico");
+  if (obsEl) obsEl.value = "";
+
+  const modal = $("ia2ModalDecisaoMedico");
+  if (modal) modal.style.display = "flex";
+}
+
+function fecharModalDecisaoMedicoIA2() {
+  const modal = $("ia2ModalDecisaoMedico");
+  if (modal) modal.style.display = "none";
+}
+
+function selecionarDecisaoParecerIA2(parecer) {
+  ia2DecisaoParecerEscolhido = parecer;
+  const cFav = $("ia2DecisaoCardFav");
+  const cContr = $("ia2DecisaoCardContr");
+
+  if (parecer === "FAVORÁVEL") {
+    if (cFav) cFav.className = "ia2-decision-card selected-fav";
+    if (cContr) cContr.className = "ia2-decision-card";
+    if (ia2DecisaoDiasModo === "zero") {
+      atualizarDecisaoDiasIA2("original");
+    }
+  } else {
+    if (cFav) cFav.className = "ia2-decision-card";
+    if (cContr) cContr.className = "ia2-decision-card selected-contr";
+    atualizarDecisaoDiasIA2("zero");
+  }
+}
+
+function selecionarDecisaoExameIA2(tipo) {
+  ia2DecisaoExameEscolhido = tipo;
+  const cAlt = $("ia2DecisaoExameAlterado");
+  const cNorm = $("ia2DecisaoExameNormal");
+  const cDoc = $("ia2DecisaoExameDoc");
+
+  if (cAlt) cAlt.className = (tipo === "Alterado" ? "ia2-decision-card selected-opt" : "ia2-decision-card");
+  if (cNorm) cNorm.className = (tipo === "Normal" ? "ia2-decision-card selected-opt" : "ia2-decision-card");
+  if (cDoc) cDoc.className = (tipo === "Documental" ? "ia2-decision-card selected-opt" : "ia2-decision-card");
+}
+
+function atualizarDecisaoDiasIA2(modo) {
+  ia2DecisaoDiasModo = modo;
+  const rOrig = $("ia2RadioDiasOriginal");
+  const rCust = $("ia2RadioDiasCustom");
+  const rZero = $("ia2RadioDiasZero");
+
+  if (rOrig) rOrig.checked = (modo === "original");
+  if (rCust) rCust.checked = (modo === "custom");
+  if (rZero) rZero.checked = (modo === "zero");
+}
+
+function confirmarDecisaoEEstruturarIA2() {
+  let diasFinal = ia2DecisaoDiasValorOriginal;
+  if (ia2DecisaoDiasModo === "zero") {
+    diasFinal = 0;
+  } else if (ia2DecisaoDiasModo === "custom") {
+    const val = parseInt($("ia2DecisaoDiasInput")?.value, 10);
+    diasFinal = !isNaN(val) && val >= 0 ? val : ia2DecisaoDiasValorOriginal;
+  }
+
+  const decisaoMedico = {
+    parecer: ia2DecisaoParecerEscolhido,
+    exameFisicoResultado: ia2DecisaoExameEscolhido,
+    diasConcedidos: diasFinal,
+    observacoesMedico: ($("ia2DecisaoObsMedico")?.value || "").trim()
+  };
+
+  fecharModalDecisaoMedicoIA2();
+  executarPreenchimentoIA2(ia2DecisaoTextoPendente, ia2DecisaoOrigemPendente, decisaoMedico);
 }
 
 function atualizarOverlayIA2Passo(passo, mensagem, porcentagem) {
@@ -2748,7 +2954,7 @@ function atualizarOverlayIA2Passo(passo, mensagem, porcentagem) {
   }
 }
 
-async function executarPreenchimentoIA2(texto, origem) {
+async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
   if (ia2Gravando) {
     pausarGravacaoIA2();
   }
@@ -2788,6 +2994,7 @@ async function executarPreenchimentoIA2(texto, origem) {
       atendimento: state.atendimento || $("atd")?.value || "",
       modo_ia2: true,
       origem_modo_ia2: origem,
+      decisao_medico: decisaoMedico,
       impersonate_medico_id: (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('ambiental.impersonate_medico_id') : null),
       contexto_atual: {
         nomePaciente: state.nomePaciente || state.aux?.nomePaciente || "",
@@ -2831,6 +3038,25 @@ async function executarPreenchimentoIA2(texto, origem) {
     // Preenchimento de forma oculta no prontuário
     aplicarPreenchimentoIAResultado(dados);
 
+    // Assegurar aplicação soberana das escolhas do médico perito
+    if (decisaoMedico) {
+      if (decisaoMedico.parecer) {
+        state.parecer = decisaoMedico.parecer;
+        if ($("parecer")) $("parecer").value = decisaoMedico.parecer;
+        if ($("agilParecer")) $("agilParecer").value = decisaoMedico.parecer;
+        if (typeof setRadio === "function") {
+          setRadio("parecer", decisaoMedico.parecer);
+          setRadio("agilParecer", decisaoMedico.parecer);
+        }
+      }
+      if (typeof decisaoMedico.diasConcedidos !== "undefined" && decisaoMedico.diasConcedidos !== null) {
+        const dStr = String(decisaoMedico.diasConcedidos);
+        state.diasSolicitados = dStr;
+        if ($("diasSolicitados")) $("diasSolicitados").value = dStr;
+        if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = dStr;
+      }
+    }
+
     if (typeof autoSave === "function") {
       autoSave();
     }
@@ -2867,7 +3093,10 @@ function abrirModalSucessoIA2(dados) {
 
   if ($("ia2SucessoCid")) $("ia2SucessoCid").textContent = cid;
   if ($("ia2SucessoCidDesc")) $("ia2SucessoCidDesc").textContent = cidDesc;
-  if ($("ia2SucessoParecer")) $("ia2SucessoParecer").textContent = parecer;
+  if ($("ia2SucessoParecer")) {
+    $("ia2SucessoParecer").textContent = parecer;
+    $("ia2SucessoParecer").style.color = (String(parecer).toUpperCase().includes("CONT") ? "#DC2626" : "#059669");
+  }
   if ($("ia2SucessoDias")) $("ia2SucessoDias").textContent = `${dias} dia(s) concedido(s)`;
   if ($("ia2SucessoExameTipo")) $("ia2SucessoExameTipo").textContent = exame;
   if ($("ia2SucessoSinaisVitais")) $("ia2SucessoSinaisVitais").textContent = `PA: ${sis}/${dia} mmHg`;
@@ -3032,6 +3261,13 @@ window.limparTranscricaoIA2 = limparTranscricaoIA2;
 window.finalizarAtendimentoIA2 = finalizarAtendimentoIA2;
 window.fecharModalAvisoColinhaIA2 = fecharModalAvisoColinhaIA2;
 window.confirmarFinalizacaoIA2MesmoComPendencias = confirmarFinalizacaoIA2MesmoComPendencias;
+window.abrirModalDecisaoMedicoIA2 = abrirModalDecisaoMedicoIA2;
+window.fecharModalDecisaoMedicoIA2 = fecharModalDecisaoMedicoIA2;
+window.selecionarDecisaoParecerIA2 = selecionarDecisaoParecerIA2;
+window.selecionarDecisaoExameIA2 = selecionarDecisaoExameIA2;
+window.atualizarDecisaoDiasIA2 = atualizarDecisaoDiasIA2;
+window.confirmarDecisaoEEstruturarIA2 = confirmarDecisaoEEstruturarIA2;
+window.inserirTemplateClinicoEscritaIA2 = inserirTemplateClinicoEscritaIA2;
 window.sincronizarEsislaSucessoIA2 = sincronizarEsislaSucessoIA2;
 window.fecharModalSucessoIA2 = fecharModalSucessoIA2;
 window.revisarProntuarioAbertoIA2 = revisarProntuarioAbertoIA2;
@@ -5516,9 +5752,39 @@ function focusValidationItem(step,label){
 }
 
 function renderParecerHint(){
-  const p=getRadio("parecer");
-  $("parecerHint").textContent=p==="CONTRÁRIO"?"Parecer CONTRÁRIO selecionado. Garanta que a justificativa esteja preenchida e coerente com os achados.":p==="FAVORÁVEL"?"Parecer FAVORÁVEL selecionado. Garanta que a justificativa esteja preenchida e coerente com os achados.":"Selecione o parecer definido pelo médico.";
+  const p = getRadio("parecer");
+  const isRetroInvalida = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+
+  if (p === "FAVORÁVEL" && isRetroInvalida) {
+    toast("⛔ Guia com retroação > 3 dias. Pelo regulamento oficial DPME/SP, o parecer é obrigatoriamente CONTRÁRIO.");
+    state.parecer = "CONTRÁRIO";
+    if (!state.aux) state.aux = {};
+    state.aux.parecer = "CONTRÁRIO";
+    setRadio("parecer", "CONTRÁRIO");
+    setRadio("agilParecer", "CONTRÁRIO");
+    aplicarParecerContrarioRetroacao();
+    return;
+  }
+
+  $("parecerHint").textContent = p === "CONTRÁRIO"
+    ? "Parecer CONTRÁRIO selecionado. Garanta que a justificativa esteja preenchida e coerente com os achados."
+    : p === "FAVORÁVEL"
+      ? (state.outrosResultado === "Normal" ? "Parecer FAVORÁVEL selecionado (Homologação Retrospectiva com Exame Físico Normal)." : "Parecer FAVORÁVEL selecionado. Garanta que a justificativa esteja preenchida e coerente com os achados.")
+      : "Selecione o parecer definido pelo médico.";
+
   if (p === "FAVORÁVEL") {
+    state.limitacaoFuncional = "Sim";
+    state.limitacaoRol = "Sim";
+    setRadio("limitacaoFuncional", "Sim");
+    setRadio("limitacaoRol", "Sim");
+    state.capacidade = "Capacidade parcial e temporariamente prejudicada";
+    setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
+    if (typeof QuesitoService !== "undefined") {
+      QuesitoService.set(0, "Sim");
+      QuesitoService.set(1, "Sim");
+      QuesitoService.set(2, "Sim");
+      if (typeof renderQuesitos === "function") renderQuesitos();
+    }
     const curLim = state.descLimitacao || state.aux?.descLimitacao || "";
     if (!curLim || isContraryLimitationText(curLim)) {
       const novaLim = (typeof gerarNarrativaLimitacoesMelhoriaContinua === "function") ? gerarNarrativaLimitacoesMelhoriaContinua(state, values()) : "";
@@ -5529,6 +5795,9 @@ function renderParecerHint(){
         if ($("descLimitacao")) $("descLimitacao").value = novaLim;
         if ($("agilSintomasLimitacao")) $("agilSintomasLimitacao").value = novaLim;
       }
+    }
+    if (state.outrosResultado === "Normal") {
+      if (typeof concederMesmosDiasAtestado === "function") concederMesmosDiasAtestado();
     }
   }
 }
@@ -7637,33 +7906,66 @@ function escolherOutrosResultado(resultado) {
   state.aux.resultadoAvaliacao = resultado;
   renderOutrosUI();
 
-  // "mas não preencha os campos, pois ainda não temos uma base para eles."
-  // O médico redige os achados clínicos ou usa IA para gerar a justificativa.
+  const isRetroInvalida = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  const parecerAtual = String(state.parecer || state.aux?.parecer || $("agilParecer")?.value || $("parecer")?.value || "").toUpperCase();
+  const isParecerFav = (parecerAtual === "FAVORÁVEL" || parecerAtual === "FAVORAVEL");
+
   if (resultado === "Normal") {
-    state.limitacaoFuncional = "Não";
-    state.limitacaoRol = "Não";
-    setRadio("limitacaoFuncional", "Não");
-    setRadio("limitacaoRol", "Não");
-    state.capacidade = "Capacidade laborativa preservada";
-    setRadio("capacidade", "Capacidade laborativa preservada");
-    state.parecer = "CONTRÁRIO";
-    setRadio("parecer", "CONTRÁRIO");
-    ajustarQuesitosPorParecerEReadaptacao();
-    if (typeof atualizarDiasConcedidosAutomatico === "function") atualizarDiasConcedidosAutomatico();
-    toast(`Avaliação (${state.outrosSubtipo || "Outros"}): NORMAL.`);
+    if (isRetroInvalida) {
+      aplicarParecerContrarioRetroacao();
+      toast(`Avaliação: NORMAL • Parecer CONTRÁRIO obrigatório por retroação inválida (> 3 dias).`);
+    } else if (isParecerFav) {
+      // Perícia Retrospectiva / Homologação Pretérita: Exame físico atual normal por recuperação, mantendo parecer favorável para os dias do atestado
+      state.limitacaoFuncional = "Sim";
+      state.limitacaoRol = "Sim";
+      setRadio("limitacaoFuncional", "Sim");
+      setRadio("limitacaoRol", "Sim");
+      state.capacidade = "Capacidade parcial e temporariamente prejudicada";
+      setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
+      state.parecer = "FAVORÁVEL";
+      setRadio("parecer", "FAVORÁVEL");
+      if (typeof QuesitoService !== "undefined") {
+        QuesitoService.set(0, "Sim");
+        QuesitoService.set(1, "Sim");
+        QuesitoService.set(2, "Sim");
+        renderQuesitos();
+      }
+      if (typeof concederMesmosDiasAtestado === "function") concederMesmosDiasAtestado();
+      toast(`Avaliação: NORMAL • Homologação Retrospectiva: Parecer FAVORÁVEL mantido para o período do atestado.`);
+    } else {
+      state.limitacaoFuncional = "Não";
+      state.limitacaoRol = "Não";
+      setRadio("limitacaoFuncional", "Não");
+      setRadio("limitacaoRol", "Não");
+      state.capacidade = "Capacidade laborativa preservada";
+      setRadio("capacidade", "Capacidade laborativa preservada");
+      state.parecer = "CONTRÁRIO";
+      setRadio("parecer", "CONTRÁRIO");
+      ajustarQuesitosPorParecerEReadaptacao();
+      if (typeof atualizarDiasConcedidosAutomatico === "function") atualizarDiasConcedidosAutomatico();
+      toast(`Avaliação (${state.outrosSubtipo || "Outros"}): NORMAL.`);
+    }
   } else if (resultado === "Alterado") {
-    state.limitacaoFuncional = "Sim";
-    state.limitacaoRol = "Sim";
-    setRadio("limitacaoFuncional", "Sim");
-    setRadio("limitacaoRol", "Sim");
-    state.capacidade = "Capacidade parcial e temporariamente prejudicada";
-    setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
-    state.parecer = "FAVORÁVEL";
-    setRadio("parecer", "FAVORÁVEL");
-    QuesitoService.set(0, "Sim");
-    QuesitoService.set(1, "Sim");
-    QuesitoService.set(2, "Sim");
-    renderQuesitos();
+    if (isRetroInvalida) {
+      aplicarParecerContrarioRetroacao();
+      toast(`Avaliação: ALTERADO • Parecer CONTRÁRIO mantido por retroação da guia (> 3 dias).`);
+    } else {
+      state.limitacaoFuncional = "Sim";
+      state.limitacaoRol = "Sim";
+      setRadio("limitacaoFuncional", "Sim");
+      setRadio("limitacaoRol", "Sim");
+      state.capacidade = "Capacidade parcial e temporariamente prejudicada";
+      setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
+      state.parecer = "FAVORÁVEL";
+      setRadio("parecer", "FAVORÁVEL");
+      if (typeof QuesitoService !== "undefined") {
+        QuesitoService.set(0, "Sim");
+        QuesitoService.set(1, "Sim");
+        QuesitoService.set(2, "Sim");
+        renderQuesitos();
+      }
+    }
+  }
 
     // Limitações funcionais baseadas no CID aplicado e nas atividades do cargo (sem descrever exame físico)
     const cidVal = state.cid || state.aux?.cid || $("cid")?.value || $("agilCid")?.value || "";
@@ -9138,6 +9440,12 @@ function calcularDatasAtestado() {
   }
 
   if (diffDays > 3) {
+    if (!state.aux) state.aux = {};
+    state.aux.retroacaoInvalida = true;
+    state.aux.retroacaoDias = diffDays;
+    state.retroacaoInvalida = true;
+    state.retroacaoDias = diffDays;
+
     if (alertBadge) {
       alertBadge.style.display = "inline-flex";
       alertBadge.innerHTML = `⚠️ Retroação Inválida: ${diffDays} dias (> 3 dias)`;
@@ -9163,7 +9471,35 @@ function calcularDatasAtestado() {
       `;
     }
     if (btnContrario) btnContrario.style.display = "inline-flex";
+
+    // Exibir alerta ao lado dos botões de Finalizar Atendimento
+    const avisoFin = $("retroacaoFinalizarAviso");
+    const avisoFinTxt = $("retroacaoFinalizarAvisoTxt");
+    if (avisoFin) {
+      avisoFin.style.display = "inline-flex";
+      if (avisoFinTxt) avisoFinTxt.textContent = `Guia fora do prazo (${diffDays} dias de retroação > 3 dias) • Parecer CONTRÁRIO`;
+    }
+    const avisoHead = $("retroacaoHeaderAviso");
+    if (avisoHead) {
+      avisoHead.style.display = "inline-flex";
+      avisoHead.textContent = `⛔ Guia fora do prazo (${diffDays} dias) • CONTRÁRIO`;
+    }
+    const avisoIA2G = $("ia2RetroacaoAvisoGravacao");
+    if (avisoIA2G) avisoIA2G.style.display = "inline-flex";
+    const avisoIA2E = $("ia2RetroacaoAvisoEscrita");
+    if (avisoIA2E) avisoIA2E.style.display = "inline-flex";
+
+    // Aplicação automática de Parecer Contrário por retroação inválida
+    if (state.parecer !== "CONTRÁRIO" || state.aux?.parecer !== "CONTRÁRIO") {
+      aplicarParecerContrarioRetroacao();
+    }
   } else {
+    if (!state.aux) state.aux = {};
+    state.aux.retroacaoInvalida = false;
+    state.aux.retroacaoDias = diffDays;
+    state.retroacaoInvalida = false;
+    state.retroacaoDias = diffDays;
+
     if (alertBadge) {
       alertBadge.style.display = "none";
       alertBadge.style.background = "#FFEDD5";
@@ -9172,6 +9508,15 @@ function calcularDatasAtestado() {
     }
     if (alertExp) alertExp.style.display = "none";
     if (btnContrario) btnContrario.style.display = "none";
+
+    const avisoFin = $("retroacaoFinalizarAviso");
+    if (avisoFin) avisoFin.style.display = "none";
+    const avisoHead = $("retroacaoHeaderAviso");
+    if (avisoHead) avisoHead.style.display = "none";
+    const avisoIA2G = $("ia2RetroacaoAvisoGravacao");
+    if (avisoIA2G) avisoIA2G.style.display = "none";
+    const avisoIA2E = $("ia2RetroacaoAvisoEscrita");
+    if (avisoIA2E) avisoIA2E.style.display = "none";
   }
 
   if (!isNaN(dias) && dias > 0) {
@@ -9189,7 +9534,20 @@ function calcularDatasAtestado() {
 }
 
 function aplicarParecerContrarioRetroacao() {
-  const justTexto = "Guia com mais de 3 dias de retroação, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão da guia.";
+  const cargo = state.aux?.cargo || state.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor";
+  const cidVal = state.cid || state.aux?.cid || $("agilCid")?.value || $("cid")?.value || "";
+  const cidInfo = typeof findCID === "function" ? findCID(cidVal) : null;
+  const cidNome = cidInfo?.n || state.aux?.doencaMotivo || "patologia em tratamento";
+  const sintomasExistentes = ($("agilSintomasLimitacao")?.value || state.aux?.sintomasLimitacao || state.sintomasLimitacao || state.descLimitacao || "").trim();
+
+  // Preservar e deixar a justificativa robusta e híbrida (clínica + administrativa DPME)
+  let justTexto = "";
+  if (sintomasExistentes && sintomasExistentes.length > 5 && !isContraryLimitationText(sintomasExistentes)) {
+    justTexto = `Embora o(a) periciado(a) tenha apresentado atestado e histórico com relato de ${sintomasExistentes.replace(/\.$/, "")}, e limitações para as atividades do cargo de ${cargo}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação em relação à data de emissão do atestado médico, não havendo comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo-normativo do DPME/SP, o parecer CONTRÁRIO.`;
+  } else {
+    justTexto = `Guia com mais de 3 dias de retroação, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão da guia, ensejando parecer CONTRÁRIO nos termos da diretriz regulamentar oficial do DPME/SP.`;
+  }
+
   state.parecer = "CONTRÁRIO";
   state.justificativa = justTexto;
   if (!state.aux) state.aux = {};
@@ -9212,8 +9570,13 @@ function aplicarParecerContrarioRetroacao() {
   setRadio("limitacaoFuncional", "Não");
   setRadio("limitacaoRol", "Não");
 
-  const cargo = state.aux?.cargo || state.cargo || "servidor";
-  const descLim = `Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de ${cargo}, constantes no rol de atividades.`;
+  // Descrição das limitações: MANTER o que foi relatado e deixar MAIOR e MAIS ROBUSTO
+  let descLim = "";
+  if (sintomasExistentes && sintomasExistentes.length > 5 && !isContraryLimitationText(sintomasExistentes)) {
+    descLim = `Apresentou histórico com relato de limitações funcionais decorrentes de ${cidVal ? cidVal + ' (' + cidNome + ')' : cidNome}, tais como: ${sintomasExistentes.replace(/\.$/, "")}, com repercussão para as tarefas que demandam higidez plena no rol de atividades do cargo de ${cargo}. Todavia, a guia pericial foi expedida com mais de 3 dias de retroação em relação ao atestado médico sem comprovação de internamento hospitalar, ensejando parecer administrativo CONTRÁRIO por determinação regulamentar oficial do DPME/SP.`;
+  } else {
+    descLim = `Apresentou relato de alterações clínicas associadas ao CID ${cidVal ? cidVal + ' (' + cidNome + ')' : cidNome}, porém a guia pericial foi expedida com mais de 3 dias de retroação em relação ao atestado médico sem comprovação de internação hospitalar, ensejando parecer administrativo CONTRÁRIO por determinação regulamentar oficial do DPME/SP.`;
+  }
   state.descLimitacao = descLim;
   state.aux.descLimitacao = descLim;
   if ($("descLimitacao")) $("descLimitacao").value = descLim;
@@ -9227,7 +9590,7 @@ function aplicarParecerContrarioRetroacao() {
   }
 
   autoSave();
-  toast("⛔ Parecer CONTRÁRIO aplicado por retroação inválida (> 3 dias).");
+  toast("⛔ Parecer CONTRÁRIO aplicado por retroação inválida (> 3 dias). Limitações clínicas e justificativa mantidas e robustecidas.");
 }
 window.aplicarParecerContrarioRetroacao = aplicarParecerContrarioRetroacao;
 
