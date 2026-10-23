@@ -1500,6 +1500,7 @@ window._ia2BaseTextGravacao = "";
 window._ia2BaseTextEscrita = "";
 window._ia2AbaTranscricaoAtual = "visual";
 window._ia2DuvidasLowConfidence = [];
+window.__ia2AudioBlobPendente = null;
 
 function destacarDuvidasHtml(texto, duvidasPersonalizadas = []) {
   if (!texto) return { html: "", totalDuvidas: 0 };
@@ -1804,7 +1805,12 @@ async function refinarDialogoComIA2(automatico = false) {
   if (_ia2RefinandoAtivo) return;
   const tArea = $("ia2GravacaoTranscricao");
   const rawText = (tArea?.value || "").trim();
-  const hasAudio = Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0;
+  const audioBlob = window.__ia2AudioBlobPendente || (
+    Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0
+      ? new Blob(ia2AudioChunks, { type: (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm" })
+      : null
+  );
+  const hasAudio = Boolean(audioBlob && audioBlob.size > 200);
 
   if (!hasAudio && rawText.length < 5) {
     if (!automatico) toast("Nenhuma gravação ou texto para refinar.");
@@ -1818,7 +1824,7 @@ async function refinarDialogoComIA2(automatico = false) {
     bar.style.display = "flex";
     if (barTxt) {
       barTxt.textContent = hasAudio 
-        ? "✨ IA Médica refinando áudio e reconhecendo perguntas periciais..." 
+        ? "✨ IA Gemini transcrevendo áudio, identificando vozes e separando falas..." 
         : "✨ IA Médica estruturando diálogo e reconhecendo perguntas...";
     }
   }
@@ -1826,9 +1832,9 @@ async function refinarDialogoComIA2(automatico = false) {
   try {
     const formData = new FormData();
     if (hasAudio) {
-      const mimeType = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
-      const blob = new Blob(ia2AudioChunks, { type: mimeType });
-      formData.append("audio", blob, "consulta.webm");
+      const mimeType = audioBlob.type || (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
+      const fileName = audioBlob.name || "consulta_pericial.webm";
+      formData.append("audio", audioBlob, fileName);
     }
     if (rawText) {
       formData.append("texto_rascunho", rawText);
@@ -2147,8 +2153,7 @@ async function iniciarGravacaoIA2() {
 
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRec) {
-    alert("Seu navegador não suporta o reconhecimento de voz nativo. Por favor, utilize o Google Chrome, Edge ou Brave.");
-    return;
+    console.warn("Reconhecimento de voz do navegador indisponível. O áudio será gravado diretamente via MediaRecorder para transcrição completa com IA Gemini.");
   }
 
   ia2Gravando = true;
@@ -2178,15 +2183,16 @@ async function iniciarGravacaoIA2() {
   if (badge) {
     badge.style.background = "#DCFCE7";
     badge.style.color = "#15803D";
-    badge.innerHTML = "🎙️ Microfone ativo e ouvindo consulta...";
+    badge.innerHTML = "🎙️ Microfone ativo e gravando consulta...";
   }
   if (wave) wave.classList.add("ia2-recording-active");
 
-  // 1. INICIAR SPEECH RECOGNITION SINCRONAMENTE NO EVENTO DE CLIQUE DO USUÁRIO
-  // Chamada síncrona dentro da ação do usuário garante permissão imediata e impede expiração da User Activation no Chrome/Edge
-  iniciarMotorSpeechRecognition();
+  // 1. Iniciar Speech Recognition se disponível (transcrição preliminar na tela)
+  if (SpeechRec) {
+    iniciarMotorSpeechRecognition();
+  }
 
-  // 2. DISPARAR GETUSERMEDIA EM SEGUNDO PLANO PARA O VU METER E BACKUP DE ÁUDIO
+  // 2. DISPARAR GETUSERMEDIA EM SEGUNDO PLANO PARA O VU METER E GRAVAÇÃO EM ALTA DEFINIÇÃO
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({
       audio: {
@@ -2257,16 +2263,24 @@ async function iniciarGravacaoIA2() {
         console.warn("AudioContext VU meter error:", vuErr);
       }
 
-      // Backup via MediaRecorder
+      // Gravação direta de áudio via MediaRecorder (Preserva chunks entre pausas)
       try {
         if (window.MediaRecorder) {
           const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
             ? "audio/webm;codecs=opus"
             : (MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "");
+          if (!Array.isArray(ia2AudioChunks)) {
+            ia2AudioChunks = [];
+          }
           ia2MediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-          ia2AudioChunks = [];
           ia2MediaRecorder.ondataavailable = (e) => {
-            if (e.data && e.data.size > 0) ia2AudioChunks.push(e.data);
+            if (e.data && e.data.size > 0) {
+              ia2AudioChunks.push(e.data);
+              const mType = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
+              window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mType });
+              const btnDl = $("ia2BtnDownloadAudio");
+              if (btnDl) btnDl.style.display = "inline-flex";
+            }
           };
           ia2MediaRecorder.start(250);
         }
@@ -2438,6 +2452,12 @@ function pausarGravacaoIA2() {
       ia2MediaRecorder.stop();
     } catch (_) {}
   }
+  if (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0) {
+    const mType = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
+    window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mType });
+    const btnDl = $("ia2BtnDownloadAudio");
+    if (btnDl) btnDl.style.display = "inline-flex";
+  }
 }
 
 function atualizarTimerDisplayIA2() {
@@ -2469,10 +2489,17 @@ function copiarTranscricaoIA2() {
 }
 
 function limparTranscricaoIA2() {
-  if (confirm("Deseja realmente limpar toda a transcrição atual?")) {
+  if (confirm("Deseja realmente limpar toda a transcrição e áudio gravados?")) {
     if ($("ia2GravacaoTranscricao")) $("ia2GravacaoTranscricao").value = "";
     window._ia2BaseTextGravacao = "";
     window._ia2DuvidasLowConfidence = [];
+    ia2AudioChunks = [];
+    window.__ia2AudioBlobPendente = null;
+    const btnDl = $("ia2BtnDownloadAudio");
+    if (btnDl) btnDl.style.display = "none";
+    if (typeof removerAudioImportadoIA2 === "function") {
+      removerAudioImportadoIA2();
+    }
     COLINHA_IA2_CONFIG.forEach(q => {
       ia2ColinhaStatus[q.id].matched = false;
       ia2ColinhaStatus[q.id].snippet = "";
@@ -2736,10 +2763,114 @@ DOCUMENTOS: Atestado médico tempestivo apresentado dentro do prazo regulamentar
   toast("Modelo clínico inserido com sucesso!");
 }
 
+// Funções de Gerenciamento de Áudio Externo e Download
+function abrirSeletorAudioIA2() {
+  const inp = $("ia2InputAudioFile");
+  if (inp) {
+    inp.value = "";
+    inp.click();
+  }
+}
+
+function processarArquivoAudioImportadoIA2(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const maxBytes = 32 * 1024 * 1024; // 32MB
+  if (file.size > maxBytes) {
+    alert("O arquivo de áudio selecionado excede o limite máximo permitido de 32 MB.");
+    input.value = "";
+    return;
+  }
+
+  window.__ia2AudioBlobPendente = file;
+  ia2AudioChunks = []; // substitui gravação anterior pelo arquivo importado
+
+  // Atualizar Banner e Player
+  const banner = $("ia2AudioBannerContainer");
+  const titulo = $("ia2AudioBannerTitulo");
+  const info = $("ia2AudioBannerInfo");
+  const player = $("ia2AudioPlayerPreview");
+  const badge = $("ia2GravacaoStatusBadge");
+
+  if (banner) banner.style.display = "flex";
+  if (titulo) titulo.textContent = `📁 ${file.name}`;
+  const mb = (file.size / (1024 * 1024)).toFixed(2);
+  if (info) info.textContent = `${file.type || 'Áudio pericial'} • ${mb} MB • Pronto para transcrição e diarização com IA Gemini`;
+  if (player) {
+    try {
+      player.src = URL.createObjectURL(file);
+      player.style.display = "inline-flex";
+    } catch (_) {}
+  }
+  if (badge) {
+    badge.style.background = "#DCFCE7";
+    badge.style.color = "#15803D";
+    badge.innerHTML = "✅ Áudio carregado (pronto para IA)";
+  }
+
+  const btnDl = $("ia2BtnDownloadAudio");
+  if (btnDl) btnDl.style.display = "none";
+
+  toast(`🎵 Arquivo de áudio "${file.name}" carregado com sucesso!`);
+}
+
+function removerAudioImportadoIA2() {
+  window.__ia2AudioBlobPendente = null;
+  const banner = $("ia2AudioBannerContainer");
+  if (banner) banner.style.display = "none";
+  const player = $("ia2AudioPlayerPreview");
+  if (player) {
+    try {
+      player.pause();
+      player.src = "";
+    } catch (_) {}
+  }
+  const badge = $("ia2GravacaoStatusBadge");
+  if (badge && !ia2Gravando) {
+    badge.style.background = "#F1F5F9";
+    badge.style.color = "#64748B";
+    badge.innerHTML = "⏹️ Pronto para iniciar";
+  }
+  const inp = $("ia2InputAudioFile");
+  if (inp) inp.value = "";
+  toast("Arquivo de áudio removido.");
+}
+
+function baixarGravacaoAudioIA2() {
+  const blob = window.__ia2AudioBlobPendente || (
+    Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0
+      ? new Blob(ia2AudioChunks, { type: (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm" })
+      : null
+  );
+  if (!blob) {
+    toast("Nenhuma gravação de áudio disponível para download.");
+    return;
+  }
+  const atdId = state.atendimento || $("atd")?.value || "consulta";
+  const d = new Date().toISOString().slice(0, 10);
+  const ext = (blob.type && blob.type.includes("mp3")) ? "mp3" : "webm";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `atendimento_${atdId}_gravacao_${d}.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast("Gravação baixada com sucesso!");
+}
+
 // Finalização do Modo IA 2.0
 function finalizarAtendimentoIA2(origem) {
   if (origem === "gravacao") {
+    if (ia2Gravando) {
+      pausarGravacaoIA2();
+    }
     salvarEdicaoVisualIA2();
+
+    if (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0 && !window.__ia2AudioBlobPendente) {
+      const mime = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
+      window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mime });
+    }
+
     const pendentes = COLINHA_IA2_CONFIG.filter(q => {
       const st = ia2ColinhaStatus[q.id];
       const isChecked = (st?.manualState !== undefined && st?.manualState !== null) ? st.manualState : st?.matched;
@@ -2766,9 +2897,10 @@ function finalizarAtendimentoIA2(origem) {
       return;
     }
 
+    const hasAudio = Boolean(window.__ia2AudioBlobPendente || (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0));
     const txt = ($("ia2GravacaoTranscricao")?.value || "").trim();
-    if (!txt) {
-      alert("A transcrição da gravação está vazia. Inicie a conversa ou digite observações antes de finalizar.");
+    if (!txt && !hasAudio) {
+      alert("A gravação está vazia. Inicie a conversa com a periciada, grave o áudio ou importe um arquivo de áudio antes de finalizar.");
       return;
     }
     abrirModalDecisaoMedicoIA2("gravacao", txt);
@@ -2790,6 +2922,10 @@ function fecharModalAvisoColinhaIA2() {
 function confirmarFinalizacaoIA2MesmoComPendencias() {
   fecharModalAvisoColinhaIA2();
   salvarEdicaoVisualIA2();
+  if (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0 && !window.__ia2AudioBlobPendente) {
+    const mime = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
+    window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mime });
+  }
   const txt = ($("ia2GravacaoTranscricao")?.value || "").trim();
   abrirModalDecisaoMedicoIA2("gravacao", txt);
 }
@@ -2962,17 +3098,29 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
     alternarDitadoVozEscritaIA2();
   }
 
-  atualizarOverlayIA2Passo(1, "🎙️ Captando áudio e texto da consulta médica...", 20);
+  atualizarOverlayIA2Passo(1, "🎙️ Captando áudio e decisões clínicas do médico perito...", 20);
 
   try {
     if (origem === "gravacao") {
       // Intervalo técnico para o MediaRecorder descarregar os buffers locais
       await new Promise(r => setTimeout(r, 200));
 
-      atualizarOverlayIA2Passo(2, "🧠 IA Médica estruturando diálogo (Médico x Paciente) e limpando ruídos...", 45);
+      const audioBlob = window.__ia2AudioBlobPendente || (
+        Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0
+          ? new Blob(ia2AudioChunks, { type: (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm" })
+          : null
+      );
+      const hasAudio = Boolean(audioBlob && audioBlob.size > 200);
+
+      if (hasAudio) {
+        atualizarOverlayIA2Passo(2, "🧠 IA Gemini analisando áudio, identificando vozes (Médica x Paciente) e limpando ruídos...", 45);
+      } else {
+        atualizarOverlayIA2Passo(2, "🧠 IA Médica estruturando diálogo (Médico x Paciente) e limpando ruídos...", 45);
+      }
+
       await refinarDialogoComIA2(true);
 
-      atualizarOverlayIA2Passo(3, "📋 Mapeando roteiro pericial oficial e identificando diagnósticos CIDs...", 70);
+      atualizarOverlayIA2Passo(3, "📋 Integrando parecer pericial, diretrizes e exame clínico...", 70);
 
       // Utiliza o texto pericial refinado e corrigido pela IA
       const textoRefinado = ($("ia2GravacaoTranscricao")?.value || "").trim();
@@ -2986,7 +3134,11 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
       atualizarOverlayIA2Passo(3, "📋 Mapeando parâmetros clínicos e CIDs...", 70);
     }
 
-    atualizarOverlayIA2Passo(4, "⚡ Preenchendo ficha e-SISLA e prontuário pericial...", 88);
+    if (!texto) {
+      throw new Error("Nenhum conteúdo ou áudio transcrito foi obtido para preenchimento. Verifique o microfone ou arquivo de áudio.");
+    }
+
+    atualizarOverlayIA2Passo(4, "⚡ Preenchendo ficha e-SISLA com parecer e regras oficiais...", 88);
     window.__ia2UltimoTextoProcessado = texto;
 
     const reqBody = {

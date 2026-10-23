@@ -96,7 +96,7 @@ DB_POOL_MAX = max(DB_POOL_MIN, int(os.getenv("DB_POOL_MAX", "4" if IS_SERVERLESS
 DB_POOL = None
 
 app = Flask(__name__, static_folder=BASE_DIR, static_url_path="")
-app.config.update(JSON_SORT_KEYS=False, MAX_CONTENT_LENGTH=16 * 1024 * 1024, REQUEST_ID_HEADER="X-Request-ID")
+app.config.update(JSON_SORT_KEYS=False, MAX_CONTENT_LENGTH=32 * 1024 * 1024, REQUEST_ID_HEADER="X-Request-ID")
 
 install_observability(app)
 app.register_blueprint(bp_atendimentos)
@@ -8116,7 +8116,20 @@ def api_ai_refinar_dialogo_ia2():
         if "audio" in request.files:
             file = request.files["audio"]
             audio_bytes = file.read()
-            mime_type = file.mimetype or "audio/webm"
+            raw_mime = (file.mimetype or "").lower()
+            filename = (getattr(file, "filename", "") or "").lower()
+            if filename.endswith(".mp3") or "mpeg" in raw_mime or "mp3" in raw_mime:
+                mime_type = "audio/mp3"
+            elif filename.endswith(".wav") or "wav" in raw_mime:
+                mime_type = "audio/wav"
+            elif filename.endswith(".m4a") or filename.endswith(".mp4") or "mp4" in raw_mime or "m4a" in raw_mime:
+                mime_type = "audio/mp4"
+            elif filename.endswith(".ogg") or "ogg" in raw_mime:
+                mime_type = "audio/ogg"
+            elif filename.endswith(".webm") or "webm" in raw_mime:
+                mime_type = "audio/webm"
+            else:
+                mime_type = raw_mime or "audio/webm"
             texto_rascunho = request.form.get("texto_rascunho", "")
         elif request.is_json:
             data = request.get_json(silent=True) or {}
@@ -8125,9 +8138,14 @@ def api_ai_refinar_dialogo_ia2():
             if b64:
                 import base64
                 if "," in b64:
-                    b64 = b64.split(",", 1)[1]
+                    header, b64 = b64.split(",", 1)
+                    if "audio/" in header:
+                        mime_type = header.split(";")[0].replace("data:", "").strip()
                 audio_bytes = base64.b64decode(b64)
-                mime_type = data.get("mime_type", "audio/webm")
+                if not mime_type or mime_type == "application/octet-stream":
+                    mime_type = data.get("mime_type", "audio/webm")
+                if "mpeg" in mime_type:
+                    mime_type = "audio/mp3"
         else:
             texto_rascunho = request.form.get("texto_rascunho", "")
 
@@ -8154,21 +8172,21 @@ def api_ai_refinar_dialogo_ia2():
         )
 
         prompt = (
-            "Você é um perito médico e especialista em estruturação de diálogos clínicos periciais (medicina do trabalho / junta médica oficial).\n"
-            "Analise a conversa pericial entre o(a) Médico(a) Perito(a) e o(a) Periciado(a)/Servidor(a).\n\n"
+            "Você é um perito médico e especialista em inteligência clínica para estruturação de consultas periciais oficiais (medicina do trabalho / junta médica oficial).\n"
+            "Analise a consulta pericial entre a MÉDICA PERITA e o(a) PACIENTE/SERVIDOR.\n\n"
             "CONTEXTO FUNDAMENTAL:\n"
-            "Todo o texto coletado é uma consulta pericial oficial entre o MÉDICO PERITO e o(a) PACIENTE/SERVIDOR.\n"
-            "- O MÉDICO PERITO conduz a perícia fazendo as perguntas investigativas (idade, cargo, tempo de função, se é readaptado, data de diagnóstico da doença, sintomas limitantes, medicações, dosagens diárias, consultas, fisioterapia/psicoterapia).\n"
-            "- O PACIENTE/PERICIADO responde em primeira pessoa relatando sua situação, dores, limitações e tratamentos.\n\n"
+            "Todo o conteúdo é um atendimento médico pericial real entre a MÉDICA PERITA e o(a) PACIENTE/SERVIDOR.\n"
+            "- A MÉDICA PERITA conduz a perícia fazendo perguntas técnicas investigativas (idade, cargo, tempo de função, se é readaptado, data de diagnóstico da doença, sintomas limitantes, medicações, dosagens diárias, consultas, fisioterapia/psicoterapia).\n"
+            "- O(A) PACIENTE/PERICIADO(A) responde em primeira pessoa relatando sua situação, dores, sintomas, limitações funcionais e tratamentos.\n\n"
             f"As 11 Perguntas Oficiais do Roteiro Pericial (Colinha) são:\n{perguntas_referencia}\n\n"
             "DIRETRIZES OBRIGATÓRIAS:\n"
-            "1. CORREÇÃO FONÉTICA E DE MEDICAMENTOS: O áudio foi captado por reconhecimento de voz e pode conter palavras truncadas, distorcidas ou com erros fonéticos de transcrição. "
-            "Arrume e corrija termos médicos, nomes de remédios (ex: 'Dipirona injetável', 'Benzetacil injetável', 'Pregabalina', 'Sertralina', etc.), dosagens diárias (ex: '10 mg', '50 mg'), siglas de cargos (Policial Penal, PEB I, ASP, etc.) e termos anatômicos.\n"
-            "2. ELIMINAÇÃO DE RUÍDOS E DÚVIDAS: Em casos de dúvidas, palavras ininteligíveis, hesitações ('hum...', 'é...'), gaguejos, ruídos de fala ou contradições corrigidas pelo próprio paciente (ex: 'ano é 16 não é 2026' -> ajuste diretamente para '2016'), LIMPE E RETIRE o ruído! Deixe o texto pericial enxuto, limpo e objetivo. Não deixe palavras sem sentido.\n"
-            "3. SEPARAÇÃO ESTRUTURADA EM DIÁLOGO: Separe a conversa em pares estruturados de Diálogo: quem perguntou (Médico Perito) e quem respondeu (Periciado). Falas de introdução ou exames físicos rotule como tipo 'nota'.\n"
-            "4. RECONHECIMENTO SEMÂNTICO (NLP): Para cada par Q&A, identifique a qual dos 11 itens da Colinha ele corresponde (colinha_id entre 1 e 11, ou null se não for nenhuma das 11). Identifique pela INTENÇÃO da pergunta, mesmo que formulada com palavras diferentes.\n"
-            "5. DESTAQUE DE DÚVIDAS: Se houver alguma contradição clínica grave não resolvida, aponte em 'duvidas'. Se a dúvida foi corrigida ou era apenas ruído fonético, NÃO marque como dúvida.\n"
-            "6. Retorne ESTRITAMENTE um objeto JSON válido (sem comentários) no formato:\n"
+            "1. DIARIZAÇÃO POR TOM DE VOZ E ENTONAÇÃO: Quando houver áudio, diferencie com precisão quem está falando prestando atenção na mudança no tom de voz, timbre e entonação. A médica perita adota tom profissional e investigativo, formulando perguntas e orientações; o(a) paciente responde com entonação coloquial relatando queixas e dores.\n"
+            "2. TRANSCRIÇÃO DE ALTA PRECISÃO E CORREÇÃO FARMACOLÓGICA: Transcreva com fidelidade absoluta nomes de patologias, dosagens de remédios (ex: '20 mg/dia', '50 mg', '10 gotas'), horários/frequências e classes terapêuticas. Corrija possíveis distorções fonéticas comuns (ex: 'clonazepan' -> 'clonazepam', 'pregabalina', 'escitalopram', 'venlafaxina', 'dipirona', 'toragesic', 'tramadol', etc.).\n"
+            "3. ELIMINAÇÃO DE RUÍDOS E DÚVIDAS: Limpe e descarte hesitações ('hum...', 'é...'), gaguejos, ruídos de ambiente ou falas truncadas sem sentido. Se houver contradição corrigida na hora pelo paciente, registre a versão final corrigida. Em caso de ruído ambíguo ou incompreensível, SIMPLESMENTE REMOVA o trecho inútil para deixar o texto limpo, coeso e profissional.\n"
+            "4. SEPARAÇÃO ESTRUTURADA EM DIÁLOGO: Separe a conversa em pares estruturados de Diálogo: quem perguntou (Médico Perito) e quem respondeu (Periciado). Falas de introdução livre, anotações ou exames físicos rotule como tipo 'nota'.\n"
+            "5. RECONHECIMENTO SEMÂNTICO (NLP): Para cada par Q&A, identifique a qual dos 11 itens da Colinha ele corresponde (colinha_id entre 1 e 11, ou null se não for nenhuma das 11). Identifique pela INTENÇÃO da pergunta, mesmo que formulada com palavras diferentes.\n"
+            "6. DESTAQUE DE DÚVIDAS: Se houver alguma contradição clínica grave não resolvida, aponte em 'duvidas'. Se a dúvida era apenas hesitação ou ruído sonoro, NÃO marque como dúvida.\n"
+            "7. Retorne ESTRITAMENTE um objeto JSON válido (sem comentários) no formato:\n"
             "{\n"
             '  "dialogo": [\n'
             '    {\n'
@@ -8190,7 +8208,7 @@ def api_ai_refinar_dialogo_ia2():
         if has_audio:
             contents.append(types.Part.from_bytes(data=audio_bytes, mime_type=mime_type))
             if texto_rascunho:
-                prompt += f"\n\nContexto auxiliar da fala captada preliminarmente pelo navegador:\n\"\"\"{texto_rascunho}\"\"\""
+                prompt += f"\n\nContexto auxiliar da fala captada preliminarmente pelo navegador (use apenas como apoio suplementar):\n\"\"\"{texto_rascunho}\"\"\""
         else:
             prompt += f"\n\nTexto bruto captado da conversa por voz:\n\"\"\"{texto_rascunho}\"\"\""
 

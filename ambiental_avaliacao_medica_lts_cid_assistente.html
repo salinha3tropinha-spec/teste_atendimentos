@@ -229,6 +229,17 @@
           </div>
 
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <!-- Botão Importar Áudio Externo (MP3, WAV, M4A) -->
+            <button type="button" class="btn btn-outline btn-sm" onclick="abrirSeletorAudioIA2()" style="font-weight:700;display:flex;align-items:center;gap:6px" title="Importar gravação de áudio externa (.mp3, .wav, .m4a, .webm)">
+              <span>📁</span> Importar Áudio
+            </button>
+            <input type="file" id="ia2InputAudioFile" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="display:none" onchange="processarArquivoAudioImportadoIA2(this)">
+
+            <!-- Botão Baixar Áudio Gravado -->
+            <button type="button" id="ia2BtnDownloadAudio" class="btn btn-outline btn-sm" onclick="baixarGravacaoAudioIA2()" style="display:none;font-weight:700;align-items:center;gap:6px" title="Baixar arquivo de áudio da gravação pericial">
+              <span>📥</span> Baixar Áudio
+            </button>
+
             <button type="button" class="btn btn-outline btn-sm" onclick="trocarSubViewIA2('escrita')" style="font-weight:700">✍️ Modo Escrita</button>
             <div id="ia2RetroacaoAvisoGravacao" style="display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:#FEE2E2;border:1.5px solid #F87171;color:#991B1B;font-size:12px;font-weight:800">
               <span>⛔</span>
@@ -236,6 +247,23 @@
             </div>
             <button type="button" class="btn btn-green" onclick="finalizarAtendimentoIA2('gravacao')" style="font-weight:900;font-size:13px;padding:10px 20px;border-radius:10px;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;box-shadow:0 3px 12px rgba(16,185,129,0.35);display:flex;align-items:center;gap:8px">
               <span>🏁</span> Finalizar Atendimento
+            </button>
+          </div>
+        </div>
+
+        <!-- Banner de Áudio Carregado / Player de Áudio -->
+        <div id="ia2AudioBannerContainer" style="display:none;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px;padding:10px 16px;margin-bottom:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 6px rgba(16,185,129,0.08)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:36px;height:36px;border-radius:10px;background:#DCFCE7;display:flex;align-items:center;justify-content:center;font-size:18px">🎵</div>
+            <div>
+              <strong id="ia2AudioBannerTitulo" style="color:#166534;font-size:13px;display:block">Áudio da Consulta Carregado</strong>
+              <span id="ia2AudioBannerInfo" style="color:#15803D;font-size:11.5px">Pronto para transcrição multimodal e diarização com IA</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <audio id="ia2AudioPlayerPreview" controls style="height:32px;outline:none"></audio>
+            <button type="button" class="btn btn-outline btn-sm" onclick="removerAudioImportadoIA2()" style="color:#DC2626;border-color:#FCA5A5;font-size:12px;padding:4px 10px;font-weight:700" title="Remover este arquivo de áudio">
+              ✕ Remover
             </button>
           </div>
         </div>
@@ -2505,7 +2533,7 @@ Atestado de 15 dias do dia 29/09 por Z98.8 favorável."></textarea>
   </div>
 </div>
 
-<script src="/ambiental_assistente.js?v=2.0.2"></script>
+<script src="/ambiental_assistente.js?v=2.0.3"></script>
 </div> <!-- Fecha a div .app -->
 
 <script>window.addEventListener("pageshow",()=>{AmbientalAuth.me().then(p=>{if(!p) location.replace("/login.html?reason=expired");}).catch(()=>{});});</script></body>
