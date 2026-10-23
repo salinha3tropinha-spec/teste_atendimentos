@@ -7965,7 +7965,6 @@ function escolherOutrosResultado(resultado) {
         renderQuesitos();
       }
     }
-  }
 
     // Limitações funcionais baseadas no CID aplicado e nas atividades do cargo (sem descrever exame físico)
     const cidVal = state.cid || state.aux?.cid || $("cid")?.value || $("agilCid")?.value || "";
