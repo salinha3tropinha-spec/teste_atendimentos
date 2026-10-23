@@ -112,7 +112,13 @@ def _no_cache_dev_assets(response):
         response.headers["Pragma"] = "no-cache"
         response.add_etag()
         response.make_conditional(request)
-    elif any(request.path.endswith(ext) for ext in (".js", ".css", ".png", ".jpg", ".jpeg", ".svg", ".woff2", ".woff", ".ico")):
+    elif any(request.path.endswith(ext) for ext in (".js", ".css")):
+        if APP_ENV == "production":
+            response.headers["Cache-Control"] = "public, max-age=3600, stale-while-revalidate=600"
+        else:
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+    elif any(request.path.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".svg", ".woff2", ".woff", ".ico")):
         response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=3600"
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
