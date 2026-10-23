@@ -8001,6 +8001,138 @@ def api_ai_transcribe():
         return _error("AI_ERROR", f"Falha na transcrição: {str(exc)}", True, 500)
 
 
+@app.post("/api/ai/refinar-dialogo-ia2")
+def api_ai_refinar_dialogo_ia2():
+    try:
+        audio_bytes = None
+        mime_type = "audio/webm"
+        texto_rascunho = ""
+
+        if "audio" in request.files:
+            file = request.files["audio"]
+            audio_bytes = file.read()
+            mime_type = file.mimetype or "audio/webm"
+            texto_rascunho = request.form.get("texto_rascunho", "")
+        elif request.is_json:
+            data = request.get_json(silent=True) or {}
+            texto_rascunho = data.get("texto_rascunho", "")
+            b64 = data.get("audio", "")
+            if b64:
+                import base64
+                if "," in b64:
+                    b64 = b64.split(",", 1)[1]
+                audio_bytes = base64.b64decode(b64)
+                mime_type = data.get("mime_type", "audio/webm")
+        else:
+            texto_rascunho = request.form.get("texto_rascunho", "")
+
+        texto_rascunho = (texto_rascunho or "").strip()
+        has_audio = bool(audio_bytes and len(audio_bytes) > 200)
+
+        if not has_audio and not texto_rascunho:
+            return _error("VALIDATION_ERROR", "Nenhum áudio ou texto de diálogo enviado.", False, 400)
+
+        client = _client()
+
+        perguntas_referencia = (
+            "1. Qual é a sua idade ?\n"
+            "2. Qual é o seu cargo.\n"
+            "3. Quanto tempo está no cargo ?\n"
+            "4. É readaptado? Se sim, quais atividades exerce atualmente?\n"
+            "5. Qual foi a data do diagnóstico da doença ?\n"
+            "6. Qual doença está tratando que motivou o afastamento?\n"
+            "7. Com que frequência comparece às consultas?\n"
+            "8. Quais sintomas causam limitações para o trabalho?\n"
+            "9. Faz o uso de quais medicações?\n"
+            "10. Qual a dosagem (anotar mg/dia)? No caso de CID F, perguntar quando houve troca ou alteração das dosagens da medicação.\n"
+            "11. Faz psicoterapia ou fisioterapia?"
+        )
+
+        prompt = (
+            "Você é um perito médico e especialista em estruturação de diálogos clínicos periciais (medicina do trabalho / junta médica oficial).\n"
+            "Analise a conversa pericial entre o(a) Médico(a) Perito(a) e o(a) Periciado(a)/Servidor(a).\n\n"
+            f"As 11 Perguntas Oficiais do Roteiro Pericial (Colinha) são:\n{perguntas_referencia}\n\n"
+            "Diretrizes obrigatórias:\n"
+            "1. Transcreva com fidelidade e pontuação gramatical impecável (interrogações '?', vírgulas, pontos finais).\n"
+            "2. Corrija termos médicos foneticamente distorcidos, nomes de remédios (Pregabalina, Tramadol, Dipirona, Benzetacil, Sertralina, etc.), posologias, siglas de cargos públicos (Policial Penal, PEB I, ASP, etc.) e manobras clínicas.\n"
+            "3. Separe a conversa em pares estruturados de Diálogo: quem perguntou (Médico Perito) e quem respondeu (Periciado). Falas de introdução ou exames físicos rotule como tipo 'nota'.\n"
+            "4. RECONHECIMENTO SEMÂNTICO (NLP): Para cada par Q&A, identifique a qual dos 11 itens da Colinha ele corresponde (colinha_id entre 1 e 11, ou null se não for nenhuma das 11). Identifique pela INTENÇÃO da pergunta, mesmo que formulada com palavras diferentes.\n"
+            "5. DESTAQUE DE DÚVIDAS / INCONSISTÊNCIAS: Identifique trechos com contradições de datas/ano (ex: 'ano é 16 não é 2026'), posologias incomuns (ex: '10 mg' de dipirona), falhas fonéticas ou hesitações relevantes do periciado.\n"
+            "6. Retorne ESTRITAMENTE um objeto JSON válido (sem comentários) no formato:\n"
+            "{\n"
+            '  "dialogo": [\n'
+            '    {\n'
+            '      "tipo": "qa",\n'
+            '      "colinha_id": 1,\n'
+            '      "pergunta": "Qual a sua idade?",\n'
+            '      "resposta": "Tenho 22 anos.",\n'
+            '      "duvidas": []\n'
+            '    }\n'
+            '  ],\n'
+            '  "colinha_status": [\n'
+            '    { "id": 1, "matched": true, "snippet": "22 anos" }\n'
+            '  ],\n'
+            '  "texto_formatado": "Médico Perito: Qual a sua idade?\\nPericiado: Tenho 22 anos.\\n..."\n'
+            "}"
+        )
+
+        contents = []
+        if has_audio:
+            contents.append(types.Part.from_bytes(data=audio_bytes, mime_type=mime_type))
+            if texto_rascunho:
+                prompt += f"\n\nContexto auxiliar da fala captada preliminarmente pelo navegador:\n\"\"\"{texto_rascunho}\"\"\""
+        else:
+            prompt += f"\n\nTexto bruto captado da conversa por voz:\n\"\"\"{texto_rascunho}\"\"\""
+
+        contents.append(prompt)
+
+        models = [GEMINI_MODEL] + GEMINI_FALLBACK_MODELS
+        parsed_result = None
+        last_error = None
+
+        for model in models:
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config={"response_mime_type": "application/json"}
+                )
+                raw_text = str(response.text or "").strip()
+                if raw_text:
+                    import json
+                    if raw_text.startswith("```"):
+                        lines = raw_text.splitlines()
+                        if lines[0].startswith("```"):
+                            lines = lines[1:]
+                        if lines and lines[-1].startswith("```"):
+                            lines = lines[:-1]
+                        raw_text = "\n".join(lines).strip()
+                    parsed_result = json.loads(raw_text)
+                    break
+            except Exception as e:
+                app.logger.warning("Falha ao refinar diálogo com %s: %s", model, e)
+                last_error = e
+                continue
+
+        if not parsed_result:
+            return _error("AI_ERROR", f"Falha ao refinar diálogo clínico com IA: {str(last_error)}", True, 500)
+
+        dialogo = parsed_result.get("dialogo") or []
+        colinha_status = parsed_result.get("colinha_status") or []
+        texto_formatado = parsed_result.get("texto_formatado") or ""
+        total_duvidas = sum(len(it.get("duvidas") or []) for it in dialogo if isinstance(it, dict))
+
+        return _ok({
+            "dialogo": dialogo,
+            "colinha_status": colinha_status,
+            "texto_formatado": texto_formatado,
+            "total_duvidas": total_duvidas
+        })
+    except Exception as exc:
+        app.logger.exception("refinar_dialogo_error request_id=%s", current_request_id())
+        return _error("AI_ERROR", f"Falha no refinamento do diálogo: {str(exc)}", True, 500)
+
+
 
 def _require_admin():
     return _error("PERMISSION_DENIED", "Apenas administradores podem gerenciar contas médicas.", False, 403) if getattr(request, "user_role", None) != "Administrador" else None

@@ -1220,6 +1220,10 @@ body.modo-ia2-active #containerModoIA2 {
   background-color: #FDE047;
   color: #713F12;
 }
+@keyframes ia2Spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
 .ia2-escrita-panel {
   background: #ffffff;
@@ -2413,6 +2417,12 @@ body:not(.mode-agil-active) #containerModoAgil {
                 <button type="button" class="btn btn-outline btn-sm" onclick="copiarTranscricaoIA2()" style="font-size:11px;padding:4px 8px">📋 Copiar</button>
                 <button type="button" class="btn btn-outline btn-sm" onclick="limparTranscricaoIA2()" style="font-size:11px;padding:4px 8px;color:#EF4444">🗑️ Limpar</button>
               </div>
+            </div>
+
+            <!-- Barra de Status do Refinamento por IA -->
+            <div id="ia2RefinandoBar" style="display:none;background:linear-gradient(90deg, #EFF6FF, #EEF2FF);border:1px solid #BFDBFE;border-radius:8px;padding:6px 12px;margin-bottom:10px;font-size:12px;color:#1E40AF;align-items:center;gap:8px">
+              <span style="display:inline-block;animation:ia2Spin 1s linear infinite;font-size:14px">⚙️</span>
+              <strong id="ia2RefinandoText">✨ IA Médica refinando gravação e identificando perguntas periciais...</strong>
             </div>
 
             <!-- Bubble de fala interina ao vivo -->
@@ -6243,28 +6253,157 @@ function salvarEdicaoVisualIA2() {
   }
 }
 
+let _ia2RefinandoAtivo = false;
+
+async function refinarDialogoComIA2(automatico = false) {
+  if (_ia2RefinandoAtivo) return;
+  const tArea = $("ia2GravacaoTranscricao");
+  const rawText = (tArea?.value || "").trim();
+  const hasAudio = Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0;
+
+  if (!hasAudio && rawText.length < 5) {
+    if (!automatico) toast("Nenhuma gravação ou texto para refinar.");
+    return;
+  }
+
+  _ia2RefinandoAtivo = true;
+  const bar = $("ia2RefinandoBar");
+  const barTxt = $("ia2RefinandoText");
+  if (bar) {
+    bar.style.display = "flex";
+    if (barTxt) {
+      barTxt.textContent = hasAudio 
+        ? "✨ IA Médica refinando áudio e reconhecendo perguntas periciais..." 
+        : "✨ IA Médica estruturando diálogo e reconhecendo perguntas...";
+    }
+  }
+
+  try {
+    const formData = new FormData();
+    if (hasAudio) {
+      const mimeType = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
+      const blob = new Blob(ia2AudioChunks, { type: mimeType });
+      formData.append("audio", blob, "consulta.webm");
+    }
+    if (rawText) {
+      formData.append("texto_rascunho", rawText);
+    }
+
+    const resp = await fetch("/api/ai/refinar-dialogo-ia2", {
+      method: "POST",
+      body: formData
+    });
+
+    if (!resp.ok) {
+      throw new Error(`Servidor retornou status ${resp.status}`);
+    }
+
+    const resJson = await resp.json();
+    if (resJson && resJson.ok && resJson.data) {
+      const { dialogo, colinha_status, texto_formatado, total_duvidas } = resJson.data;
+
+      // 1. Atualizar colinha pericial semanticamente (Melhoria 2)
+      if (Array.isArray(colinha_status)) {
+        colinha_status.forEach(it => {
+          if (it && it.id && ia2ColinhaStatus[it.id]) {
+            if (it.matched) {
+              ia2ColinhaStatus[it.id].matched = true;
+              if (it.snippet) ia2ColinhaStatus[it.id].snippet = it.snippet;
+            }
+          }
+        });
+        renderizarColinhaIA2();
+      }
+
+      // 2. Atualizar textarea e base de texto
+      if (texto_formatado) {
+        tArea.value = texto_formatado;
+        window._ia2BaseTextGravacao = texto_formatado;
+        atualizarContadorGravacaoIA2();
+      }
+
+      // 3. Renderizar cartões do diálogo com badges da colinha e dúvidas
+      const containerVisual = $("ia2GravacaoVisual");
+      if (containerVisual && Array.isArray(dialogo) && dialogo.length > 0) {
+        let htmlCards = "";
+        let countDuvidas = 0;
+
+        dialogo.forEach((item, idx) => {
+          if (item.tipo === "nota") {
+            const d = destacarDuvidasHtml(item.texto || item.resposta || "", item.duvidas || []);
+            countDuvidas += d.totalDuvidas;
+            htmlCards += `
+              <div class="ia2-qa-note">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                  <span class="ia2-qa-badge-note">Observação / Fala Livre</span>
+                </div>
+                <div class="ia2-qa-note-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${d.html}</div>
+              </div>
+            `;
+          } else {
+            const dQ = destacarDuvidasHtml(item.pergunta || "", []);
+            const dA = destacarDuvidasHtml(item.resposta || "", item.duvidas || []);
+            countDuvidas += dQ.totalDuvidas + dA.totalDuvidas;
+            const badgeColinha = item.colinha_id 
+              ? `<span class="badge" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px">Item ${String(item.colinha_id).padStart(2, "0")}</span>` 
+              : "";
+
+            htmlCards += `
+              <div class="ia2-qa-card">
+                <div class="ia2-qa-q-row">
+                  <span class="ia2-qa-badge-q">Pergunta</span>
+                  <span class="ia2-qa-q-text">${dQ.html}</span>
+                  ${badgeColinha}
+                </div>
+                <div class="ia2-qa-a-row">
+                  <span class="ia2-qa-badge-a">Resposta</span>
+                  <div class="ia2-qa-a-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${dA.html}</div>
+                </div>
+              </div>
+            `;
+          }
+        });
+
+        containerVisual.innerHTML = htmlCards;
+
+        // Atualizar badges de dúvidas
+        const totalD = total_duvidas !== undefined ? total_duvidas : countDuvidas;
+        const bDuvidas = $("ia2BadgeDuvidas");
+        const qDuvidas = $("ia2QtdDuvidas");
+        const lDuvidas = $("ia2DuvidasLegenda");
+        if (totalD > 0) {
+          if (bDuvidas) bDuvidas.style.display = "inline-flex";
+          if (qDuvidas) qDuvidas.textContent = totalD;
+          if (lDuvidas) lDuvidas.style.display = "inline";
+        } else {
+          if (bDuvidas) bDuvidas.style.display = "none";
+          if (lDuvidas) lDuvidas.style.display = "none";
+        }
+      }
+
+      toast("✨ Diálogo refinado e colinha pericial atualizada com IA!");
+    }
+  } catch (err) {
+    console.warn("Falha no refinamento automático por IA:", err);
+    // Fallback gracioso: mantém estruturação local
+    atualizarVisualTranscricaoIA2(false);
+    if (!automatico) {
+      toast("Não foi possível conectar à IA no momento. Transcrição mantida localmente.");
+    }
+  } finally {
+    _ia2RefinandoAtivo = false;
+    if (bar) bar.style.display = "none";
+  }
+}
+
 function organizarTranscricaoManualmenteIA2() {
   const tArea = $("ia2GravacaoTranscricao");
   if (!tArea || !tArea.value.trim()) {
     toast("Nenhuma transcrição para organizar.");
     return;
   }
-
-  const res = estruturarTranscricaoEmDialogo(tArea.value);
-  if (res.plainText) {
-    tArea.value = res.plainText;
-    window._ia2BaseTextGravacao = res.plainText;
-  }
-  atualizarVisualTranscricaoIA2(false);
-  analisarColinhaEmTempoReal(tArea.value);
-  atualizarContadorGravacaoIA2();
-
   trocarAbaTranscricaoIA2("visual");
-
-  const msg = res.totalDuvidas > 0 
-    ? `✨ Diálogo organizado! ${res.totalDuvidas} termo(s) em dúvida sinalizados em amarelo.`
-    : "✨ Diálogo organizado em Perguntas & Respostas com sucesso!";
-  toast(msg);
+  refinarDialogoComIA2(false);
 }
 
 function abrirModoIA2(view = "selecao") {
@@ -6708,8 +6847,18 @@ function pausarGravacaoIA2() {
     ia2SpeechRecognition = null;
   }
   if (ia2MediaRecorder && ia2MediaRecorder.state !== "inactive") {
-    try { ia2MediaRecorder.stop(); } catch (_) {}
+    try {
+      if (typeof ia2MediaRecorder.requestData === "function") {
+        ia2MediaRecorder.requestData();
+      }
+      ia2MediaRecorder.stop();
+    } catch (_) {}
   }
+
+  // Refinamento automático do diálogo pela IA Médica ao pausar (Melhorias 1 e 2)
+  setTimeout(() => {
+    refinarDialogoComIA2(true);
+  }, 150);
 }
 
 function atualizarTimerDisplayIA2() {
@@ -7281,6 +7430,9 @@ window.colarTextoClipboardIA2 = colarTextoClipboardIA2;
 window.alternarDitadoVozEscritaIA2 = alternarDitadoVozEscritaIA2;
 window.inserirExemploEscritaIA2 = inserirExemploEscritaIA2;
 window.atualizarContadorEscritaIA2 = atualizarContadorEscritaIA2;
+window.refinarDialogoComIA2 = refinarDialogoComIA2;
+window.organizarTranscricaoManualmenteIA2 = organizarTranscricaoManualmenteIA2;
+window.trocarAbaTranscricaoIA2 = trocarAbaTranscricaoIA2;
 
 /* =========================================================
    PREENCHIMENTO INTELIGENTE COM IA (ANOTAÇÕES / SISTEMA)
