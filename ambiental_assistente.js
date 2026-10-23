@@ -1904,12 +1904,12 @@ async function refinarDialogoComIA2(automatico = false) {
             htmlCards += `
               <div class="ia2-qa-card">
                 <div class="ia2-qa-q-row">
-                  <span class="ia2-qa-badge-q">Pergunta</span>
+                  <span class="ia2-qa-badge-q">👨‍⚕️ Médico Perito</span>
                   <span class="ia2-qa-q-text">${dQ.html}</span>
                   ${badgeColinha}
                 </div>
                 <div class="ia2-qa-a-row">
-                  <span class="ia2-qa-badge-a">Resposta</span>
+                  <span class="ia2-qa-badge-a">👤 Paciente / Servidor</span>
                   <div class="ia2-qa-a-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${dA.html}</div>
                 </div>
               </div>
@@ -1934,8 +1934,12 @@ async function refinarDialogoComIA2(automatico = false) {
         }
       }
 
-      toast("✨ Diálogo refinado e colinha pericial atualizada com IA!");
+      if (!automatico) {
+        toast("✨ Diálogo refinado e colinha pericial atualizada com IA!");
+      }
+      return resJson.data;
     }
+    return null;
   } catch (err) {
     console.warn("Falha no refinamento automático por IA:", err);
     // Fallback gracioso: mantém estruturação local
@@ -1943,6 +1947,7 @@ async function refinarDialogoComIA2(automatico = false) {
     if (!automatico) {
       toast("Não foi possível conectar à IA no momento. Transcrição mantida localmente.");
     }
+    return null;
   } finally {
     _ia2RefinandoAtivo = false;
     if (bar) bar.style.display = "none";
@@ -2407,11 +2412,6 @@ function pausarGravacaoIA2() {
       ia2MediaRecorder.stop();
     } catch (_) {}
   }
-
-  // Refinamento automático do diálogo pela IA Médica ao pausar (Melhorias 1 e 2)
-  setTimeout(() => {
-    refinarDialogoComIA2(true);
-  }, 150);
 }
 
 function atualizarTimerDisplayIA2() {
@@ -2713,6 +2713,41 @@ function confirmarFinalizacaoIA2MesmoComPendencias() {
   executarPreenchimentoIA2(txt, "gravacao");
 }
 
+function atualizarOverlayIA2Passo(passo, mensagem, porcentagem) {
+  const overlay = $("ia2LoadingOverlay");
+  if (overlay && overlay.style.display !== "flex") {
+    overlay.style.display = "flex";
+  }
+  const pBar = $("ia2ProgressBar");
+  if (pBar && typeof porcentagem === "number") {
+    pBar.style.width = `${Math.min(100, Math.max(0, porcentagem))}%`;
+  }
+  const pText = $("ia2LoadingPillText");
+  if (pText && mensagem) {
+    pText.textContent = mensagem;
+  }
+  for (let i = 1; i <= 4; i++) {
+    const stepEl = $(`ia2Step${i}`);
+    if (!stepEl) continue;
+    const iconEl = stepEl.querySelector(".ia2-step-icon");
+    if (i < passo) {
+      stepEl.className = "ia2-step-item done";
+      if (iconEl) iconEl.innerHTML = `<span style="color:#10B981;font-weight:900">✓</span>`;
+    } else if (i === passo) {
+      if (porcentagem === 100) {
+        stepEl.className = "ia2-step-item done";
+        if (iconEl) iconEl.innerHTML = `<span style="color:#10B981;font-weight:900">✓</span>`;
+      } else {
+        stepEl.className = "ia2-step-item active";
+        if (iconEl) iconEl.innerHTML = `<span class="ia2-step-spinner"></span>`;
+      }
+    } else {
+      stepEl.className = "ia2-step-item pending";
+      if (iconEl) iconEl.innerHTML = `<span style="color:#94A3B8">•</span>`;
+    }
+  }
+}
+
 async function executarPreenchimentoIA2(texto, origem) {
   if (ia2Gravando) {
     pausarGravacaoIA2();
@@ -2721,10 +2756,31 @@ async function executarPreenchimentoIA2(texto, origem) {
     alternarDitadoVozEscritaIA2();
   }
 
-  const overlay = $("ia2LoadingOverlay");
-  if (overlay) overlay.style.display = "flex";
+  atualizarOverlayIA2Passo(1, "🎙️ Captando áudio e texto da consulta médica...", 20);
 
   try {
+    if (origem === "gravacao") {
+      // Intervalo técnico para o MediaRecorder descarregar os buffers locais
+      await new Promise(r => setTimeout(r, 200));
+
+      atualizarOverlayIA2Passo(2, "🧠 IA Médica estruturando diálogo (Médico x Paciente) e limpando ruídos...", 45);
+      await refinarDialogoComIA2(true);
+
+      atualizarOverlayIA2Passo(3, "📋 Mapeando roteiro pericial oficial e identificando diagnósticos CIDs...", 70);
+
+      // Utiliza o texto pericial refinado e corrigido pela IA
+      const textoRefinado = ($("ia2GravacaoTranscricao")?.value || "").trim();
+      if (textoRefinado) {
+        texto = textoRefinado;
+      }
+    } else {
+      atualizarOverlayIA2Passo(1, "📝 Analisando anotações clínicas periciais...", 25);
+      await new Promise(r => setTimeout(r, 200));
+      atualizarOverlayIA2Passo(2, "🧠 IA Médica estruturando termos periciais e dosagens...", 50);
+      atualizarOverlayIA2Passo(3, "📋 Mapeando parâmetros clínicos e CIDs...", 70);
+    }
+
+    atualizarOverlayIA2Passo(4, "⚡ Preenchendo ficha e-SISLA e prontuário pericial...", 88);
     window.__ia2UltimoTextoProcessado = texto;
 
     const reqBody = {
@@ -2779,12 +2835,17 @@ async function executarPreenchimentoIA2(texto, origem) {
       autoSave();
     }
 
+    // Sucesso final animado
+    atualizarOverlayIA2Passo(4, "✅ Atendimento pericial finalizado com sucesso!", 100);
+    await new Promise(r => setTimeout(r, 450));
+
     // Exibir tela de sucesso
     abrirModalSucessoIA2(dados);
   } catch (err) {
     console.error("Erro no preenchimento Modo IA 2.0:", err);
     alert("Falha no processamento com Inteligência Artificial: " + (err.message || "Erro de conexão."));
   } finally {
+    const overlay = $("ia2LoadingOverlay");
     if (overlay) overlay.style.display = "none";
   }
 }
@@ -2986,6 +3047,7 @@ window.atualizarContadorEscritaIA2 = atualizarContadorEscritaIA2;
 window.refinarDialogoComIA2 = refinarDialogoComIA2;
 window.organizarTranscricaoManualmenteIA2 = organizarTranscricaoManualmenteIA2;
 window.trocarAbaTranscricaoIA2 = trocarAbaTranscricaoIA2;
+window.atualizarOverlayIA2Passo = atualizarOverlayIA2Passo;
 
 /* =========================================================
    PREENCHIMENTO INTELIGENTE COM IA (ANOTAÇÕES / SISTEMA)

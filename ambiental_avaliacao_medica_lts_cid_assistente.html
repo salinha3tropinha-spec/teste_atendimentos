@@ -2021,18 +2021,50 @@
      MODAIS E OVERLAYS DO MODO IA 2.0
      ========================================================= -->
 
-<!-- 1. LOADING OVERLAY DO MODO IA 2.0 -->
-<div id="ia2LoadingOverlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.82);backdrop-filter:blur(6px);z-index:9999999;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;padding:20px">
-  <div style="background:#ffffff;color:#0F172A;padding:36px 40px;border-radius:22px;max-width:540px;box-shadow:0 25px 60px rgba(0,0,0,0.4);border:1px solid #E2E8F0;display:flex;flex-direction:column;align-items:center;gap:16px">
-    <div style="width:58px;height:58px;border-radius:50%;border:4px solid #E2E8F0;border-top-color:#4F46E5;animation:spin 0.85s linear infinite"></div>
-    <div>
-      <h3 style="font-size:18px;font-weight:900;color:#0F172A;margin:0 0 6px">🧠 IA Processando Atendimento</h3>
-      <p style="font-size:13px;color:#475569;margin:0;line-height:1.5">
-        Avaliando parâmetros clínicos, identificando diagnósticos (CIDs), organizando antecedentes e estruturando o prontuário em segundo plano de forma oculta...
+<!-- 1. LOADING OVERLAY DO MODO IA 2.0 (ANIMAÇÃO MÉDICA) -->
+<div id="ia2LoadingOverlay" class="ia2-loading-backdrop" style="display:none">
+  <div class="ia2-loading-card">
+    <div class="ia2-orb-container">
+      <div class="ia2-orb-ring ia2-orb-ring-1"></div>
+      <div class="ia2-orb-ring ia2-orb-ring-2"></div>
+      <div class="ia2-orb-core">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12A10 10 0 0 1 12 2z"></path>
+          <path d="M12 6v6l4 2"></path>
+          <path d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 0 0 5 0"></path>
+        </svg>
+      </div>
+    </div>
+    <div class="ia2-loading-header">
+      <h3 id="ia2LoadingTitle" class="ia2-loading-title">🧠 IA Estruturando Atendimento Pericial</h3>
+      <p id="ia2LoadingSubtitle" class="ia2-loading-sub">
+        Analisando a consulta entre Médico e Paciente, corrigindo termos clínicos e estruturando o prontuário...
       </p>
     </div>
-    <div style="font-size:11.5px;color:#6366F1;background:#EEF2FF;padding:6px 14px;border-radius:20px;font-weight:700">
-      ⚡ Preparando prontuário e ficha e-SISLA
+    <div class="ia2-progress-track">
+      <div id="ia2ProgressBar" class="ia2-progress-bar" style="width: 20%"></div>
+    </div>
+    <div class="ia2-steps-list">
+      <div id="ia2Step1" class="ia2-step-item active">
+        <span class="ia2-step-icon"><span class="ia2-step-spinner"></span></span>
+        <span class="ia2-step-label">1. Sincronizando diálogo e gravação da consulta</span>
+      </div>
+      <div id="ia2Step2" class="ia2-step-item pending">
+        <span class="ia2-step-icon" style="color:#94A3B8">•</span>
+        <span class="ia2-step-label">2. Refinando falas (Médico x Paciente) e limpando ruídos</span>
+      </div>
+      <div id="ia2Step3" class="ia2-step-item pending">
+        <span class="ia2-step-icon" style="color:#94A3B8">•</span>
+        <span class="ia2-step-label">3. Corrigindo medicamentos e mapeando roteiro pericial</span>
+      </div>
+      <div id="ia2Step4" class="ia2-step-item pending">
+        <span class="ia2-step-icon" style="color:#94A3B8">•</span>
+        <span class="ia2-step-label">4. Preenchendo ficha e-SISLA e prontuário médico</span>
+      </div>
+    </div>
+    <div id="ia2LoadingPill" class="ia2-loading-pill">
+      <span class="ia2-pill-dot"></span>
+      <span id="ia2LoadingPillText">Iniciando inteligência pericial médica...</span>
     </div>
   </div>
 </div>

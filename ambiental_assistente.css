@@ -2137,3 +2137,252 @@ body:not(.mode-agil-active) #containerModoAgil {
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
   line-height: 1.6;
 }
+
+/* =========================================================
+   ANIMAÇÃO E LOADING OVERLAY DO MODO IA 2.0 (ESTRUTURAÇÃO MÉDICA)
+   ========================================================= */
+
+.ia2-loading-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  animation: ia2FadeIn 0.25s ease-out;
+}
+
+@keyframes ia2FadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ia2-loading-card {
+  background: #FFFFFF;
+  color: #0F172A;
+  padding: 36px 36px 32px;
+  border-radius: 24px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.4), 0 0 0 1px rgba(226, 232, 240, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+  animation: ia2ScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+@keyframes ia2ScaleUp {
+  from { transform: scale(0.92); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Pulsing AI Medical Orb */
+.ia2-orb-container {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ia2-orb-ring {
+  position: absolute;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.ia2-orb-ring-1 {
+  width: 86px;
+  height: 86px;
+  border: 2px dashed rgba(99, 102, 241, 0.35);
+  animation: ia2RotateRing 12s linear infinite;
+}
+
+.ia2-orb-ring-2 {
+  width: 72px;
+  height: 72px;
+  border: 2px solid rgba(16, 185, 129, 0.4);
+  border-top-color: #6366F1;
+  border-right-color: #06B6D4;
+  animation: ia2RotateRing 3s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+}
+
+.ia2-orb-core {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4F46E5, #06B6D4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  box-shadow: 0 0 24px rgba(79, 70, 229, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+  animation: ia2PulseCore 2s ease-in-out infinite;
+}
+
+@keyframes ia2RotateRing {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ia2PulseCore {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 24px rgba(79, 70, 229, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 34px rgba(6, 182, 212, 0.7), inset 0 2px 6px rgba(255, 255, 255, 0.6);
+  }
+}
+
+.ia2-loading-header {
+  width: 100%;
+}
+
+.ia2-loading-title {
+  font-size: 19px;
+  font-weight: 900;
+  color: #0F172A;
+  margin: 0 0 6px;
+  letter-spacing: -0.3px;
+}
+
+.ia2-loading-sub {
+  font-size: 13px;
+  color: #64748B;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Progress bar */
+.ia2-progress-track {
+  width: 100%;
+  height: 8px;
+  background: #F1F5F9;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #E2E8F0;
+}
+
+.ia2-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #4F46E5, #06B6D4, #10B981);
+  background-size: 200% 100%;
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: ia2GradientMove 2.5s ease infinite;
+}
+
+@keyframes ia2GradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Step list */
+.ia2-steps-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.ia2-step-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  font-size: 12.5px;
+  color: #64748B;
+  transition: all 0.25s ease;
+}
+
+.ia2-step-item.active {
+  background: #EEF2FF;
+  border-color: #C7D2FE;
+  color: #3730A3;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
+}
+
+.ia2-step-item.done {
+  background: #F0FDF4;
+  border-color: #BBF7D0;
+  color: #166534;
+  font-weight: 600;
+}
+
+.ia2-step-item.pending {
+  opacity: 0.65;
+}
+
+.ia2-step-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.ia2-step-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid #C7D2FE;
+  border-top-color: #4F46E5;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
+}
+
+.ia2-step-label {
+  flex: 1;
+}
+
+/* Live Status Pill */
+.ia2-loading-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #F1F5F9;
+  border: 1px solid #CBD5E1;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #334155;
+  max-width: 100%;
+}
+
+.ia2-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6366F1;
+  animation: ia2BlinkDot 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes ia2BlinkDot {
+  from { opacity: 0.3; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1.15); }
+}
+
