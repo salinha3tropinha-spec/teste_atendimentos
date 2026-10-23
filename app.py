@@ -108,9 +108,10 @@ app.register_blueprint(bp_esisla)
 @app.after_request
 def _no_cache_dev_assets(response):
     if request.path in {"/", "/app", "/gestao"} or request.path.endswith(".html"):
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
         response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
+        response.add_etag()
+        response.make_conditional(request)
     elif any(request.path.endswith(ext) for ext in (".js", ".css", ".png", ".jpg", ".jpeg", ".svg", ".woff2", ".woff", ".ico")):
         response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=3600"
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -8051,13 +8052,18 @@ def api_ai_refinar_dialogo_ia2():
         prompt = (
             "Você é um perito médico e especialista em estruturação de diálogos clínicos periciais (medicina do trabalho / junta médica oficial).\n"
             "Analise a conversa pericial entre o(a) Médico(a) Perito(a) e o(a) Periciado(a)/Servidor(a).\n\n"
+            "CONTEXTO FUNDAMENTAL:\n"
+            "Todo o texto coletado é uma consulta pericial oficial entre o MÉDICO PERITO e o(a) PACIENTE/SERVIDOR.\n"
+            "- O MÉDICO PERITO conduz a perícia fazendo as perguntas investigativas (idade, cargo, tempo de função, se é readaptado, data de diagnóstico da doença, sintomas limitantes, medicações, dosagens diárias, consultas, fisioterapia/psicoterapia).\n"
+            "- O PACIENTE/PERICIADO responde em primeira pessoa relatando sua situação, dores, limitações e tratamentos.\n\n"
             f"As 11 Perguntas Oficiais do Roteiro Pericial (Colinha) são:\n{perguntas_referencia}\n\n"
-            "Diretrizes obrigatórias:\n"
-            "1. Transcreva com fidelidade e pontuação gramatical impecável (interrogações '?', vírgulas, pontos finais).\n"
-            "2. Corrija termos médicos foneticamente distorcidos, nomes de remédios (Pregabalina, Tramadol, Dipirona, Benzetacil, Sertralina, etc.), posologias, siglas de cargos públicos (Policial Penal, PEB I, ASP, etc.) e manobras clínicas.\n"
-            "3. Separe a conversa em pares estruturados de Diálogo: quem perguntou (Médico Perito) e quem respondeu (Periciado). Falas de introdução ou exames físicos rotule como tipo 'nota'.\n"
+            "DIRETRIZES OBRIGATÓRIAS:\n"
+            "1. CORREÇÃO FONÉTICA E DE MEDICAMENTOS: O áudio foi captado por reconhecimento de voz e pode conter palavras truncadas, distorcidas ou com erros fonéticos de transcrição. "
+            "Arrume e corrija termos médicos, nomes de remédios (ex: 'Dipirona injetável', 'Benzetacil injetável', 'Pregabalina', 'Sertralina', etc.), dosagens diárias (ex: '10 mg', '50 mg'), siglas de cargos (Policial Penal, PEB I, ASP, etc.) e termos anatômicos.\n"
+            "2. ELIMINAÇÃO DE RUÍDOS E DÚVIDAS: Em casos de dúvidas, palavras ininteligíveis, hesitações ('hum...', 'é...'), gaguejos, ruídos de fala ou contradições corrigidas pelo próprio paciente (ex: 'ano é 16 não é 2026' -> ajuste diretamente para '2016'), LIMPE E RETIRE o ruído! Deixe o texto pericial enxuto, limpo e objetivo. Não deixe palavras sem sentido.\n"
+            "3. SEPARAÇÃO ESTRUTURADA EM DIÁLOGO: Separe a conversa em pares estruturados de Diálogo: quem perguntou (Médico Perito) e quem respondeu (Periciado). Falas de introdução ou exames físicos rotule como tipo 'nota'.\n"
             "4. RECONHECIMENTO SEMÂNTICO (NLP): Para cada par Q&A, identifique a qual dos 11 itens da Colinha ele corresponde (colinha_id entre 1 e 11, ou null se não for nenhuma das 11). Identifique pela INTENÇÃO da pergunta, mesmo que formulada com palavras diferentes.\n"
-            "5. DESTAQUE DE DÚVIDAS / INCONSISTÊNCIAS: Identifique trechos com contradições de datas/ano (ex: 'ano é 16 não é 2026'), posologias incomuns (ex: '10 mg' de dipirona), falhas fonéticas ou hesitações relevantes do periciado.\n"
+            "5. DESTAQUE DE DÚVIDAS: Se houver alguma contradição clínica grave não resolvida, aponte em 'duvidas'. Se a dúvida foi corrigida ou era apenas ruído fonético, NÃO marque como dúvida.\n"
             "6. Retorne ESTRITAMENTE um objeto JSON válido (sem comentários) no formato:\n"
             "{\n"
             '  "dialogo": [\n'
