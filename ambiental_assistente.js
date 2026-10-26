@@ -1558,6 +1558,37 @@ function destacarDuvidasHtml(texto, duvidasPersonalizadas = []) {
   return { html, totalDuvidas };
 }
 
+function atualizarGuiaPassosIA2(etapa) {
+  const s1 = $("ia2GuideStep1");
+  const s2 = $("ia2GuideStep2");
+  const s3 = $("ia2GuideStep3");
+  const btnFim = $("ia2BtnFinalizarGravacao");
+
+  if (s1 && s2 && s3) {
+    if (etapa === 1) {
+      s1.className = "ia2-guide-step active";
+      s2.className = "ia2-guide-step";
+      s3.className = "ia2-guide-step";
+    } else if (etapa === 2) {
+      s1.className = "ia2-guide-step done";
+      s2.className = "ia2-guide-step active";
+      s3.className = "ia2-guide-step";
+    } else if (etapa === 3) {
+      s1.className = "ia2-guide-step done";
+      s2.className = "ia2-guide-step done";
+      s3.className = "ia2-guide-step active";
+    }
+  }
+
+  if (btnFim) {
+    if (etapa === 3) {
+      btnFim.classList.add("ia2-btn-ready-pulse");
+    } else {
+      btnFim.classList.remove("ia2-btn-ready-pulse");
+    }
+  }
+}
+
 function estruturarTranscricaoEmDialogo(textoBruto) {
   if (!textoBruto || !textoBruto.trim()) {
     return { itens: [], plainText: "", totalDuvidas: 0, html: "" };
@@ -1565,7 +1596,119 @@ function estruturarTranscricaoEmDialogo(textoBruto) {
 
   const raw = textoBruto.trim();
 
-  // Lista de padrões de perguntas clínicas com títulos padronizados
+  // 1. Se o texto já estiver estruturado pela IA ("Médico Perito: ... / Periciado: ...") ou em tópicos ("• ..."),
+  // preserva TODAS as perguntas (incluindo Perguntas Adicionais além das 11 da Colinha)
+  if (/(?:^|\n)\s*(?:Médico(?:\s+Perito)?|Perito|Pergunta)\s*:/i.test(raw)) {
+    const blocos = raw.split(/\n\s*\n+/).map(b => b.trim()).filter(Boolean);
+    const itensEstruturados = [];
+    blocos.forEach(bloco => {
+      const linhas = bloco.split(/\n/).map(l => l.trim()).filter(Boolean);
+      let perguntaTxt = "";
+      let respostaTxt = "";
+      let notaTxt = "";
+      linhas.forEach(linha => {
+        const mQ = linha.match(/^(?:Médico(?:\s+Perito)?|Perito|Pergunta)\s*:\s*(.*)$/i);
+        const mA = linha.match(/^(?:Periciad[oa]|Paciente|Servidor(?:a)?|Resposta)\s*:\s*(.*)$/i);
+        const mN = linha.match(/^(?:\[?Observação\]?|Nota)\s*:\s*(.*)$/i);
+        if (mQ) {
+          perguntaTxt = (perguntaTxt ? perguntaTxt + " " : "") + mQ[1].trim();
+        } else if (mA) {
+          respostaTxt = (respostaTxt ? respostaTxt + " " : "") + mA[1].trim();
+        } else if (mN) {
+          notaTxt = (notaTxt ? notaTxt + " " : "") + mN[1].trim();
+        } else if (respostaTxt) {
+          respostaTxt += " " + linha;
+        } else if (perguntaTxt) {
+          perguntaTxt += " " + linha;
+        } else {
+          notaTxt = (notaTxt ? notaTxt + " " : "") + linha;
+        }
+      });
+
+      if (perguntaTxt || respostaTxt) {
+        itensEstruturados.push({
+          tipo: "qa",
+          pergunta: perguntaTxt || "Pergunta realizada na consulta",
+          perguntaOriginal: perguntaTxt || "Pergunta realizada na consulta",
+          resposta: respostaTxt || "Não informado"
+        });
+      } else if (notaTxt) {
+        itensEstruturados.push({ tipo: "nota", texto: notaTxt });
+      }
+    });
+
+    if (itensEstruturados.length > 0) {
+      let totalDuvidas = 0;
+      let plainTextLines = [];
+      let htmlCards = "";
+
+      itensEstruturados.forEach((it, idx) => {
+        if (it.tipo === "nota") {
+          const d = destacarDuvidasHtml(it.texto, window._ia2DuvidasLowConfidence || []);
+          totalDuvidas += d.totalDuvidas;
+          plainTextLines.push(`Nota: ${it.texto}`);
+          htmlCards += `
+            <div class="ia2-qa-note">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px">
+                <span class="ia2-qa-badge-note">📝 Anotação / Fala Complementar</span>
+                <span style="font-size:10.5px;color:#64748B">✏️ Clique no texto para editar</span>
+              </div>
+              <div class="ia2-qa-note-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${d.html}</div>
+            </div>
+          `;
+        } else {
+          const dQ = destacarDuvidasHtml(it.perguntaOriginal || it.pergunta, []);
+          const dA = destacarDuvidasHtml(it.resposta, window._ia2DuvidasLowConfidence || []);
+          totalDuvidas += dQ.totalDuvidas + dA.totalDuvidas;
+
+          // Identificar se corresponde a algum item da colinha para exibir a badge
+          let colId = null;
+          for (const qCol of COLINHA_IA2_CONFIG) {
+            const vRes = qCol.validar(`${it.pergunta} ${it.resposta}`);
+            if (vRes && vRes.matched) {
+              colId = qCol.id;
+              break;
+            }
+          }
+          const badgeColinha = colId
+            ? `<span class="badge" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:auto;white-space:nowrap">Item ${String(colId).padStart(2, "0")}</span>`
+            : `<span class="badge" style="background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;margin-left:auto;white-space:nowrap">Pergunta da Consulta</span>`;
+
+          plainTextLines.push(`Médico Perito: ${it.pergunta}\nPericiado: ${it.resposta}`);
+          htmlCards += `
+            <div class="ia2-qa-card">
+              <div class="ia2-qa-q-row">
+                <span class="ia2-qa-badge-q">👨‍⚕️ Médico Perito</span>
+                <span class="ia2-qa-q-text">${dQ.html}</span>
+                ${badgeColinha}
+              </div>
+              <div class="ia2-qa-a-row">
+                <span class="ia2-qa-badge-a">👤 Paciente</span>
+                <div class="ia2-qa-a-text" contenteditable="true" data-idx="${idx}" title="Clique para corrigir ou complementar esta resposta" onblur="salvarEdicaoVisualIA2()">${dA.html}</div>
+              </div>
+            </div>
+          `;
+        }
+      });
+
+      htmlCards += `
+        <div style="text-align:center;margin-top:10px">
+          <button type="button" class="btn btn-outline btn-sm" onclick="adicionarNotaManualVisualIA2()" style="font-size:12px;font-weight:700;color:#2563EB;border-color:#BFDBFE;background:#EFF6FF;padding:6px 14px;border-radius:8px">
+            ➕ Adicionar Observação ou Resposta Manual
+          </button>
+        </div>
+      `;
+
+      return {
+        itens: itensEstruturados,
+        plainText: plainTextLines.join("\n\n").trim(),
+        totalDuvidas,
+        html: htmlCards
+      };
+    }
+  }
+
+  // Lista de padrões de perguntas clínicas com títulos padronizados (para texto corrido sem prefixo)
   const listaPerguntas = [
     { re: /\b(?:qual\s+(?:é\s+)?a\s+sua\s+idade|qual\s+(?:é\s+)?a\s+idade|qual\s+sua\s+idade|quantos\s+anos(?:\s+tem)?)\b/i, label: "Qual a sua idade?" },
     { re: /\b(?:(?:qual\s+(?:é\s+)?|e\s+)?(?:o\s+)?(?:seu\s+)?cargo|qual\s+(?:é\s+)?o\s+cargo|qual\s+a\s+(?:sua\s+)?fun[çc][ãa]o|qual\s+sua\s+profiss[ãa]o|sua\s+fun[çc][ãa]o|sua\s+profiss[ãa]o)\b/i, label: "Qual o seu cargo?" },
@@ -1604,10 +1747,16 @@ function estruturarTranscricaoEmDialogo(textoBruto) {
     const plain = raw;
     const html = `
       <div class="ia2-qa-note">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px">
           <span class="ia2-qa-badge-note">Observação / Fala Livre</span>
+          <span style="font-size:10.5px;color:#64748B">✏️ Clique no texto para editar</span>
         </div>
         <div class="ia2-qa-note-text" contenteditable="true" onblur="salvarEdicaoVisualIA2()">${resDuvida.html}</div>
+      </div>
+      <div style="text-align:center;margin-top:10px">
+        <button type="button" class="btn btn-outline btn-sm" onclick="adicionarNotaManualVisualIA2()" style="font-size:12px;font-weight:700;color:#2563EB;border-color:#BFDBFE;background:#EFF6FF;padding:6px 14px;border-radius:8px">
+          ➕ Adicionar Observação ou Resposta Manual
+        </button>
       </div>
     `;
     return {
@@ -1654,8 +1803,9 @@ function estruturarTranscricaoEmDialogo(textoBruto) {
       plainTextLines.push(`[Observação]: ${it.texto}\n`);
       htmlCards += `
         <div class="ia2-qa-note">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px">
             <span class="ia2-qa-badge-note">Observação / Fala</span>
+            <span style="font-size:10.5px;color:#64748B">✏️ Clique para editar</span>
           </div>
           <div class="ia2-qa-note-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${d.html}</div>
         </div>
@@ -1674,12 +1824,20 @@ function estruturarTranscricaoEmDialogo(textoBruto) {
           </div>
           <div class="ia2-qa-a-row">
             <span class="ia2-qa-badge-a">Resposta</span>
-            <div class="ia2-qa-a-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${dA.html}</div>
+            <div class="ia2-qa-a-text" contenteditable="true" data-idx="${idx}" title="Clique para corrigir ou complementar esta resposta" onblur="salvarEdicaoVisualIA2()">${dA.html}</div>
           </div>
         </div>
       `;
     }
   });
+
+  htmlCards += `
+    <div style="text-align:center;margin-top:10px">
+      <button type="button" class="btn btn-outline btn-sm" onclick="adicionarNotaManualVisualIA2()" style="font-size:12px;font-weight:700;color:#2563EB;border-color:#BFDBFE;background:#EFF6FF;padding:6px 14px;border-radius:8px">
+        ➕ Adicionar Observação ou Resposta Manual
+      </button>
+    </div>
+  `;
 
   return {
     itens,
@@ -1687,6 +1845,30 @@ function estruturarTranscricaoEmDialogo(textoBruto) {
     totalDuvidas,
     html: htmlCards
   };
+}
+
+function adicionarNotaManualVisualIA2() {
+  const container = $("ia2GravacaoVisual");
+  if (!container) return;
+  const noteDiv = document.createElement("div");
+  noteDiv.className = "ia2-qa-note";
+  noteDiv.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px">
+      <span class="ia2-qa-badge-note">📝 Anotação Manual do Médico</span>
+      <span style="font-size:10.5px;color:#64748B">Digite abaixo e clique fora para salvar</span>
+    </div>
+    <div class="ia2-qa-note-text" contenteditable="true" onblur="salvarEdicaoVisualIA2()" style="min-height:24px;background:#fff;padding:6px 8px;border-radius:6px;border:1px solid #93C5FD"></div>
+  `;
+  container.appendChild(noteDiv);
+  const editable = noteDiv.querySelector(".ia2-qa-note-text");
+  if (editable) {
+    setTimeout(() => {
+      try {
+        editable.focus();
+        noteDiv.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch (_) {}
+    }, 50);
+  }
 }
 
 function trocarAbaTranscricaoIA2(aba) {
@@ -1731,10 +1913,10 @@ function atualizarVisualTranscricaoIA2(forcarSincronizacaoTexto = false) {
   const raw = tArea.value || "";
   if (!raw.trim()) {
     container.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94A3B8;text-align:center;padding:20px">
-        <span style="font-size:32px;margin-bottom:8px">💬</span>
-        <p style="font-size:13.5px;max-width:380px;margin:0 0 6px;color:#64748B;font-weight:600">A conversa será estruturada aqui automaticamente em Perguntas e Respostas.</p>
-        <span style="font-size:11.5px;color:#94A3B8">Palavras ou dosagens com possível dúvida aparecerão destacadas em <mark class="ia2-doubt-word" style="cursor:default">amarelo</mark> para conferência rápida.</span>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94A3B8;text-align:center;padding:24px">
+        <div style="width:64px;height:64px;border-radius:50%;background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:12px">🎙️</div>
+        <p style="font-size:15px;max-width:420px;margin:0 0 8px;color:#334155;font-weight:800">Passo 1: Clique no botão verde "1. Iniciar Gravação" acima</p>
+        <span style="font-size:12.5px;color:#64748B;max-width:440px;line-height:1.5">Converse normalmente com o paciente. Quando você clicar em <strong>Pausar</strong>, a IA escreverá todo o diálogo aqui e mostrará se faltou alguma pergunta da Colinha.</span>
       </div>
     `;
     const bDuvidas = $("ia2BadgeDuvidas");
@@ -1780,17 +1962,17 @@ function salvarEdicaoVisualIA2() {
   cards.forEach(card => {
     if (card.classList.contains("ia2-qa-note")) {
       const txt = (card.querySelector(".ia2-qa-note-text")?.innerText || "").trim();
-      if (txt) lines.push(`[Observação]: ${txt}\n`);
+      if (txt) lines.push(`Nota: ${txt}`);
     } else {
       const q = (card.querySelector(".ia2-qa-q-text")?.innerText || "").trim();
       const a = (card.querySelector(".ia2-qa-a-text")?.innerText || "").trim();
       if (q || a) {
-        lines.push(`• ${q}\n  ${a}\n`);
+        lines.push(`Médico Perito: ${q}\nPericiado: ${a}`);
       }
     }
   });
 
-  const fullText = lines.join("\n").trim();
+  const fullText = lines.join("\n\n").trim();
   if (fullText) {
     tArea.value = fullText;
     window._ia2BaseTextGravacao = fullText;
@@ -1800,9 +1982,12 @@ function salvarEdicaoVisualIA2() {
 }
 
 let _ia2RefinandoAtivo = false;
+let _ia2RefinandoPromise = null;
 
 async function refinarDialogoComIA2(automatico = false) {
-  if (_ia2RefinandoAtivo) return;
+  if (_ia2RefinandoAtivo && _ia2RefinandoPromise) {
+    return _ia2RefinandoPromise;
+  }
   const tArea = $("ia2GravacaoTranscricao");
   const rawText = (tArea?.value || "").trim();
   const audioBlob = window.__ia2AudioBlobPendente || (
@@ -1814,7 +1999,7 @@ async function refinarDialogoComIA2(automatico = false) {
 
   if (!hasAudio && rawText.length < 5) {
     if (!automatico) toast("Nenhuma gravação ou texto para refinar.");
-    return;
+    return null;
   }
 
   _ia2RefinandoAtivo = true;
@@ -1829,150 +2014,181 @@ async function refinarDialogoComIA2(automatico = false) {
     }
   }
 
-  try {
-    const formData = new FormData();
-    if (hasAudio) {
-      const mimeType = audioBlob.type || (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
-      const fileName = audioBlob.name || "consulta_pericial.webm";
-      formData.append("audio", audioBlob, fileName);
-    }
-    if (rawText) {
-      formData.append("texto_rascunho", rawText);
-    }
-
-    const apiUrl = `${getApiBase()}/api/ai/refinar-dialogo-ia2`;
-    const resp = await (window.AmbientalAuth ? window.AmbientalAuth.authFetch : fetch)(apiUrl, {
-      method: "POST",
-      body: formData
-    });
-
-    if (!resp.ok) {
-      let errDetail = `Status ${resp.status}`;
-      try {
-        const errJson = await resp.json();
-        errDetail = errJson?.error?.message || errJson?.detail || errJson?.message || errDetail;
-      } catch (_) {}
-      throw new Error(`Falha no servidor (${errDetail})`);
-    }
-
-    const resJson = await resp.json();
-    const resData = (resJson && (resJson.data || (resJson.success && resJson))) || null;
-    if (resData) {
-      const { dialogo, colinha_status, total_duvidas } = resData;
-      let texto_formatado = (resData.texto_formatado || "").trim();
-      window._ia2DuvidasLowConfidence = [];
-      window.__ia2JaTranscreveuOuRefinou = true;
-
-      // Reconstrução de segurança caso o backend não tenha devolvido texto_formatado mas tenha devolvido diálogo
-      if (!texto_formatado && Array.isArray(dialogo) && dialogo.length > 0) {
-        const lines = [];
-        dialogo.forEach(it => {
-          if (it.tipo === "qa") {
-            if (it.pergunta) lines.push(`Médico Perito: ${it.pergunta}`);
-            if (it.resposta) lines.push(`Periciado: ${it.resposta}`);
-          } else if (it.texto || it.resposta) {
-            lines.push(`Nota: ${it.texto || it.resposta}`);
-          }
-        });
-        texto_formatado = lines.join("\n\n");
+  _ia2RefinandoPromise = (async () => {
+    try {
+      const formData = new FormData();
+      if (hasAudio) {
+        const mimeType = audioBlob.type || (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
+        const fileName = audioBlob.name || "consulta_pericial.webm";
+        formData.append("audio", audioBlob, fileName);
+      }
+      if (rawText) {
+        formData.append("texto_rascunho", rawText);
       }
 
-      // 1. Atualizar colinha pericial semanticamente e banner de campos não perguntados
-      if (Array.isArray(colinha_status)) {
-        colinha_status.forEach(it => {
-          if (it && it.id && ia2ColinhaStatus[it.id]) {
-            ia2ColinhaStatus[it.id].matched = !!it.matched;
-            if (it.snippet) ia2ColinhaStatus[it.id].snippet = it.snippet;
-            else if (!it.matched) ia2ColinhaStatus[it.id].snippet = "";
-          }
-        });
-        renderizarColinhaIA2();
-        atualizarBannerCamposNaoPerguntadosIA2();
+      const apiUrl = `${getApiBase()}/api/ai/refinar-dialogo-ia2`;
+      const resp = await (window.AmbientalAuth ? window.AmbientalAuth.authFetch : fetch)(apiUrl, {
+        method: "POST",
+        body: formData
+      });
+
+      if (!resp.ok) {
+        let errDetail = `Status ${resp.status}`;
+        try {
+          const errJson = await resp.json();
+          errDetail = errJson?.error?.message || errJson?.detail || errJson?.message || errDetail;
+        } catch (_) {}
+        throw new Error(`Falha no servidor (${errDetail})`);
       }
 
-      // 2. Atualizar textarea e base de texto
-      if (texto_formatado) {
-        tArea.value = texto_formatado;
-        window._ia2BaseTextGravacao = texto_formatado;
-        atualizarContadorGravacaoIA2();
-      }
+      const resJson = await resp.json();
+      const resData = (resJson && (resJson.data || (resJson.success && resJson))) || null;
+      if (resData) {
+        const { dialogo, colinha_status, total_duvidas } = resData;
+        let texto_formatado = (resData.texto_formatado || "").trim();
+        window._ia2DuvidasLowConfidence = [];
+        window.__ia2JaTranscreveuOuRefinou = true;
+        window.__ia2UltimoAudioSizeTranscrito = hasAudio ? audioBlob.size : 0;
 
-      // 3. Renderizar cartões do diálogo com badges da colinha e dúvidas
-      const containerVisual = $("ia2GravacaoVisual");
-      if (containerVisual && Array.isArray(dialogo) && dialogo.length > 0) {
-        let htmlCards = "";
-        let countDuvidas = 0;
-
-        dialogo.forEach((item, idx) => {
-          if (item.tipo === "nota") {
-            const d = destacarDuvidasHtml(item.texto || item.resposta || "", item.duvidas || []);
-            countDuvidas += d.totalDuvidas;
-            htmlCards += `
-              <div class="ia2-qa-note">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-                  <span class="ia2-qa-badge-note">Observação / Fala Livre</span>
-                </div>
-                <div class="ia2-qa-note-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${d.html}</div>
-              </div>
-            `;
-          } else {
-            const dQ = destacarDuvidasHtml(item.pergunta || "", []);
-            const dA = destacarDuvidasHtml(item.resposta || "", item.duvidas || []);
-            countDuvidas += dQ.totalDuvidas + dA.totalDuvidas;
-            const badgeColinha = item.colinha_id 
-              ? `<span class="badge" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:auto;white-space:nowrap">Item ${String(item.colinha_id).padStart(2, "0")}</span>` 
-              : `<span class="badge" style="background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;margin-left:auto;white-space:nowrap">Pergunta Adicional</span>`;
-
-            htmlCards += `
-              <div class="ia2-qa-card">
-                <div class="ia2-qa-q-row">
-                  <span class="ia2-qa-badge-q">👨‍⚕️ Médico Perito</span>
-                  <span class="ia2-qa-q-text">${dQ.html}</span>
-                  ${badgeColinha}
-                </div>
-                <div class="ia2-qa-a-row">
-                  <span class="ia2-qa-badge-a">👤 Paciente / Servidor</span>
-                  <div class="ia2-qa-a-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${dA.html}</div>
-                </div>
-              </div>
-            `;
-          }
-        });
-
-        containerVisual.innerHTML = htmlCards;
-
-        // Atualizar badges de dúvidas
-        const totalD = total_duvidas !== undefined ? total_duvidas : countDuvidas;
-        const bDuvidas = $("ia2BadgeDuvidas");
-        const qDuvidas = $("ia2QtdDuvidas");
-        const lDuvidas = $("ia2DuvidasLegenda");
-        if (totalD > 0) {
-          if (bDuvidas) bDuvidas.style.display = "inline-flex";
-          if (qDuvidas) qDuvidas.textContent = totalD;
-          if (lDuvidas) lDuvidas.style.display = "inline";
-        } else {
-          if (bDuvidas) bDuvidas.style.display = "none";
-          if (lDuvidas) lDuvidas.style.display = "none";
+        // Reconstrução de segurança caso o backend não tenha devolvido texto_formatado mas tenha devolvido diálogo
+        if (!texto_formatado && Array.isArray(dialogo) && dialogo.length > 0) {
+          const lines = [];
+          dialogo.forEach(it => {
+            if (it.tipo === "qa") {
+              if (it.pergunta) lines.push(`Médico Perito: ${it.pergunta}`);
+              if (it.resposta) lines.push(`Periciado: ${it.resposta}`);
+            } else if (it.texto || it.resposta) {
+              lines.push(`Nota: ${it.texto || it.resposta}`);
+            }
+          });
+          texto_formatado = lines.join("\n\n");
         }
-      }
 
-      if (!automatico) {
-        toast("✨ Diálogo refinado e colinha pericial atualizada com IA!");
+        // 1. Atualizar colinha pericial semanticamente e banner de campos não perguntados
+        if (Array.isArray(colinha_status)) {
+          colinha_status.forEach(it => {
+            if (it && it.id && ia2ColinhaStatus[it.id]) {
+              ia2ColinhaStatus[it.id].matched = !!it.matched;
+              ia2ColinhaStatus[it.id].aiMatched = !!it.matched;
+              if (it.snippet) {
+                ia2ColinhaStatus[it.id].snippet = it.snippet;
+                ia2ColinhaStatus[it.id].aiSnippet = it.snippet;
+              } else if (!it.matched) {
+                ia2ColinhaStatus[it.id].snippet = "";
+                ia2ColinhaStatus[it.id].aiSnippet = "";
+              }
+            }
+          });
+          renderizarColinhaIA2();
+          atualizarBannerCamposNaoPerguntadosIA2();
+        }
+
+        // 2. Atualizar textarea e base de texto
+        if (texto_formatado) {
+          tArea.value = texto_formatado;
+          window._ia2BaseTextGravacao = texto_formatado;
+          atualizarContadorGravacaoIA2();
+        }
+
+        // 3. Renderizar cartões do diálogo com badges da colinha e dúvidas
+        const containerVisual = $("ia2GravacaoVisual");
+        if (containerVisual && Array.isArray(dialogo) && dialogo.length > 0) {
+          let htmlCards = "";
+          let countDuvidas = 0;
+
+          dialogo.forEach((item, idx) => {
+            if (item.tipo === "nota") {
+              const d = destacarDuvidasHtml(item.texto || item.resposta || "", item.duvidas || []);
+              countDuvidas += d.totalDuvidas;
+              htmlCards += `
+                <div class="ia2-qa-note">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px">
+                    <span class="ia2-qa-badge-note">📝 Observação / Fala Livre</span>
+                    <span style="font-size:10.5px;color:#64748B">✏️ Clique no texto para editar</span>
+                  </div>
+                  <div class="ia2-qa-note-text" contenteditable="true" data-idx="${idx}" onblur="salvarEdicaoVisualIA2()">${d.html}</div>
+                </div>
+              `;
+            } else {
+              const dQ = destacarDuvidasHtml(item.pergunta || "", []);
+              const dA = destacarDuvidasHtml(item.resposta || "", item.duvidas || []);
+              countDuvidas += dQ.totalDuvidas + dA.totalDuvidas;
+              const badgeColinha = item.colinha_id 
+                ? `<span class="badge" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:auto;white-space:nowrap">Item ${String(item.colinha_id).padStart(2, "0")}</span>` 
+                : `<span class="badge" style="background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;margin-left:auto;white-space:nowrap">Pergunta Adicional</span>`;
+
+              htmlCards += `
+                <div class="ia2-qa-card" data-colinha-id="${item.colinha_id || ''}">
+                  <div class="ia2-qa-q-row">
+                    <span class="ia2-qa-badge-q">👨‍⚕️ Médico Perito</span>
+                    <span class="ia2-qa-q-text">${dQ.html}</span>
+                    ${badgeColinha}
+                  </div>
+                  <div class="ia2-qa-a-row">
+                    <span class="ia2-qa-badge-a">👤 Paciente / Servidor</span>
+                    <div class="ia2-qa-a-text" contenteditable="true" data-idx="${idx}" title="Clique para corrigir ou complementar esta resposta" onblur="salvarEdicaoVisualIA2()">${dA.html}</div>
+                  </div>
+                </div>
+              `;
+            }
+          });
+
+          htmlCards += `
+            <div style="text-align:center;margin-top:10px">
+              <button type="button" class="btn btn-outline btn-sm" onclick="adicionarNotaManualVisualIA2()" style="font-size:12px;font-weight:700;color:#2563EB;border-color:#BFDBFE;background:#EFF6FF;padding:6px 14px;border-radius:8px">
+                ➕ Adicionar Observação ou Resposta Manual
+              </button>
+            </div>
+          `;
+
+          containerVisual.innerHTML = htmlCards;
+
+          // Atualizar badges de dúvidas
+          const totalD = total_duvidas !== undefined ? total_duvidas : countDuvidas;
+          const bDuvidas = $("ia2BadgeDuvidas");
+          const qDuvidas = $("ia2QtdDuvidas");
+          const lDuvidas = $("ia2DuvidasLegenda");
+          if (totalD > 0) {
+            if (bDuvidas) bDuvidas.style.display = "inline-flex";
+            if (qDuvidas) qDuvidas.textContent = totalD;
+            if (lDuvidas) lDuvidas.style.display = "inline";
+          } else {
+            if (bDuvidas) bDuvidas.style.display = "none";
+            if (lDuvidas) lDuvidas.style.display = "none";
+          }
+        }
+
+        const badgeStatus = $("ia2GravacaoStatusBadge");
+        if (badgeStatus && !ia2Gravando) {
+          badgeStatus.style.background = "#ECFDF5";
+          badgeStatus.style.color = "#047857";
+          badgeStatus.style.borderColor = "#A7F3D0";
+          badgeStatus.innerHTML = "✅ Transcrição pronta! Confira abaixo ou clique em '3. Finalizar Atendimento'";
+        }
+
+        atualizarGuiaPassosIA2(3);
+
+        if (!automatico) {
+          toast("✨ Diálogo refinado e colinha pericial atualizada com IA!");
+        }
+        return { ...resData, texto_formatado };
       }
-      return { ...resData, texto_formatado };
+      return null;
+    } catch (err) {
+      console.error("Falha no refinamento automático por IA:", err);
+      atualizarVisualTranscricaoIA2(false);
+      if (!automatico) {
+        toast("Não foi possível conectar à IA: " + (err.message || "Erro de conexão"));
+      }
+      throw err;
+    } finally {
+      _ia2RefinandoAtivo = false;
+      _ia2RefinandoPromise = null;
+      if (bar) bar.style.display = "none";
     }
-    return null;
-  } catch (err) {
-    console.error("Falha no refinamento automático por IA:", err);
-    atualizarVisualTranscricaoIA2(false);
-    if (!automatico) {
-      toast("Não foi possível conectar à IA: " + (err.message || "Erro de conexão"));
-    }
-    throw err;
-  } finally {
-    _ia2RefinandoAtivo = false;
-    if (bar) bar.style.display = "none";
-  }
+  })();
+
+  return _ia2RefinandoPromise;
 }
 
 function organizarTranscricaoManualmenteIA2() {
@@ -2066,6 +2282,13 @@ function trocarSubViewIA2(view) {
       atualizarContadorGravacaoIA2();
       atualizarVisualTranscricaoIA2(false);
     }
+    if (window.__ia2JaTranscreveuOuRefinou) {
+      atualizarGuiaPassosIA2(3);
+    } else if (ia2Gravando) {
+      atualizarGuiaPassosIA2(2);
+    } else {
+      atualizarGuiaPassosIA2(1);
+    }
   } else if (view === "escrita") {
     const tEsc = $("ia2EscritaText");
     if (tEsc) {
@@ -2107,18 +2330,28 @@ function atualizarBannerCamposNaoPerguntadosIA2() {
               Campos / Perguntas que NÃO foram perguntadas no áudio (${pendentes.length} de ${total} pendentes)
             </strong>
           </div>
-          <span style="font-size:11px;color:#B45309;font-weight:800;background:#FEF3C7;padding:3px 10px;border-radius:12px;border:1px solid #FCD34D">
-            ${respondidas} respondida(s) • ${pendentes.length} pendente(s)
-          </span>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:11px;color:#B45309;font-weight:800;background:#FEF3C7;padding:4px 10px;border-radius:12px;border:1px solid #FCD34D">
+              ${respondidas} respondida(s) • ${pendentes.length} pendente(s)
+            </span>
+            <button type="button" class="btn btn-sm" onclick="iniciarGravacaoIA2()" style="background:#2563EB;color:#fff;border:none;font-size:11.5px;font-weight:800;padding:5px 12px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(37,99,235,0.25)" title="Retomar microfone para fazer as perguntas faltantes">
+              🎙️ Gravar Perguntas Faltantes
+            </button>
+          </div>
         </div>
         <div style="font-size:12px;color:#78350F;margin-bottom:10px;line-height:1.4">
-          A IA transcreveu o áudio da consulta e organizou o diálogo. Os tópicos abaixo <strong>não foram relatados</strong> no áudio:
+          A IA transcreveu o áudio da consulta e organizou o diálogo. Os tópicos abaixo <strong>não foram relatados</strong> no áudio (se você já conferiu no atestado, clique em <em>"✓ Já conferi"</em>):
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           ${pendentes.map(p => `
-            <div style="background:#FFFFFF;border:1px solid #FCD34D;border-radius:8px;padding:7px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 2px rgba(0,0,0,0.03)">
-              <span style="background:#F59E0B;color:#FFFFFF;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:900;flex-shrink:0">Item ${p.numero}</span>
-              <span style="color:#1E293B;font-size:12.5px;font-weight:600">${esc(p.pergunta)}</span>
+            <div style="background:#FFFFFF;border:1px solid #FCD34D;border-radius:8px;padding:7px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 1px 2px rgba(0,0,0,0.03)">
+              <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                <span style="background:#F59E0B;color:#FFFFFF;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:900;flex-shrink:0">Item ${p.numero}</span>
+                <span style="color:#1E293B;font-size:12.5px;font-weight:600">${esc(p.pergunta)}</span>
+              </div>
+              <button type="button" onclick="toggleColinhaItemManual(${p.id})" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap" title="Marcar este item como já verificado pelo médico">
+                ✓ Já conferi
+              </button>
             </div>
           `).join("")}
         </div>
@@ -2127,11 +2360,13 @@ function atualizarBannerCamposNaoPerguntadosIA2() {
   } else {
     container.style.display = "block";
     container.innerHTML = `
-      <div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px;color:#166534;margin-bottom:12px">
-        <span style="font-size:22px">✅</span>
-        <div>
-          <strong style="font-size:13.5px;display:block">Excelente! Todas as 11 perguntas do Roteiro Pericial foram identificadas e respondidas no áudio.</strong>
-          <span style="font-size:11.5px;color:#15803D">Todas as informações necessárias para a perícia foram cobertas na conversa gravada.</span>
+      <div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;color:#166534;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px">✅</span>
+          <div>
+            <strong style="font-size:13.5px;display:block">Excelente! Todas as 11 perguntas do Roteiro Pericial foram identificadas e respondidas.</strong>
+            <span style="font-size:11.5px;color:#15803D">Clique no botão verde <strong>"3. Finalizar Atendimento"</strong> acima para escolher seu parecer e gerar a ficha.</span>
+          </div>
         </div>
       </div>
     `;
@@ -2202,8 +2437,9 @@ function analisarColinhaEmTempoReal(texto) {
     const st = ia2ColinhaStatus[q.id];
     if (!st) return;
     const res = t ? q.validar(t) : { matched: false };
-    const novoMatched = !!(res && res.matched);
-    const novoSnippet = (res && res.snippet) ? res.snippet : "";
+    // Preserva validação semântica da IA caso já tenha sido validada por áudio/IA
+    const novoMatched = Boolean((res && res.matched) || st.aiMatched);
+    const novoSnippet = (res && res.snippet) ? res.snippet : (st.aiSnippet || "");
 
     if (st.matched !== novoMatched || st.snippet !== novoSnippet) {
       st.matched = novoMatched;
@@ -2247,6 +2483,7 @@ async function iniciarGravacaoIA2() {
   }
 
   ia2Gravando = true;
+  atualizarGuiaPassosIA2(2);
 
   // Snapshot inicial do texto existente na textarea
   const tArea = $("ia2GravacaoTranscricao");
@@ -2264,16 +2501,18 @@ async function iniciarGravacaoIA2() {
   const wave = $("ia2WaveContainer");
 
   if (btn) {
-    btn.className = "btn btn-danger";
+    btn.className = "btn btn-danger ia2-btn-main-record";
     btn.style.background = "#DC2626";
     btn.style.borderColor = "#B91C1C";
+    btn.style.boxShadow = "0 4px 14px rgba(220,38,38,0.35)";
   }
-  if (btnText) btnText.textContent = "Pausar Atendimento";
+  if (btnText) btnText.textContent = "2. Pausar e Ver Transcrição";
   if (btnIcon) btnIcon.textContent = "⏸️";
   if (badge) {
     badge.style.background = "#DCFCE7";
     badge.style.color = "#15803D";
-    badge.innerHTML = "🎙️ Microfone ativo e gravando consulta...";
+    badge.style.borderColor = "#86EFAC";
+    badge.innerHTML = "🎙️ Gravando consulta... Clique em '2. Pausar' quando terminar de perguntar";
   }
   if (wave) wave.classList.add("ia2-recording-active");
 
@@ -2286,14 +2525,14 @@ async function iniciarGravacaoIA2() {
   if (containerVisual) {
     containerVisual.innerHTML = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:280px;color:#1E293B;text-align:center;padding:28px">
-        <div style="width:72px;height:72px;border-radius:50%;background:#FEE2E2;border:3px solid #EF4444;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:16px;box-shadow:0 0 0 10px rgba(239,68,68,0.12)">🎙️</div>
-        <h4 style="margin:0 0 8px;font-size:17px;font-weight:900;color:#0F172A">Atendimento em Gravação de Áudio</h4>
-        <p style="font-size:13.5px;color:#64748B;max-width:460px;margin:0 0 16px;line-height:1.5">
-          Conduza a consulta com o periciado com tranquilidade. O áudio está sendo gravado com alta fidelidade médica.
+        <div style="width:76px;height:76px;border-radius:50%;background:#FEE2E2;border:3px solid #EF4444;display:flex;align-items:center;justify-content:center;font-size:34px;margin-bottom:16px;box-shadow:0 0 0 10px rgba(239,68,68,0.12)">🎙️</div>
+        <h4 style="margin:0 0 8px;font-size:18px;font-weight:900;color:#0F172A">Gravando Áudio da Consulta...</h4>
+        <p style="font-size:14px;color:#475569;max-width:480px;margin:0 0 18px;line-height:1.5">
+          Conduza a conversa com o paciente normalmente. Use o <strong>Roteiro de Perguntas (Colinha)</strong> à esquerda como guia.
         </p>
-        <div style="background:#F0FDF4;border:1.5px solid #BBF7D0;color:#166534;font-size:12.5px;font-weight:700;padding:8px 18px;border-radius:24px;display:inline-flex;align-items:center;gap:8px">
-          <span style="width:8px;height:8px;border-radius:50%;background:#22C55E"></span>
-          Ao clicar em <strong>Pausar</strong> ou <strong>Finalizar Atendimento</strong>, a IA transcreverá o áudio completo e listará as perguntas não realizadas.
+        <div style="background:#EFF6FF;border:1.5px solid #93C5FD;color:#1E40AF;font-size:13px;font-weight:700;padding:10px 20px;border-radius:14px;display:inline-flex;align-items:center;gap:10px;max-width:520px;text-align:left">
+          <span style="font-size:20px">⏸️</span>
+          <span><strong>Próximo Passo:</strong> Quando terminar as perguntas, clique no botão vermelho <strong>"2. Pausar e Ver Transcrição"</strong> acima para ler o que foi dito e ver se faltou alguma pergunta.</span>
         </div>
       </div>
     `;
@@ -2354,11 +2593,11 @@ async function iniciarGravacaoIA2() {
               if (avg > 7) {
                 b.style.background = "#DCFCE7";
                 b.style.color = "#15803D";
-                b.innerHTML = "🎙️ Detectando fala na consulta...";
+                b.innerHTML = "🎙️ Captando voz da consulta...";
               } else {
                 b.style.background = "#EFF6FF";
                 b.style.color = "#1D4ED8";
-                b.innerHTML = "🔴 Microfone ativo (aguardando fala...)";
+                b.innerHTML = "🔴 Microfone ligado (aguardando fala...)";
               }
             }
 
@@ -2383,6 +2622,7 @@ async function iniciarGravacaoIA2() {
           ia2MediaRecorder.ondataavailable = (e) => {
             if (e.data && e.data.size > 0) {
               ia2AudioChunks.push(e.data);
+              window.__ia2JaTranscreveuOuRefinou = false;
               const mType = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
               window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mType });
               const btnDl = $("ia2BtnDownloadAudio");
@@ -2405,7 +2645,7 @@ async function iniciarGravacaoIA2() {
   toast("🎙️ Microfone ativo! Conduza o atendimento com a periciada.");
 }
 
-function pausarGravacaoIA2() {
+function pausarGravacaoIA2(skipAutoRefine = false) {
   ia2Gravando = false;
   clearInterval(ia2TimerInterval);
   clearTimeout(ia2RestartTimeout);
@@ -2420,17 +2660,20 @@ function pausarGravacaoIA2() {
   const badge = $("ia2GravacaoStatusBadge");
   const wave = $("ia2WaveContainer");
 
+  // Em pausa, usa cor azul para NÃO confundir com o botão verde "3. Finalizar Atendimento"
   if (btn) {
-    btn.className = "btn btn-green";
-    btn.style.background = "linear-gradient(135deg, #059669 0%, #10B981 100%)";
-    btn.style.borderColor = "#059669";
+    btn.className = "btn btn-primary ia2-btn-main-record";
+    btn.style.background = "#2563EB";
+    btn.style.borderColor = "#1D4ED8";
+    btn.style.boxShadow = "0 3px 10px rgba(37,99,235,0.25)";
   }
-  if (btnText) btnText.textContent = "Continuar Atendimento";
-  if (btnIcon) btnIcon.textContent = "▶️";
+  if (btnText) btnText.textContent = "Continuar Gravação (Mais Perguntas)";
+  if (btnIcon) btnIcon.textContent = "🎙️";
   if (badge) {
     badge.style.background = "#FEF3C7";
     badge.style.color = "#92400E";
-    badge.innerHTML = "⏸️ Gravação em Pausa (transcrevendo com IA...)";
+    badge.style.borderColor = "#FDE68A";
+    badge.innerHTML = "⏳ Gravação pausada — IA transcrevendo a conversa...";
   }
   if (wave) wave.classList.remove("ia2-recording-active");
   const waveBars = document.querySelectorAll("#ia2WaveContainer .ia2-wave-bar");
@@ -2459,12 +2702,14 @@ function pausarGravacaoIA2() {
     const btnDl = $("ia2BtnDownloadAudio");
     if (btnDl) btnDl.style.display = "inline-flex";
 
-    // Transcreve automaticamente o áudio gravado no momento ao pausar
-    setTimeout(() => {
-      if (!ia2Gravando && (window.__ia2AudioBlobPendente || (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0))) {
-        refinarDialogoComIA2(true);
-      }
-    }, 280);
+    // Transcreve automaticamente o áudio gravado no momento ao pausar (exceto quando chamado pela finalização direta)
+    if (!skipAutoRefine) {
+      setTimeout(() => {
+        if (!ia2Gravando && (window.__ia2AudioBlobPendente || (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0))) {
+          refinarDialogoComIA2(true);
+        }
+      }, 280);
+    }
   }
 }
 
@@ -2509,11 +2754,24 @@ function limparTranscricaoIA2() {
       removerAudioImportadoIA2();
     }
     window.__ia2JaTranscreveuOuRefinou = false;
+    atualizarGuiaPassosIA2(1);
+    const btn = $("ia2BtnGravacaoToggle");
+    const btnText = $("ia2BtnGravacaoText");
+    const btnIcon = $("ia2BtnGravacaoIcon");
+    if (btn && !ia2Gravando) {
+      btn.className = "btn btn-green ia2-btn-main-record";
+      btn.style.background = "linear-gradient(135deg, #059669 0%, #10B981 100%)";
+      btn.style.borderColor = "#059669";
+    }
+    if (btnText && !ia2Gravando) btnText.textContent = "1. Iniciar Gravação";
+    if (btnIcon && !ia2Gravando) btnIcon.textContent = "🎙️";
     const pend = $("ia2CamposNaoPerguntadosContainer");
     if (pend) { pend.style.display = "none"; pend.innerHTML = ""; }
     COLINHA_IA2_CONFIG.forEach(q => {
       ia2ColinhaStatus[q.id].matched = false;
+      ia2ColinhaStatus[q.id].aiMatched = false;
       ia2ColinhaStatus[q.id].snippet = "";
+      ia2ColinhaStatus[q.id].aiSnippet = "";
       ia2ColinhaStatus[q.id].manualState = null;
     });
     renderizarColinhaIA2();
@@ -2932,7 +3190,8 @@ function baixarGravacaoAudioIA2() {
 async function finalizarAtendimentoIA2(origem) {
   if (origem === "gravacao") {
     if (ia2Gravando) {
-      pausarGravacaoIA2();
+      pausarGravacaoIA2(true);
+      await new Promise(r => setTimeout(r, 250));
     }
     salvarEdicaoVisualIA2();
 
@@ -2948,8 +3207,16 @@ async function finalizarAtendimentoIA2(origem) {
       return;
     }
 
-    // Se possui áudio gravado ou importado e ainda não transcreveu, transcreve com IA antes de abrir as opções do perito
-    if (hasAudio && !window.__ia2JaTranscreveuOuRefinou) {
+    // Se já existe uma transcrição em andamento iniciada ao pausar, apenas aguarda ela concluir
+    if (_ia2RefinandoAtivo && _ia2RefinandoPromise) {
+      try {
+        const refData = await _ia2RefinandoPromise;
+        txt = ($("ia2GravacaoTranscricao")?.value || "").trim() || (refData && refData.texto_formatado) || txt;
+      } catch (err) {
+        console.warn("Aviso ao aguardar transcrição em andamento:", err);
+      }
+    } else if (hasAudio && (!window.__ia2JaTranscreveuOuRefinou || !txt)) {
+      // Só transcreve se ainda não tiver sido transcrito ao pausar/importar
       try {
         const refData = await refinarDialogoComIA2(true);
         if (refData && refData.texto_formatado) {
@@ -3149,7 +3416,7 @@ function atualizarOverlayIA2Passo(passo, mensagem, porcentagem) {
 
 async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
   if (ia2Gravando) {
-    pausarGravacaoIA2();
+    pausarGravacaoIA2(true);
   }
   if (ia2DitadoEscritaAtivo) {
     alternarDitadoVozEscritaIA2();
@@ -3159,30 +3426,42 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
 
   try {
     if (origem === "gravacao") {
-      // Intervalo técnico para o MediaRecorder descarregar os buffers locais
-      await new Promise(r => setTimeout(r, 200));
+      salvarEdicaoVisualIA2();
+      let textoAtual = ($("ia2GravacaoTranscricao")?.value || "").trim();
 
-      const audioBlob = window.__ia2AudioBlobPendente || (
-        Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0
-          ? new Blob(ia2AudioChunks, { type: (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm" })
-          : null
-      );
-      const hasAudio = Boolean(audioBlob && audioBlob.size > 200);
+      // Se a transcrição ainda estiver rodando em background (iniciada no Pausar), aguarda concluir
+      if (_ia2RefinandoAtivo && _ia2RefinandoPromise) {
+        atualizarOverlayIA2Passo(2, "🧠 Concluindo transcrição do áudio em andamento...", 45);
+        const refData = await _ia2RefinandoPromise;
+        textoAtual = ($("ia2GravacaoTranscricao")?.value || "").trim() || (refData && refData.texto_formatado) || textoAtual;
+      } else if (!window.__ia2JaTranscreveuOuRefinou || !textoAtual) {
+        // Só transcreve agora caso ainda não tenha sido transcrito ao pausar/importar
+        await new Promise(r => setTimeout(r, 200));
 
-      if (hasAudio) {
-        atualizarOverlayIA2Passo(2, "🧠 IA Gemini analisando áudio, identificando vozes (Médica x Paciente) e limpando ruídos...", 45);
+        const audioBlob = window.__ia2AudioBlobPendente || (
+          Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0
+            ? new Blob(ia2AudioChunks, { type: (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm" })
+            : null
+        );
+        const hasAudio = Boolean(audioBlob && audioBlob.size > 200);
+
+        if (hasAudio) {
+          atualizarOverlayIA2Passo(2, "🧠 IA Gemini analisando áudio, identificando vozes (Médica x Paciente) e limpando ruídos...", 45);
+        } else {
+          atualizarOverlayIA2Passo(2, "🧠 IA Médica estruturando diálogo (Médico x Paciente) e limpando ruídos...", 45);
+        }
+
+        const refData = await refinarDialogoComIA2(true);
+        textoAtual = ($("ia2GravacaoTranscricao")?.value || "").trim() || (refData && refData.texto_formatado) || textoAtual;
       } else {
-        atualizarOverlayIA2Passo(2, "🧠 IA Médica estruturando diálogo (Médico x Paciente) e limpando ruídos...", 45);
+        // Já foi transcrito ao pausar ou importar! Reaproveita instantaneamente sem transcrever de novo
+        atualizarOverlayIA2Passo(2, "✓ Transcrição já pronta! Reaproveitando diálogo estruturado...", 55);
       }
-
-      const refData = await refinarDialogoComIA2(true);
 
       atualizarOverlayIA2Passo(3, "📋 Integrando parecer pericial, diretrizes e exame clínico...", 70);
 
-      // Utiliza o texto pericial refinado e corrigido pela IA
-      const textoRefinado = ($("ia2GravacaoTranscricao")?.value || "").trim() || (refData && refData.texto_formatado);
-      if (textoRefinado) {
-        texto = textoRefinado;
+      if (textoAtual) {
+        texto = textoAtual;
       }
     } else {
       atualizarOverlayIA2Passo(1, "📝 Analisando anotações clínicas periciais...", 25);
