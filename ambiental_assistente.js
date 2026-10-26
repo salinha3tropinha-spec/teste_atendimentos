@@ -1841,25 +1841,40 @@ async function refinarDialogoComIA2(automatico = false) {
     }
 
     const apiUrl = `${getApiBase()}/api/ai/refinar-dialogo-ia2`;
-    const authHeaders = (typeof AmbientalAuth !== "undefined" && AmbientalAuth.headers) 
-      ? AmbientalAuth.headers() 
-      : {};
-    delete authHeaders["Content-Type"];
-
-    const resp = await fetch(apiUrl, {
+    const resp = await (window.AmbientalAuth ? window.AmbientalAuth.authFetch : fetch)(apiUrl, {
       method: "POST",
-      headers: authHeaders,
       body: formData
     });
 
     if (!resp.ok) {
-      throw new Error(`Servidor retornou status ${resp.status}`);
+      let errDetail = `Status ${resp.status}`;
+      try {
+        const errJson = await resp.json();
+        errDetail = errJson?.error?.message || errJson?.detail || errJson?.message || errDetail;
+      } catch (_) {}
+      throw new Error(`Falha no servidor (${errDetail})`);
     }
 
     const resJson = await resp.json();
-    if (resJson && resJson.ok && resJson.data) {
-      const { dialogo, colinha_status, texto_formatado, total_duvidas } = resJson.data;
+    const resData = (resJson && (resJson.data || (resJson.success && resJson))) || null;
+    if (resData) {
+      const { dialogo, colinha_status, total_duvidas } = resData;
+      let texto_formatado = (resData.texto_formatado || "").trim();
       window._ia2DuvidasLowConfidence = [];
+
+      // Reconstrução de segurança caso o backend não tenha devolvido texto_formatado mas tenha devolvido diálogo
+      if (!texto_formatado && Array.isArray(dialogo) && dialogo.length > 0) {
+        const lines = [];
+        dialogo.forEach(it => {
+          if (it.tipo === "qa") {
+            if (it.pergunta) lines.push(`Médico Perito: ${it.pergunta}`);
+            if (it.resposta) lines.push(`Periciado: ${it.resposta}`);
+          } else if (it.texto || it.resposta) {
+            lines.push(`Nota: ${it.texto || it.resposta}`);
+          }
+        });
+        texto_formatado = lines.join("\n\n");
+      }
 
       // 1. Atualizar colinha pericial semanticamente (Melhoria 2)
       if (Array.isArray(colinha_status)) {
@@ -1943,17 +1958,16 @@ async function refinarDialogoComIA2(automatico = false) {
       if (!automatico) {
         toast("✨ Diálogo refinado e colinha pericial atualizada com IA!");
       }
-      return resJson.data;
+      return { ...resData, texto_formatado };
     }
     return null;
   } catch (err) {
-    console.warn("Falha no refinamento automático por IA:", err);
-    // Fallback gracioso: mantém estruturação local
+    console.error("Falha no refinamento automático por IA:", err);
     atualizarVisualTranscricaoIA2(false);
     if (!automatico) {
-      toast("Não foi possível conectar à IA no momento. Transcrição mantida localmente.");
+      toast("Não foi possível conectar à IA: " + (err.message || "Erro de conexão"));
     }
-    return null;
+    throw err;
   } finally {
     _ia2RefinandoAtivo = false;
     if (bar) bar.style.display = "none";
@@ -2782,7 +2796,24 @@ function processarArquivoAudioImportadoIA2(input) {
     return;
   }
 
-  window.__ia2AudioBlobPendente = file;
+  // Detectar MIME type correto e padronizado para navegadores e IA
+  let detectedMime = (file.type || "").toLowerCase();
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  if (!detectedMime || detectedMime === "application/octet-stream" || detectedMime === "audio/octet-stream") {
+    if (ext === "mp3") detectedMime = "audio/mpeg";
+    else if (ext === "wav") detectedMime = "audio/wav";
+    else if (ext === "m4a" || ext === "mp4" || ext === "aac") detectedMime = "audio/mp4";
+    else if (ext === "ogg" || ext === "opus") detectedMime = "audio/ogg";
+    else if (ext === "webm") detectedMime = "audio/webm";
+    else detectedMime = "audio/mpeg";
+  } else if (detectedMime === "audio/mp3") {
+    detectedMime = "audio/mpeg"; // audio/mpeg é o MIME padrão para decodificação em navegadores HTML5
+  }
+
+  // Cria Blob tipado garantindo que o player HTML5 e a API conheçam o container
+  const audioBlob = (file.type === detectedMime) ? file : new Blob([file], { type: detectedMime });
+  audioBlob.name = file.name;
+  window.__ia2AudioBlobPendente = audioBlob;
   ia2AudioChunks = []; // substitui gravação anterior pelo arquivo importado
 
   // Atualizar Banner e Player
@@ -2795,13 +2826,40 @@ function processarArquivoAudioImportadoIA2(input) {
   if (banner) banner.style.display = "flex";
   if (titulo) titulo.textContent = `📁 ${file.name}`;
   const mb = (file.size / (1024 * 1024)).toFixed(2);
-  if (info) info.textContent = `${file.type || 'Áudio pericial'} • ${mb} MB • Pronto para transcrição e diarização com IA Gemini`;
+  if (info) info.textContent = `${ext.toUpperCase()} • ${mb} MB • Carregando áudio...`;
+
   if (player) {
     try {
-      player.src = URL.createObjectURL(file);
+      if (player._objectUrl) {
+        URL.revokeObjectURL(player._objectUrl);
+      }
+      const url = URL.createObjectURL(audioBlob);
+      player._objectUrl = url;
+      player.src = url;
+      player.preload = "auto";
       player.style.display = "inline-flex";
-    } catch (_) {}
+      player.load(); // ESSENCIAL: força o navegador a decodificar metadados e preparar o áudio
+
+      player.onloadedmetadata = () => {
+        const dur = Math.round(player.duration);
+        if (dur && !isNaN(dur) && isFinite(dur)) {
+          const min = Math.floor(dur / 60);
+          const sec = String(dur % 60).padStart(2, "0");
+          if (info) info.textContent = `${ext.toUpperCase()} • ${mb} MB (${min}:${sec}) • Pronto para transcrição com IA`;
+        } else {
+          if (info) info.textContent = `${ext.toUpperCase()} • ${mb} MB • Pronto para transcrição com IA`;
+        }
+      };
+
+      player.onerror = () => {
+        console.warn("Aviso na reprodução do áudio pelo navegador:", player.error);
+        if (info) info.textContent = `${ext.toUpperCase()} • ${mb} MB • Pronto para envio à IA`;
+      };
+    } catch (e) {
+      console.warn("Erro ao configurar player do áudio:", e);
+    }
   }
+
   if (badge) {
     badge.style.background = "#DCFCE7";
     badge.style.color = "#15803D";
@@ -2822,7 +2880,12 @@ function removerAudioImportadoIA2() {
   if (player) {
     try {
       player.pause();
-      player.src = "";
+      if (player._objectUrl) {
+        URL.revokeObjectURL(player._objectUrl);
+        player._objectUrl = null;
+      }
+      player.removeAttribute("src");
+      player.load();
     } catch (_) {}
   }
   const badge = $("ia2GravacaoStatusBadge");
@@ -3118,12 +3181,12 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
         atualizarOverlayIA2Passo(2, "🧠 IA Médica estruturando diálogo (Médico x Paciente) e limpando ruídos...", 45);
       }
 
-      await refinarDialogoComIA2(true);
+      const refData = await refinarDialogoComIA2(true);
 
       atualizarOverlayIA2Passo(3, "📋 Integrando parecer pericial, diretrizes e exame clínico...", 70);
 
       // Utiliza o texto pericial refinado e corrigido pela IA
-      const textoRefinado = ($("ia2GravacaoTranscricao")?.value || "").trim();
+      const textoRefinado = ($("ia2GravacaoTranscricao")?.value || "").trim() || (refData && refData.texto_formatado);
       if (textoRefinado) {
         texto = textoRefinado;
       }
@@ -3135,7 +3198,7 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
     }
 
     if (!texto) {
-      throw new Error("Nenhum conteúdo ou áudio transcrito foi obtido para preenchimento. Verifique o microfone ou arquivo de áudio.");
+      throw new Error("A IA não identificou falas ou conteúdo clínico suficiente no áudio/anotação enviada. Verifique se o arquivo possui áudio gravado e tente novamente.");
     }
 
     atualizarOverlayIA2Passo(4, "⚡ Preenchendo ficha e-SISLA com parecer e regras oficiais...", 88);

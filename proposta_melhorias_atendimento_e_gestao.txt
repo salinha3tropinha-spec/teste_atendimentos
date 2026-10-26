@@ -1,0 +1,195 @@
+================================================================================
+PROPOSTA ESTRATÉGICA DE MELHORIAS DO SISTEMA AMBIENTAL PERÍCIAS
+ATENDIMENTO MÉDICO-PERICIAL & GESTÃO OPERACIONAL DE ATENDIMENTOS
+================================================================================
+Data: 16 de Outubro de 2026
+Destinatário: Coordenação / Supervisão Operacional e Médica
+Finalidade: Avaliação, priorização e deliberação de roadmap de melhorias
+================================================================================
+
+1. APRESENTAÇÃO E CONTEXTO
+--------------------------------------------------------------------------------
+O presente documento consolida um catálogo completo de propostas de inovação e
+otimização para o ecossistema pericial (Avaliação Médica LTS / DPME / e-SISLA),
+abrangendo duas frentes complementares:
+
+  • EIXO CLÍNICO (Atendimento Médico): Redução de tempo de tela, menor esforço
+    repetitivo de digitação, blindagem técnica dos laudos e prevenção de erros.
+  • EIXO GERENCIAL (Gestão & Coordenação): Governança de filas, indicadores de
+    produtividade em tempo real, auditoria de qualidade e inteligência analítica.
+
+
+================================================================================
+EIXO 1: MELHORIAS NO ATENDIMENTO MÉDICO PERICIAL (CLÍNICO & ERGONOMIA)
+================================================================================
+
+1.1. LEITURA INTELIGENTE DE ATESTADOS POR OCR COM IA (SCAN FOTO/PDF)
+--------------------------------------------------------------------------------
+• Como funciona: O perito fotografa ou anexa o atestado/relatório do médico
+  assistente (PDF ou imagem).
+• Benefício: A IA extrai instantaneamente CRM, nome do médico assistente, data
+  do documento, CID-10 e dias solicitados, preenchendo os campos e calculando
+  a retroação regulamentar (limite de 3 dias do DPME) em menos de 3 segundos.
+• Ganho de tempo: Economia de 1 a 2 minutos por atendimento.
+
+1.2. PRESETS CLÍNICOS DE 1 CLIQUE PARA PATOLOGIAS FREQUENTES
+--------------------------------------------------------------------------------
+• Como funciona: Botões de atalho no topo para as patologias que somam mais de
+  70% da rotina:
+    - Lombalgia / Lombociatalgia Aguda (M54.5 / M54.4)
+    - Transtorno Depressivo / Ansioso (F32 / F41)
+    - Pós-operatórios comuns (Colecistectomia, Vasectomia, Blefaroplastia)
+    - Síndrome Gripal / Infecções Respiratórias (J06 / J11)
+• Benefício: Com apenas 1 clique, o sistema pré-seleciona o sistema anatômico,
+  insere a propedêutica/exame físico de referência e sugere a limitação
+  funcional padrão compatível com o cargo do servidor.
+• Ganho de tempo: Redução de até 60% dos cliques na tela de preenchimento.
+
+1.3. FAROL PERICIAL DE RISCO DE GLOSA/NULIDADE EM TEMPO REAL
+--------------------------------------------------------------------------------
+• Como funciona: Barra visual de status (Verde / Amarelo / Vermelho) no topo da
+  tela que analisa a coerência jurídica e regulamentar do laudo:
+    - 🟢 Laudo blindado, sem divergências técnicas.
+    - 🟡 Atenção: Servidor acumula 90+ ou 180+ dias (indicação de Junta Médica).
+    - 🟡 Atenção: Atestado emitido há mais de 3 dias (retroação DPME).
+    - 🔴 Contradição Crítica: Quesito 3 como "Não" em parecer FAVORÁVEL.
+• Benefício: Elimina 100% dos erros formais de preenchimento antes do envio.
+
+1.4. RÉGUA PERICIAL DINÂMICA DE PRAZOS DPME POR CID
+--------------------------------------------------------------------------------
+• Como funciona: Ao selecionar o CID principal, o sistema exibe a faixa
+  histórica recomendada e usualmente acolhida pelo DPME para aquele diagnóstico.
+• Benefício: Baliza a concessão pericial, orientando o médico quando um pedido
+  excede o prazo típico da literatura pericial ou requer exames comprobatórios.
+
+1.5. AUTOPREENCHIMENTO e-SISLA EM 1 CLIQUE VIA EXTENSÃO (ZERO F12 / ZERO MANUAL)
+--------------------------------------------------------------------------------
+• Como funciona: Ao acessar a página de lançamento do laudo no portal e-SISLA
+  oficial, uma extensão de navegador reconhece o atendimento ativo e exibe um
+  botão flutuante: "[⚡ Preencher e-SISLA deste Atendimento]".
+• Benefício: Dispara a injeção de todos os dados, marcações de sistemas e
+  quesitos sem necessidade de Console F12 ou arrastar bookmarklets manualmente.
+
+1.6. DITADO CONTÍNUO DE CONSULTA COM DISTRIBUIÇÃO AUTOMÁTICA
+--------------------------------------------------------------------------------
+• Como funciona: O médico ativa o microfone e descreve a consulta de forma
+  livre durante o exame físico.
+• Benefício: A IA transcreve e distribui o relato automaticamente nos campos
+  correspondentes: Queixa e Duração, Exame Físico, Limitações e Conduta.
+
+1.7. MODO ESCURO (DARK MODE) PARA ERGONOMIA MÉDICA
+--------------------------------------------------------------------------------
+• Como funciona: Alternância rápida de tema claro para tema escuro.
+• Benefício: Redução comprovada de fadiga ocular em médicos peritos que passam
+  de 6 a 8 horas diárias diante de telas brancas de prontuários.
+
+1.8. COMPROVANTE DIGITAL COM QR CODE E ENVIO AUTOMÁTICO (SEM PAPEL)
+--------------------------------------------------------------------------------
+• Como funciona: Geração do Comprovante de Comparecimento com QR Code seguro de
+  autenticidade pericial, permitindo envio para WhatsApp/e-mail do servidor.
+• Benefício: Elimina filas de recepção para carimbo e reduz consumo de papel.
+
+
+================================================================================
+EIXO 2: MELHORIAS NA GESTÃO DE ATENDIMENTOS (COORDENAÇÃO & OPERACIONAL)
+================================================================================
+
+2.1. DASHBOARD DE PRODUTIVIDADE E INDICADORES MÉDICOS EM TEMPO REAL
+--------------------------------------------------------------------------------
+• Como funciona: Painel analítico para a supervisão com métricas consolidadas:
+    - Volume de atendimentos finalizados x rascunhos no dia/mês.
+    - Tempo médio de atendimento por médico perito.
+    - Taxa de pareceres: % Favorável vs % Contrário.
+    - Top 10 CIDs mais concedidos e Top Cargos com maior absenteísmo.
+• Benefício: Visão gerencial imediata da operação sem depender de planilhas.
+
+2.2. PAINEL DE CHAMADA DE SENHAS / FILA DE SALA DE ESPERA (RECEPÇÃO & TV)
+--------------------------------------------------------------------------------
+• Como funciona: Módulo para recepção cadastrar a chegada do servidor e tela
+  pública para TV na sala de espera: "Servidor: M. S. P. -> Consultório 02".
+• Benefício: Fim do médico ter que abrir a porta para chamar o servidor no
+  corredor; registro preciso do tempo de espera (Check-in até Atendimento).
+
+2.3. ALERTA GERENCIAL DE SERVIDORES EM RISCO DE READAPTAÇÃO / JUNTA MÉDICA
+--------------------------------------------------------------------------------
+• Como funciona: Relatório automatizado que lista todos os servidores da base que
+  atingiram 90, 120 ou 180 dias de licença nos últimos 12 meses.
+• Benefício: Permite à coordenação médica sugerir antecipadamente a convocação
+  de Junta Médica Pericial para verificação de capacidade laborativa residual.
+
+2.4. MÓDULO DE AUDITORIA E CONTROLE DE QUALIDADE DE LAUDOS (PEER REVIEW)
+--------------------------------------------------------------------------------
+• Como funciona: Ferramenta de amostragem randômica que separa 5% a 10% dos
+  atendimentos finalizados para revisão e validação da coordenação médica.
+• Benefício: Padronização técnica da equipe, garantindo uniformidade vernacular
+  e conformidade estrita com as diretrizes do DPME.
+
+2.5. EXPORTAÇÃO GERENCIAL AVANÇADA (EXCEL, CSV E RELATÓRIOS PDF ANALÍTICOS)
+--------------------------------------------------------------------------------
+• Como funciona: Central de exportação com filtros dinâmicos:
+    - Por período (data inicial e final).
+    - Por médico perito ou unidade pericial.
+    - Por parecer (somente contrários, somente favoráveis).
+    - Por órgão/secretaria (Educação, SAP, Segurança Pública, etc.).
+• Benefício: Prestação de contas rápida para órgãos públicos e auditorias.
+
+2.6. DETECTOR DE ANOMALIAS E DISCREPÂNCIAS ESTATÍSTICAS
+--------------------------------------------------------------------------------
+• Como funciona: O sistema identifica padrões atípicos automaticamente:
+    - Médico com taxa de parecer contrário desproporcional à média da equipe.
+    - Picos incomuns de concessão de dias para um mesmo CID ou órgão.
+    - Atendimentos finalizados em tempos excessivamente curtos (< 2 minutos).
+• Benefício: Governança proativa e detecção antecipada de eventuais falhas.
+
+2.7. GESTÃO DE ESCALAS DE MÉDICOS E METAS OPERACIONAIS
+--------------------------------------------------------------------------------
+• Como funciona: Cadastro de escalas de plantão, definição de teto diário de
+  perícias por profissional e distribuição balanceada da fila de espera.
+• Benefício: Distribuição justa da carga de trabalho entre os peritos.
+
+2.8. CENTRAL DE DOCUMENTAÇÃO E NORMAS DPME INTEGRADAS AO SISTEMA
+--------------------------------------------------------------------------------
+• Como funciona: Aba de consulta rápida com manuais periciais do DPME, Decretos
+  Estaduais (Lei 10.261/68, Resolução SGGD) e tabela de CIDs ocupacionais.
+• Benefício: Elimina a necessidade de o médico pesquisar normativas em PDFs
+  externos ou na internet durante o plantão.
+
+
+================================================================================
+EIXO 3: MATRIZ DE PRIORIZAÇÃO E IMPACTO (SUGESTÃO DE ROADMAP)
+================================================================================
+
+FASE 1: QUICK WINS (Alto Impacto / Rápida Implementação - 1 a 2 semanas)
+--------------------------------------------------------------------------------
+[✓] 1. Presets de 1 clique para os 6 CIDs mais comuns da clínica.
+[✓] 2. Farol visual de consistência DPME (Quesitos x Parecer x Dias acumulados).
+[✓] 3. Filtros avançados e exportação de relatórios em Excel na Gestão.
+[✓] 4. Tema Escuro (Dark Mode) para conforto visual dos médicos.
+
+FASE 2: PRODUTIVIDADE E AUTOMAÇÃO (Médio Prazo - 3 a 5 semanas)
+--------------------------------------------------------------------------------
+[✓] 5. Leitura de atestados via OCR com IA (foto/PDF para preenchimento ágil).
+[✓] 6. Extensão com botão flutuante direto no e-SISLA (1 clique).
+[✓] 7. Dashboard analítico com gráficos de produtividade para o supervisor.
+[✓] 8. Alerta preventivo automatizado de Junta Médica (90/180 dias).
+
+FASE 3: GESTÃO AVANÇADA E FLUXO COMPLETO (Projetos Estruturantes - 6 a 8 semanas)
+--------------------------------------------------------------------------------
+[✓] 9. Painel de TV / Chamada de senhas integrada com a recepção.
+[✓] 10. Módulo de auditoria médica por amostragem (Controle de Qualidade).
+[✓] 11. Ditado por voz contínuo com separação automática de seções clínicas.
+[✓] 12. Detector estatístico de anomalias e desvios de padrão pericial.
+
+================================================================================
+CONCLUSÃO E PRÓXIMOS PASSOS
+================================================================================
+A implementação gradual destas melhorias colocará a Ambiental Perícias em um
+patamar de excelência tecnológica no segmento de saúde ocupacional e perícias
+oficiais, gerando:
+  • Maior satisfação e menor estresse da equipe médica.
+  • Zero devoluções ou retrabalhos por nulidades técnicas junto ao DPME.
+  • Controle operacional rigoroso para a supervisão e diretoria.
+
+Ficamos à disposição da supervisão para detalhar qualquer um dos itens acima e
+iniciar o desenvolvimento conforme a prioridade deliberada.
+================================================================================

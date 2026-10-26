@@ -925,7 +925,7 @@ def _error(code, message, retryable=False, status=400, details=None):
     return jsonify(body), status
 
 def _ok(data=None, status=200):
-    body = {"success": True}
+    body = {"success": True, "ok": True}
     if data is not None: body["data"] = data
     return jsonify(body), status
 
@@ -8126,10 +8126,16 @@ def api_ai_refinar_dialogo_ia2():
                 mime_type = "audio/mp4"
             elif filename.endswith(".ogg") or "ogg" in raw_mime:
                 mime_type = "audio/ogg"
+            elif filename.endswith(".opus") or "opus" in raw_mime:
+                mime_type = "audio/ogg"
+            elif filename.endswith(".aac") or "aac" in raw_mime:
+                mime_type = "audio/aac"
+            elif filename.endswith(".flac") or "flac" in raw_mime:
+                mime_type = "audio/flac"
             elif filename.endswith(".webm") or "webm" in raw_mime:
                 mime_type = "audio/webm"
             else:
-                mime_type = raw_mime or "audio/webm"
+                mime_type = raw_mime or "audio/mp3"
             texto_rascunho = request.form.get("texto_rascunho", "")
         elif request.is_json:
             data = request.get_json(silent=True) or {}
@@ -8247,7 +8253,46 @@ def api_ai_refinar_dialogo_ia2():
 
         dialogo = parsed_result.get("dialogo") or []
         colinha_status = parsed_result.get("colinha_status") or []
-        texto_formatado = parsed_result.get("texto_formatado") or ""
+        texto_formatado = (parsed_result.get("texto_formatado") or "").strip()
+
+        if not texto_formatado and dialogo:
+            linhas = []
+            for it in dialogo:
+                if isinstance(it, dict):
+                    if it.get("tipo") == "qa":
+                        p = (it.get("pergunta") or "").strip()
+                        r = (it.get("resposta") or "").strip()
+                        if p: linhas.append(f"Médico Perito: {p}")
+                        if r: linhas.append(f"Periciado: {r}")
+                    elif it.get("texto") or it.get("resposta"):
+                        linhas.append(f"Nota: {(it.get('texto') or it.get('resposta')).strip()}")
+            texto_formatado = "\n".join(linhas).strip()
+
+        # Fallback de transcrição direta caso o modelo não tenha gerado texto_formatado
+        if not texto_formatado and has_audio:
+            try:
+                trans_prompt = (
+                    "Transcreva todo o diálogo e relato clínico deste áudio pericial com máxima fidelidade médica, "
+                    "identificando as falas da médica perita e do periciado, queixas relatadas, sintomas, medicamentos citados e dosagens."
+                )
+                for fb_m in models:
+                    try:
+                        tr_resp = client.models.generate_content(
+                            model=fb_m,
+                            contents=[
+                                types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
+                                trans_prompt
+                            ]
+                        )
+                        d_text = str(tr_resp.text or "").strip()
+                        if d_text:
+                            texto_formatado = d_text
+                            break
+                    except Exception as fb_err:
+                        app.logger.warning("Fallback de transcrição com %s falhou: %s", fb_m, fb_err)
+            except Exception as fb_all:
+                app.logger.warning("Falha geral no fallback de transcrição: %s", fb_all)
+
         total_duvidas = sum(len(it.get("duvidas") or []) for it in dialogo if isinstance(it, dict))
 
         return _ok({
