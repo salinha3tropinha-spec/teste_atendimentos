@@ -2118,6 +2118,23 @@ def _log_audit_access(atendimento_id: str, usuario_id: str, usuario_nome: str, u
     except Exception as exc:
         app.logger.warning("Falha ao registrar auditoria de leitura LGPD: %s", type(exc).__name__)
 
+_MODEL_COOLDOWN_UNTIL: dict[str, float] = {}
+
+def _get_ordered_models() -> list[str]:
+    base = [GEMINI_MODEL] + GEMINI_FALLBACK_MODELS
+    now = time.time()
+    active = [m for m in base if _MODEL_COOLDOWN_UNTIL.get(m, 0.0) <= now]
+    cooled = [m for m in base if _MODEL_COOLDOWN_UNTIL.get(m, 0.0) > now]
+    return active + cooled
+
+def _mark_model_quota_error(model: str, exc: Exception) -> bool:
+    s = str(exc).lower()
+    if "429" in s or "quota" in s or "resource_exhausted" in s or "resource exhausted" in s:
+        cooldown = 1800.0 if ("perday" in s or "per_day" in s or "day limit" in s) else 45.0
+        _MODEL_COOLDOWN_UNTIL[model] = time.time() + cooldown
+        return True
+    return False
+
 def _generate_structured(instruction: str, schema):
     endpoint=getattr(request,"path","/unknown")
     allowed, retry_after = _rate_limit(endpoint)
@@ -2130,7 +2147,7 @@ def _generate_structured(instruction: str, schema):
         response_mime_type="application/json",
         response_schema=schema,
     )
-    models = [GEMINI_MODEL] + GEMINI_FALLBACK_MODELS
+    models = _get_ordered_models()
     last_exc = None
     started=time.perf_counter()
     atendimento_id=None
@@ -2148,10 +2165,13 @@ def _generate_structured(instruction: str, schema):
                     return result
                 except Exception as exc:
                     last_exc = exc
+                    is_quota = _mark_model_quota_error(model, exc)
+                    if is_quota and len(models) > 1:
+                        break
                     if not _is_retryable_provider_error(exc) or attempt == GEMINI_RETRIES - 1:
                         break
                     backoff = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
-                    if "429" in str(exc).lower() or "quota" in str(exc).lower() or "resource exhausted" in str(exc).lower():
+                    if is_quota:
                         backoff = min(backoff, 2.0)
                     time.sleep(backoff)
             if last_exc is not None and not _is_retryable_provider_error(last_exc):
@@ -8084,7 +8104,7 @@ def api_ai_transcribe():
             types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
             prompt
         ]
-        models = [GEMINI_MODEL] + GEMINI_FALLBACK_MODELS
+        models = _get_ordered_models()
         transcription = ""
         for model in models:
             try:
@@ -8098,6 +8118,7 @@ def api_ai_transcribe():
                 transcription = text
                 break
             except Exception as e:
+                _mark_model_quota_error(model, e)
                 app.logger.warning("Falha ao transcrever com %s: %s", model, e)
                 continue
         return _ok({"texto": transcription})
@@ -8187,7 +8208,7 @@ def api_ai_refinar_dialogo_ia2():
             f"As 11 Perguntas Oficiais do Roteiro Pericial (Colinha) são:\n{perguntas_referencia}\n\n"
             "DIRETRIZES OBRIGATÓRIAS:\n"
             "1. DIARIZAÇÃO POR TOM DE VOZ E ENTONAÇÃO: Quando houver áudio, diferencie com precisão quem está falando prestando atenção na mudança no tom de voz, timbre e entonação. A médica perita adota tom profissional e investigativo; o(a) paciente responde relatando queixas e dores.\n"
-            "2. TRANSCRIÇÃO DE ALTA PRECISÃO E CORREÇÃO FARMACOLÓGICA: Transcreva com fidelidade absoluta nomes de patologias, dosagens de remédios (ex: '20 mg/dia', '50 mg', '10 gotas'), horários/frequências e classes terapêuticas. Corrija possíveis distorções fonéticas comuns (ex: 'clonazepan' -> 'clonazepam', 'pregabalina', 'escitalopram', 'venlafaxina', 'dipirona', 'toragesic', 'tramadol', etc.).\n"
+            "2. TRANSCRIÇÃO DE ALTA PRECISÃO E CORREÇÃO FARMACOLÓGICA E ANATÔMICA: Transcreva com fidelidade médica nomes de patologias e anatomia (ex: 'L4-L5', 'C5-C6', 'lombociatalgia', 'manguito rotador', 'discopatia'), dosagens de remédios (ex: '20 mg/dia', '50 mg', '10 gotas', '12 em 12h'), horários e classes terapêuticas. Corrija distorções fonéticas comuns aplicando o nome farmacológico correto: ex. 'desvenlafaxina' (nunca 'desvelafaxina'), 'ciclobenzaprina' (nunca 'ciclopirizapina'), 'quetiapina', 'clonazepam' (nunca 'clonazepan'), 'pregabalina', 'gabapentina', 'venlafaxina', 'escitalopram', 'duloxetina', 'sertralina', 'fluoxetina', 'losartana', 'hidroclorotiazida', 'sinvastatina', 'rosuvastatina', 'clopidogrel', 'carvedilol', 'meloxicam', 'torsilax', 'toragesic', 'tramadol', 'dipirona', etc.\n"
             "3. ELIMINAÇÃO DE RUÍDOS E HESITAÇÕES: Limpe e descarte hesitações ('hum...', 'é...'), gaguejos, ruídos de ambiente ou falas truncadas sem sentido. Se houver contradição corrigida na hora pelo paciente, registre a versão final corrigida.\n"
             "4. DESMEMBRAMENTO DE RESPOSTAS RÁPIDAS OU COMPOSTAS: Quando o paciente ou médico falar múltiplos itens juntos em sequência sem pausas (exemplo: '22 anos. Sou policial penal há 15 anos. Não sou readaptado.'), você DEVE DESMEMBRAR cada informação em seu respectivo par Q&A e item da Colinha:\n"
             "   - Item 1: Pergunta: 'Qual é a sua idade?' | Resposta: '22 anos'\n"
@@ -8205,7 +8226,7 @@ def api_ai_refinar_dialogo_ia2():
             "     * Se corresponder semanticamente a um dos 11 itens oficiais da Colinha, atribua 'colinha_id' com o número correspondente (1 a 11).\n"
             "     * Se for qualquer outra pergunta clínica complementar ou livre formulada no atendimento, atribua 'colinha_id': null.\n"
             "   - Se houver falas relevantes espontâneas sem pergunta direta, registre como 'tipo': 'nota', 'texto': '...'.\n"
-            "6. AVALIAÇÃO DA COLINHA (colinha_status): Mantenha estritamente no array 'colinha_status' o status dos 11 itens oficiais (ids 1 a 11), com 'matched': true/false e 'snippet' caso respondido.\n"
+            "6. AVALIAÇÃO DA COLINHA (colinha_status): Mantenha estritamente no array 'colinha_status' o status dos 11 itens oficiais (ids 1 a 11), com 'matched': true/false e 'snippet' caso respondido. Se a pergunta do item foi feita pelo médico e o paciente respondeu negativamente (ex: 'Não tomo remédios', 'Ainda não iniciei fisioterapia', 'Não sou readaptado'), marque 'matched': true pois o item foi devidamente perguntado.\n"
             "7. DESTAQUE DE DÚVIDAS: Se houver alguma contradição clínica grave não resolvida, aponte em 'duvidas'. Se a dúvida era apenas hesitação ou ruído sonoro, NÃO marque como dúvida.\n"
             "8. Retorne ESTRITAMENTE um objeto JSON válido (sem comentários) no formato:\n"
             "{\n"
@@ -8252,7 +8273,7 @@ def api_ai_refinar_dialogo_ia2():
 
         contents.append(prompt)
 
-        models = [GEMINI_MODEL] + GEMINI_FALLBACK_MODELS
+        models = _get_ordered_models()
         parsed_result = None
         last_error = None
 
@@ -8276,6 +8297,7 @@ def api_ai_refinar_dialogo_ia2():
                     parsed_result = json.loads(raw_text)
                     break
             except Exception as e:
+                _mark_model_quota_error(model, e)
                 app.logger.warning("Falha ao refinar diálogo com %s: %s", model, e)
                 last_error = e
                 continue
