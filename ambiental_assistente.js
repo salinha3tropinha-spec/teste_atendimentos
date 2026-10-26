@@ -1920,8 +1920,8 @@ async function refinarDialogoComIA2(automatico = false) {
             const dA = destacarDuvidasHtml(item.resposta || "", item.duvidas || []);
             countDuvidas += dQ.totalDuvidas + dA.totalDuvidas;
             const badgeColinha = item.colinha_id 
-              ? `<span class="badge" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px">Item ${String(item.colinha_id).padStart(2, "0")}</span>` 
-              : "";
+              ? `<span class="badge" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:auto;white-space:nowrap">Item ${String(item.colinha_id).padStart(2, "0")}</span>` 
+              : `<span class="badge" style="background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;margin-left:auto;white-space:nowrap">Pergunta Adicional</span>`;
 
             htmlCards += `
               <div class="ia2-qa-card">

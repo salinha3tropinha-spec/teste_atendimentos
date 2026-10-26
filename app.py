@@ -8198,9 +8198,16 @@ def api_ai_refinar_dialogo_ia2():
             "   - Item 7: Pergunta: 'Com que frequência comparece às consultas?' | Resposta: 'Realizo consulta de 15 em 15 dias'\n"
             "   - Item 8: Pergunta: 'Quais sintomas causam limitações para o trabalho?' | Resposta: 'Apresento sintomas de dores nas costas'\n"
             "   NUNCA omita ou junte itens quando mais de um dado for dito na mesma fala! Nunca perca a idade ('22 anos') ou o cargo ('Policial Penal')!\n"
-            "5. RECONHECIMENTO SEMÂNTICO (NLP): Para cada par Q&A, identifique a qual dos 11 itens da Colinha ele corresponde (colinha_id entre 1 e 11, ou null se não for nenhuma das 11). Identifique pela INTENÇÃO da pergunta, mesmo que formulada com palavras diferentes.\n"
-            "6. DESTAQUE DE DÚVIDAS: Se houver alguma contradição clínica grave não resolvida, aponte em 'duvidas'. Se a dúvida era apenas hesitação ou ruído sonoro, NÃO marque como dúvida.\n"
-            "7. Retorne ESTRITAMENTE um objeto JSON válido (sem comentários) no formato:\n"
+            "5. ESTRUTURAÇÃO COMPLETA DE TODAS AS PERGUNTAS E RESPOSTAS IDENTIFICADAS (SEM SE LIMITAR À COLINHA):\n"
+            "   - NÃO se limite e NÃO filtre apenas as 11 perguntas do roteiro pericial!\n"
+            "   - Estruture no array 'dialogo' TODAS as perguntas que forem feitas pelo médico e todas as respostas do paciente durante a perícia médica (ex: exames de imagem como ressonância ou raio-X, cirurgias anteriores, tempo de internação, início da dor ou piora, queixas funcionais no dia a dia, se consegue dirigir ou fazer tarefas domésticas, histórico familiar, tratamentos prévios, se usa órteses, etc.).\n"
+            "   - Para cada par identificado:\n"
+            "     * Se corresponder semanticamente a um dos 11 itens oficiais da Colinha, atribua 'colinha_id' com o número correspondente (1 a 11).\n"
+            "     * Se for qualquer outra pergunta clínica complementar ou livre formulada no atendimento, atribua 'colinha_id': null.\n"
+            "   - Se houver falas relevantes espontâneas sem pergunta direta, registre como 'tipo': 'nota', 'texto': '...'.\n"
+            "6. AVALIAÇÃO DA COLINHA (colinha_status): Mantenha estritamente no array 'colinha_status' o status dos 11 itens oficiais (ids 1 a 11), com 'matched': true/false e 'snippet' caso respondido.\n"
+            "7. DESTAQUE DE DÚVIDAS: Se houver alguma contradição clínica grave não resolvida, aponte em 'duvidas'. Se a dúvida era apenas hesitação ou ruído sonoro, NÃO marque como dúvida.\n"
+            "8. Retorne ESTRITAMENTE um objeto JSON válido (sem comentários) no formato:\n"
             "{\n"
             '  "colinha_status": [\n'
             '    { "id": 1, "matched": true, "snippet": "22 anos" },\n'
@@ -8222,9 +8229,16 @@ def api_ai_refinar_dialogo_ia2():
             '      "pergunta": "Qual é a sua idade?",\n'
             '      "resposta": "22 anos.",\n'
             '      "duvidas": []\n'
+            '    },\n'
+            '    {\n'
+            '      "tipo": "qa",\n'
+            '      "colinha_id": null,\n'
+            '      "pergunta": "Já realizou exames de imagem recentes da coluna ou cirurgias prévias?",\n'
+            '      "resposta": "Fiz ressonância magnética em novembro que apontou hérnia de disco L4-L5, mas nunca passei por cirurgia.",\n'
+            '      "duvidas": []\n'
             '    }\n'
             '  ],\n'
-            '  "texto_formatado": "Médico Perito: Qual a sua idade?\\nPericiado: 22 anos.\\n..."\n'
+            '  "texto_formatado": "Médico Perito: Qual a sua idade?\\nPericiado: 22 anos.\\nMédico Perito: Já realizou exames de imagem recentes da coluna ou cirurgias prévias?\\nPericiado: Fiz ressonância magnética em novembro...\\n..."\n'
             "}"
         )
 
