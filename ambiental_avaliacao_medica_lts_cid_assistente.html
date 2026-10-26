@@ -311,7 +311,8 @@
                   <button type="button" id="ia2BtnAbaVisual" onclick="trocarAbaTranscricaoIA2('visual')" style="font-size:11px;padding:4px 9px;border:none;border-radius:6px;font-weight:700;background:#2563EB;color:#fff;cursor:pointer">💬 Diálogo Organizado</button>
                   <button type="button" id="ia2BtnAbaTexto" onclick="trocarAbaTranscricaoIA2('texto')" style="font-size:11px;padding:4px 9px;border:none;border-radius:6px;font-weight:700;background:transparent;color:#64748B;cursor:pointer">📝 Texto Puro</button>
                 </div>
-                <button type="button" class="btn btn-outline btn-sm" onclick="organizarTranscricaoManualmenteIA2()" title="Estruturar fala em Perguntas & Respostas e destacar dúvidas em amarelo" style="font-size:11px;padding:4px 9px;color:#0284C7;border-color:#BAE6FD;background:#F0F9FF;font-weight:700">✨ Organizar</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="refinarDialogoComIA2(false)" title="Transcrever e estruturar o áudio gravado com IA Gemini" style="font-size:11px;padding:4px 9px;color:#047857;border-color:#A7F3D0;background:#ECFDF5;font-weight:800">✨ Transcrever com IA</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="organizarTranscricaoManualmenteIA2()" title="Estruturar fala em Perguntas & Respostas e destacar dúvidas em amarelo" style="font-size:11px;padding:4px 9px;color:#0284C7;border-color:#BAE6FD;background:#F0F9FF;font-weight:700">⚡ Organizar</button>
                 <button type="button" class="btn btn-outline btn-sm" onclick="copiarTranscricaoIA2()" style="font-size:11px;padding:4px 8px">📋 Copiar</button>
                 <button type="button" class="btn btn-outline btn-sm" onclick="limparTranscricaoIA2()" style="font-size:11px;padding:4px 8px;color:#EF4444">🗑️ Limpar</button>
               </div>
@@ -323,11 +324,8 @@
               <strong id="ia2RefinandoText">✨ IA Médica refinando gravação e identificando perguntas periciais...</strong>
             </div>
 
-            <!-- Bubble de fala interina ao vivo -->
-            <div id="ia2InterimBubble" class="ia2-live-bubble" style="display:none">
-              <span>🗣️</span>
-              <span id="ia2InterimText" style="font-style:italic">...</span>
-            </div>
+            <!-- Painel de Campos NÃO Perguntados no Áudio -->
+            <div id="ia2CamposNaoPerguntadosContainer" style="display:none;margin-bottom:12px"></div>
 
             <!-- Visualizador do Diálogo Organizado com destaque em amarelo para dúvidas -->
             <div id="ia2GravacaoVisual" class="ia2-transcript-visual" style="display:block">

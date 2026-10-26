@@ -1861,6 +1861,7 @@ async function refinarDialogoComIA2(automatico = false) {
       const { dialogo, colinha_status, total_duvidas } = resData;
       let texto_formatado = (resData.texto_formatado || "").trim();
       window._ia2DuvidasLowConfidence = [];
+      window.__ia2JaTranscreveuOuRefinou = true;
 
       // Reconstrução de segurança caso o backend não tenha devolvido texto_formatado mas tenha devolvido diálogo
       if (!texto_formatado && Array.isArray(dialogo) && dialogo.length > 0) {
@@ -1876,17 +1877,17 @@ async function refinarDialogoComIA2(automatico = false) {
         texto_formatado = lines.join("\n\n");
       }
 
-      // 1. Atualizar colinha pericial semanticamente (Melhoria 2)
+      // 1. Atualizar colinha pericial semanticamente e banner de campos não perguntados
       if (Array.isArray(colinha_status)) {
         colinha_status.forEach(it => {
           if (it && it.id && ia2ColinhaStatus[it.id]) {
-            if (it.matched) {
-              ia2ColinhaStatus[it.id].matched = true;
-              if (it.snippet) ia2ColinhaStatus[it.id].snippet = it.snippet;
-            }
+            ia2ColinhaStatus[it.id].matched = !!it.matched;
+            if (it.snippet) ia2ColinhaStatus[it.id].snippet = it.snippet;
+            else if (!it.matched) ia2ColinhaStatus[it.id].snippet = "";
           }
         });
         renderizarColinhaIA2();
+        atualizarBannerCamposNaoPerguntadosIA2();
       }
 
       // 2. Atualizar textarea e base de texto
@@ -2075,26 +2076,99 @@ function trocarSubViewIA2(view) {
   }
 }
 
+function atualizarBannerCamposNaoPerguntadosIA2() {
+  const container = $("ia2CamposNaoPerguntadosContainer");
+  if (!container) return;
+
+  const jaTranscreveu = Boolean(window.__ia2JaTranscreveuOuRefinou);
+  if (!jaTranscreveu) {
+    container.style.display = "none";
+    container.innerHTML = "";
+    return;
+  }
+
+  const pendentes = COLINHA_IA2_CONFIG.filter(q => {
+    const st = ia2ColinhaStatus[q.id];
+    const isChecked = (st?.manualState !== undefined && st?.manualState !== null) ? st.manualState : st?.matched;
+    return !isChecked;
+  });
+
+  const total = COLINHA_IA2_CONFIG.length;
+  const respondidas = total - pendentes.length;
+
+  if (pendentes.length > 0) {
+    container.style.display = "block";
+    container.innerHTML = `
+      <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:12px;padding:12px 16px;box-shadow:0 1px 4px rgba(245,158,11,0.08);margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:18px">⚠️</span>
+            <strong style="color:#92400E;font-size:13.5px">
+              Campos / Perguntas que NÃO foram perguntadas no áudio (${pendentes.length} de ${total} pendentes)
+            </strong>
+          </div>
+          <span style="font-size:11px;color:#B45309;font-weight:800;background:#FEF3C7;padding:3px 10px;border-radius:12px;border:1px solid #FCD34D">
+            ${respondidas} respondida(s) • ${pendentes.length} pendente(s)
+          </span>
+        </div>
+        <div style="font-size:12px;color:#78350F;margin-bottom:10px;line-height:1.4">
+          A IA transcreveu o áudio da consulta e organizou o diálogo. Os tópicos abaixo <strong>não foram relatados</strong> no áudio:
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${pendentes.map(p => `
+            <div style="background:#FFFFFF;border:1px solid #FCD34D;border-radius:8px;padding:7px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 2px rgba(0,0,0,0.03)">
+              <span style="background:#F59E0B;color:#FFFFFF;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:900;flex-shrink:0">Item ${p.numero}</span>
+              <span style="color:#1E293B;font-size:12.5px;font-weight:600">${esc(p.pergunta)}</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  } else {
+    container.style.display = "block";
+    container.innerHTML = `
+      <div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px;color:#166534;margin-bottom:12px">
+        <span style="font-size:22px">✅</span>
+        <div>
+          <strong style="font-size:13.5px;display:block">Excelente! Todas as 11 perguntas do Roteiro Pericial foram identificadas e respondidas no áudio.</strong>
+          <span style="font-size:11.5px;color:#15803D">Todas as informações necessárias para a perícia foram cobertas na conversa gravada.</span>
+        </div>
+      </div>
+    `;
+  }
+}
+
 function renderizarColinhaIA2() {
   const container = $("ia2ColinhaItemsList");
   if (!container) return;
 
   let validadas = 0;
   let html = "";
+  const jaTranscreveu = Boolean(window.__ia2JaTranscreveuOuRefinou);
 
   COLINHA_IA2_CONFIG.forEach(q => {
     const st = ia2ColinhaStatus[q.id] || { matched: false, snippet: "", manualState: null };
     const isChecked = (st.manualState !== undefined && st.manualState !== null) ? st.manualState : st.matched;
     if (isChecked) validadas++;
 
+    let statusPill = "";
+    if (isChecked) {
+      statusPill = `<span style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px">✓ Respondido</span>`;
+    } else if (jaTranscreveu) {
+      statusPill = `<span style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px">⚠️ Não perguntado</span>`;
+    }
+
     html += `
-      <div class="ia2-colinha-item ${isChecked ? 'checked' : ''}" onclick="toggleColinhaItemManual(${q.id})" id="ia2ColItem_${q.id}" title="Clique para alternar validação manual deste item">
+      <div class="ia2-colinha-item ${isChecked ? 'checked' : (jaTranscreveu ? 'unanswered' : '')}" onclick="toggleColinhaItemManual(${q.id})" id="ia2ColItem_${q.id}" title="Clique para alternar validação manual deste item">
         <div class="ia2-colinha-badge">${isChecked ? '✓' : q.numero}</div>
         <div style="flex:1;min-width:0">
-          <div class="ia2-colinha-text">${esc(q.pergunta)}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px">
+            <span class="ia2-colinha-text">${esc(q.pergunta)}</span>
+            ${statusPill}
+          </div>
           ${st.snippet ? `<div class="ia2-colinha-snippet">Detectado: "${esc(st.snippet)}"</div>` : ''}
         </div>
-        <div>
+        <div style="margin-left:6px">
           ${isChecked ? '<span style="color:#10B981;font-size:16px;font-weight:900">✅</span>' : '<span style="color:#CBD5E1;font-size:16px">○</span>'}
         </div>
       </div>
@@ -2140,6 +2214,7 @@ function analisarColinhaEmTempoReal(texto) {
 
   if (mudou) {
     renderizarColinhaIA2();
+    atualizarBannerCamposNaoPerguntadosIA2();
   }
 }
 
@@ -2149,6 +2224,7 @@ function toggleColinhaItemManual(id) {
   const currentChecked = (st.manualState !== undefined && st.manualState !== null) ? st.manualState : st.matched;
   st.manualState = !currentChecked;
   renderizarColinhaIA2();
+  atualizarBannerCamposNaoPerguntadosIA2();
 }
 
 function alternarGravacaoIA2() {
@@ -2201,12 +2277,29 @@ async function iniciarGravacaoIA2() {
   }
   if (wave) wave.classList.add("ia2-recording-active");
 
-  // 1. Iniciar Speech Recognition se disponível (transcrição preliminar na tela)
-  if (SpeechRec) {
-    iniciarMotorSpeechRecognition();
+  // Ocultar banner de pendências enquanto grava
+  const pendBanner = $("ia2CamposNaoPerguntadosContainer");
+  if (pendBanner) pendBanner.style.display = "none";
+
+  // Mostrar estado visual focado e limpo de gravação (sem texto ao vivo pulando na tela)
+  const containerVisual = $("ia2GravacaoVisual");
+  if (containerVisual) {
+    containerVisual.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:280px;color:#1E293B;text-align:center;padding:28px">
+        <div style="width:72px;height:72px;border-radius:50%;background:#FEE2E2;border:3px solid #EF4444;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:16px;box-shadow:0 0 0 10px rgba(239,68,68,0.12)">🎙️</div>
+        <h4 style="margin:0 0 8px;font-size:17px;font-weight:900;color:#0F172A">Atendimento em Gravação de Áudio</h4>
+        <p style="font-size:13.5px;color:#64748B;max-width:460px;margin:0 0 16px;line-height:1.5">
+          Conduza a consulta com o periciado com tranquilidade. O áudio está sendo gravado com alta fidelidade médica.
+        </p>
+        <div style="background:#F0FDF4;border:1.5px solid #BBF7D0;color:#166534;font-size:12.5px;font-weight:700;padding:8px 18px;border-radius:24px;display:inline-flex;align-items:center;gap:8px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#22C55E"></span>
+          Ao clicar em <strong>Pausar</strong> ou <strong>Finalizar Atendimento</strong>, a IA transcreverá o áudio completo e listará as perguntas não realizadas.
+        </div>
+      </div>
+    `;
   }
 
-  // 2. DISPARAR GETUSERMEDIA EM SEGUNDO PLANO PARA O VU METER E GRAVAÇÃO EM ALTA DEFINIÇÃO
+  // DISPARAR GETUSERMEDIA EM SEGUNDO PLANO PARA O VU METER E GRAVAÇÃO EM ALTA DEFINIÇÃO
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({
       audio: {
@@ -2312,106 +2405,6 @@ async function iniciarGravacaoIA2() {
   toast("🎙️ Microfone ativo! Conduza o atendimento com a periciada.");
 }
 
-function iniciarMotorSpeechRecognition() {
-  if (!ia2Gravando) return;
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRec) return;
-
-  try {
-    if (ia2SpeechRecognition) {
-      try { ia2SpeechRecognition.abort(); } catch (_) {}
-      ia2SpeechRecognition = null;
-    }
-
-    const rec = new SpeechRec();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = "pt-BR";
-    rec.maxAlternatives = 1;
-
-    rec.onresult = (event) => {
-      let sessionFinal = "";
-      let sessionInterim = "";
-      for (let i = 0; i < event.results.length; ++i) {
-        const item = event.results[i];
-        const transcript = item[0]?.transcript || "";
-        const confidence = item[0]?.confidence;
-        if (typeof confidence === "number" && confidence > 0 && confidence < 0.35) {
-          const w = transcript.trim();
-          if (w && w.length < 20 && !window._ia2DuvidasLowConfidence.includes(w)) {
-            window._ia2DuvidasLowConfidence.push(w);
-          }
-        }
-        if (item.isFinal) {
-          sessionFinal += transcript + " ";
-        } else {
-          sessionInterim += transcript;
-        }
-      }
-
-      const tArea = $("ia2GravacaoTranscricao");
-      if (tArea) {
-        const base = (window._ia2BaseTextGravacao || "").trim();
-        let fullComposed = base;
-        if (sessionFinal.trim()) {
-          fullComposed = fullComposed ? (fullComposed + " " + sessionFinal.trim()) : sessionFinal.trim();
-        }
-        if (sessionInterim.trim()) {
-          fullComposed = fullComposed ? (fullComposed + " " + sessionInterim.trim()) : sessionInterim.trim();
-        }
-
-        tArea.value = fullComposed;
-        tArea.scrollTop = tArea.scrollHeight;
-        analisarColinhaEmTempoReal(fullComposed);
-        atualizarContadorGravacaoIA2();
-        atualizarVisualTranscricaoIA2(false);
-      }
-
-      const bubble = $("ia2InterimBubble");
-      const bubbleTxt = $("ia2InterimText");
-      if (bubble && bubbleTxt) {
-        if (sessionInterim.trim()) {
-          bubble.style.display = "flex";
-          bubbleTxt.textContent = sessionInterim.trim();
-        } else {
-          bubble.style.display = "none";
-        }
-      }
-    };
-
-    rec.onend = () => {
-      atualizarVisualTranscricaoIA2(false);
-      if (ia2Gravando) {
-        const tArea = $("ia2GravacaoTranscricao");
-        if (tArea) {
-          window._ia2BaseTextGravacao = tArea.value.trim();
-        }
-        clearTimeout(ia2RestartTimeout);
-        ia2RestartTimeout = setTimeout(() => {
-          if (ia2Gravando) {
-            iniciarMotorSpeechRecognition();
-          }
-        }, 120);
-      }
-    };
-
-    rec.onerror = (err) => {
-      console.warn("Speech recognition warning:", err.error, err);
-      if (err.error === "no-speech") return;
-      if (err.error === "not-allowed" || err.error === "service-not-allowed") {
-        toast("⚠️ Permissão do microfone negada ou bloqueada no navegador.");
-        pausarGravacaoIA2();
-        return;
-      }
-    };
-
-    rec.start();
-    ia2SpeechRecognition = rec;
-  } catch (err) {
-    console.warn("Falha ao iniciar SpeechRecognition:", err);
-  }
-}
-
 function pausarGravacaoIA2() {
   ia2Gravando = false;
   clearInterval(ia2TimerInterval);
@@ -2419,12 +2412,6 @@ function pausarGravacaoIA2() {
   if (ia2AnimFrame) {
     cancelAnimationFrame(ia2AnimFrame);
     ia2AnimFrame = null;
-  }
-
-  const tArea = $("ia2GravacaoTranscricao");
-  if (tArea) {
-    window._ia2BaseTextGravacao = tArea.value.trim();
-    atualizarVisualTranscricaoIA2(false);
   }
 
   const btnText = $("ia2BtnGravacaoText");
@@ -2443,7 +2430,7 @@ function pausarGravacaoIA2() {
   if (badge) {
     badge.style.background = "#FEF3C7";
     badge.style.color = "#92400E";
-    badge.innerHTML = "⏸️ Gravação em Pausa";
+    badge.innerHTML = "⏸️ Gravação em Pausa (transcrevendo com IA...)";
   }
   if (wave) wave.classList.remove("ia2-recording-active");
   const waveBars = document.querySelectorAll("#ia2WaveContainer .ia2-wave-bar");
@@ -2471,6 +2458,13 @@ function pausarGravacaoIA2() {
     window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mType });
     const btnDl = $("ia2BtnDownloadAudio");
     if (btnDl) btnDl.style.display = "inline-flex";
+
+    // Transcreve automaticamente o áudio gravado no momento ao pausar
+    setTimeout(() => {
+      if (!ia2Gravando && (window.__ia2AudioBlobPendente || (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0))) {
+        refinarDialogoComIA2(true);
+      }
+    }, 280);
   }
 }
 
@@ -2514,6 +2508,9 @@ function limparTranscricaoIA2() {
     if (typeof removerAudioImportadoIA2 === "function") {
       removerAudioImportadoIA2();
     }
+    window.__ia2JaTranscreveuOuRefinou = false;
+    const pend = $("ia2CamposNaoPerguntadosContainer");
+    if (pend) { pend.style.display = "none"; pend.innerHTML = ""; }
     COLINHA_IA2_CONFIG.forEach(q => {
       ia2ColinhaStatus[q.id].matched = false;
       ia2ColinhaStatus[q.id].snippet = "";
@@ -2870,10 +2867,20 @@ function processarArquivoAudioImportadoIA2(input) {
   if (btnDl) btnDl.style.display = "none";
 
   toast(`🎵 Arquivo de áudio "${file.name}" carregado com sucesso!`);
+
+  // Dispara automaticamente a transcrição multimodal com IA
+  setTimeout(() => {
+    if (window.__ia2AudioBlobPendente) {
+      refinarDialogoComIA2(true);
+    }
+  }, 350);
 }
 
 function removerAudioImportadoIA2() {
   window.__ia2AudioBlobPendente = null;
+  window.__ia2JaTranscreveuOuRefinou = false;
+  const pend = $("ia2CamposNaoPerguntadosContainer");
+  if (pend) { pend.style.display = "none"; pend.innerHTML = ""; }
   const banner = $("ia2AudioBannerContainer");
   if (banner) banner.style.display = "none";
   const player = $("ia2AudioPlayerPreview");
@@ -2922,7 +2929,7 @@ function baixarGravacaoAudioIA2() {
 }
 
 // Finalização do Modo IA 2.0
-function finalizarAtendimentoIA2(origem) {
+async function finalizarAtendimentoIA2(origem) {
   if (origem === "gravacao") {
     if (ia2Gravando) {
       pausarGravacaoIA2();
@@ -2934,38 +2941,25 @@ function finalizarAtendimentoIA2(origem) {
       window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mime });
     }
 
-    const pendentes = COLINHA_IA2_CONFIG.filter(q => {
-      const st = ia2ColinhaStatus[q.id];
-      const isChecked = (st?.manualState !== undefined && st?.manualState !== null) ? st.manualState : st?.matched;
-      return !isChecked;
-    });
-    if (pendentes.length > 0) {
-      const qtdEl = $("ia2QtdPerguntasPendentes");
-      if (qtdEl) qtdEl.textContent = pendentes.length;
-
-      const listaEl = $("ia2ListaPerguntasPendentes");
-      if (listaEl) {
-        listaEl.innerHTML = pendentes.map(p => `
-          <div style="padding:4px 0;border-bottom:1px solid #EEF2F6;display:flex;align-items:flex-start;gap:8px">
-            <strong style="color:#B45309">${p.numero}</strong>
-            <span>${esc(p.pergunta)}</span>
-          </div>
-        `).join("");
-      }
-
-      const modalAviso = $("ia2ModalAvisoColinha");
-      if (modalAviso) {
-        modalAviso.style.display = "flex";
-      }
-      return;
-    }
-
     const hasAudio = Boolean(window.__ia2AudioBlobPendente || (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0));
-    const txt = ($("ia2GravacaoTranscricao")?.value || "").trim();
+    let txt = ($("ia2GravacaoTranscricao")?.value || "").trim();
     if (!txt && !hasAudio) {
       alert("A gravação está vazia. Inicie a conversa com a periciada, grave o áudio ou importe um arquivo de áudio antes de finalizar.");
       return;
     }
+
+    // Se possui áudio gravado ou importado e ainda não transcreveu, transcreve com IA antes de abrir as opções do perito
+    if (hasAudio && !window.__ia2JaTranscreveuOuRefinou) {
+      try {
+        const refData = await refinarDialogoComIA2(true);
+        if (refData && refData.texto_formatado) {
+          txt = refData.texto_formatado;
+        }
+      } catch (err) {
+        console.warn("Aviso ao transcrever áudio na finalização:", err);
+      }
+    }
+
     abrirModalDecisaoMedicoIA2("gravacao", txt);
   } else if (origem === "escrita") {
     const txt = ($("ia2EscritaText")?.value || "").trim();
