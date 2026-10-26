@@ -2292,8 +2292,12 @@ function trocarSubViewIA2(view) {
   } else if (view === "escrita") {
     const tEsc = $("ia2EscritaText");
     if (tEsc) {
-      window._ia2BaseTextEscrita = (tEsc.value || "").trim();
-      atualizarContadorEscritaIA2();
+      if (!tEsc.value.trim() && !window._ia2EscritaLimpouManualmente) {
+        inserirRoteiroPerguntasEscritaIA2(true);
+      } else {
+        window._ia2BaseTextEscrita = (tEsc.value || "").trim();
+        atualizarContadorEscritaIA2();
+      }
       setTimeout(() => { try { tEsc.focus(); } catch (_) {} }, 100);
     }
   }
@@ -2783,13 +2787,318 @@ function limparTranscricaoIA2() {
   }
 }
 
-// Funções do Modo de Escrita
+// Funções do Modo de Escrita / Ditado Guiado
+let ia2EscritaColinhaStatus = {};
+COLINHA_IA2_CONFIG.forEach(q => {
+  ia2EscritaColinhaStatus[q.id] = { matched: false, snippet: "", manualState: null };
+});
+
+function extrairTextoUtilEscritaIA2(rawText) {
+  if (!rawText) return "";
+  const linhas = String(rawText).split(/\r?\n/);
+  const linhasUteis = [];
+  for (const linha of linhas) {
+    const trimL = linha.trim();
+    if (!trimL) continue;
+    // Ignorar linhas de perguntas do roteiro que ficaram em branco após os dois-pontos ":"
+    if (/^\d{2}\.\s+.*:\s*$/.test(trimL)) continue;
+    if (/^Observa[çc][õo]es\s*(?:\/\s*Exame\s*F[íi]sico)?\s*:\s*$/i.test(trimL)) continue;
+    linhasUteis.push(trimL);
+  }
+  return linhasUteis.join("\n").trim();
+}
+
+function atualizarGuiaPassosEscritaIA2(etapa) {
+  const s1 = $("ia2EscritaGuideStep1");
+  const s2 = $("ia2EscritaGuideStep2");
+  const s3 = $("ia2EscritaGuideStep3");
+  const btnFim = $("ia2BtnFinalizarEscrita");
+
+  if (s1 && s2 && s3) {
+    if (etapa === 1) {
+      s1.className = "ia2-guide-step active";
+      s2.className = "ia2-guide-step";
+      s3.className = "ia2-guide-step";
+    } else if (etapa === 2) {
+      s1.className = "ia2-guide-step done";
+      s2.className = "ia2-guide-step active";
+      s3.className = "ia2-guide-step";
+    } else if (etapa === 3) {
+      s1.className = "ia2-guide-step done";
+      s2.className = "ia2-guide-step done";
+      s3.className = "ia2-guide-step active";
+    }
+  }
+
+  if (btnFim) {
+    if (etapa === 3) {
+      btnFim.classList.add("ia2-btn-ready-pulse");
+    } else {
+      btnFim.classList.remove("ia2-btn-ready-pulse");
+    }
+  }
+}
+
+function analisarColinhaEscritaIA2(rawText) {
+  const txt = String(rawText || "");
+  const textoUtil = extrairTextoUtilEscritaIA2(txt);
+  const linhas = txt.split(/\r?\n/);
+
+  let respondidas = 0;
+
+  COLINHA_IA2_CONFIG.forEach(q => {
+    const st = ia2EscritaColinhaStatus[q.id] || (ia2EscritaColinhaStatus[q.id] = { matched: false, snippet: "", manualState: null });
+
+    // 1. Verificar se existe a linha numerada "XX. Pergunta: Resposta" com resposta preenchida pelo médico
+    const reLinhaNumerada = new RegExp(`^0?${q.id}\\.\\s+.*?:\\s*(.+)$`, "i");
+    let respLinha = "";
+    for (const l of linhas) {
+      const m = l.trim().match(reLinhaNumerada);
+      if (m && m[1] && m[1].trim().length > 0) {
+        respLinha = m[1].trim();
+        break;
+      }
+    }
+
+    if (respLinha) {
+      st.matched = true;
+      st.snippet = respLinha.length > 48 ? respLinha.slice(0, 48) + "..." : respLinha;
+    } else {
+      // 2. Caso o médico esteja escrevendo livremente ou ditando, valida pelo texto útil
+      const res = textoUtil ? q.validar(textoUtil) : { matched: false };
+      st.matched = Boolean(res && res.matched);
+      st.snippet = (res && res.snippet) ? res.snippet : "";
+    }
+
+    const isChecked = (st.manualState !== undefined && st.manualState !== null) ? st.manualState : st.matched;
+    if (isChecked) respondidas++;
+  });
+
+  renderizarColinhaEscritaIA2(respondidas, textoUtil);
+}
+
+function renderizarColinhaEscritaIA2(respondidasCount, textoUtil = "") {
+  const container = $("ia2EscritaColinhaItemsList");
+  if (!container) return;
+
+  let validadas = 0;
+  let html = "";
+
+  COLINHA_IA2_CONFIG.forEach(q => {
+    const st = ia2EscritaColinhaStatus[q.id] || { matched: false, snippet: "", manualState: null };
+    const isChecked = (st.manualState !== undefined && st.manualState !== null) ? st.manualState : st.matched;
+    if (isChecked) validadas++;
+
+    const statusPill = isChecked
+      ? `<span style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;white-space:nowrap">✓ Preenchido</span>`
+      : `<span style="background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;white-space:nowrap">➕ Responder</span>`;
+
+    html += `
+      <div class="ia2-colinha-item ${isChecked ? 'checked' : ''}" onclick="focarOuInserirPerguntaEscritaIA2(${q.id})" id="ia2EscColItem_${q.id}" title="Clique para ir direto a esta pergunta no texto e responder">
+        <div class="ia2-colinha-badge">${isChecked ? '✓' : q.numero}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px">
+            <span class="ia2-colinha-text">${esc(q.pergunta)}</span>
+            ${statusPill}
+          </div>
+          ${st.snippet ? `<div class="ia2-colinha-snippet"> Informado: "${esc(st.snippet)}"</div>` : ''}
+        </div>
+        <div style="margin-left:6px" onclick="toggleColinhaEscritaManual(${q.id}, event)" title="Clique aqui para marcar ou desmarcar manualmente">
+          ${isChecked ? '<span style="color:#10B981;font-size:16px;font-weight:900">✅</span>' : '<span style="color:#CBD5E1;font-size:16px">○</span>'}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+
+  if ($("ia2EscritaColinhaCount")) $("ia2EscritaColinhaCount").textContent = validadas;
+  const pct = Math.round((validadas / COLINHA_IA2_CONFIG.length) * 100);
+  const bar = $("ia2EscritaColinhaProgressBar");
+  if (bar) bar.style.width = `${pct}%`;
+
+  const badge = $("ia2EscritaColinhaBadge");
+  if (badge) {
+    if (validadas === 11) {
+      badge.style.background = "#DCFCE7";
+      badge.style.color = "#15803D";
+    } else {
+      badge.style.background = "#EFF6FF";
+      badge.style.color = "#1D4ED8";
+    }
+  }
+
+  // Atualizar passo ativo na Barra Guia do Modo Escrita
+  const palavrasUteis = textoUtil ? textoUtil.split(/\s+/).filter(Boolean).length : 0;
+  if (validadas >= 4 || palavrasUteis >= 15) {
+    atualizarGuiaPassosEscritaIA2(3);
+  } else if (validadas >= 1 || palavrasUteis >= 3 || ia2DitadoEscritaAtivo) {
+    atualizarGuiaPassosEscritaIA2(2);
+  } else {
+    atualizarGuiaPassosEscritaIA2(1);
+  }
+}
+
+function toggleColinhaEscritaManual(id, ev) {
+  if (ev && typeof ev.stopPropagation === "function") ev.stopPropagation();
+  const st = ia2EscritaColinhaStatus[id];
+  if (!st) return;
+  const currentChecked = (st.manualState !== undefined && st.manualState !== null) ? st.manualState : st.matched;
+  st.manualState = !currentChecked;
+  analisarColinhaEscritaIA2($("ia2EscritaText")?.value || "");
+}
+
+function focarOuInserirPerguntaEscritaIA2(id) {
+  const ta = $("ia2EscritaText");
+  if (!ta) return;
+  const q = COLINHA_IA2_CONFIG.find(item => item.id === id);
+  if (!q) return;
+
+  const val = ta.value || "";
+  const reLinha = new RegExp(`(^|\\n)(0?${q.id}\\.\\s+[^\\n]*?:[^\\n]*)`, "i");
+  const m = val.match(reLinha);
+
+  if (m) {
+    // A pergunta já está no texto: posiciona o cursor exatamente no final dessa linha para o médico digitar!
+    const startIdx = m.index + (m[1] ? m[1].length : 0);
+    const endOfLineIdx = startIdx + m[2].length;
+    ta.focus();
+    try {
+      ta.setSelectionRange(endOfLineIdx, endOfLineIdx);
+    } catch (_) {}
+    toast(`✏️ Cursor posicionado no Item ${q.numero}. Digite a resposta!`);
+  } else {
+    // A pergunta não está no texto: adiciona no final e posiciona o cursor!
+    const perguntaCurta = q.id === 10 ? "Qual a dosagem (anotar mg/dia)?" : q.pergunta;
+    const novaLinha = `${q.numero}. ${perguntaCurta}: `;
+    const prefix = val.trim().length > 0 ? (val.endsWith("\n") ? "" : "\n") : "";
+    ta.value = val + prefix + novaLinha;
+    window._ia2BaseTextEscrita = ta.value.trim();
+    atualizarContadorEscritaIA2();
+    ta.focus();
+    try {
+      const len = ta.value.length;
+      ta.setSelectionRange(len, len);
+      ta.scrollTop = ta.scrollHeight;
+    } catch (_) {}
+    toast(`➕ Pergunta ${q.numero} adicionada! Digite a resposta.`);
+  }
+}
+
+function inserirRoteiroPerguntasEscritaIA2(silencioso = false) {
+  const ta = $("ia2EscritaText");
+  if (!ta) return;
+
+  const utilAtual = extrairTextoUtilEscritaIA2(ta.value || "");
+  if (!silencioso && utilAtual.length > 30 && !window._ia2EscritaApenasCadastroInicial) {
+    if (!confirm("Deseja inserir o Roteiro de 11 Perguntas? (Clique em 'OK' para substituir o texto atual ou 'Cancelar' para manter como está)")) {
+      return;
+    }
+  }
+
+  // Puxar idade e cargo já conhecidos do cadastro do servidor, se existirem
+  const idadeCad = String(state.idade || state.aux?.idade || $("agilIdade")?.value || $("idade")?.value || "").trim();
+  const cargoCad = String(state.cargo || state.aux?.cargo || $("agilCargo")?.value || $("cargo")?.value || "").trim();
+  const tempoCad = String(state.tempoCargo || state.aux?.tempoCargo || $("agilTempoCargo")?.value || $("tempoCargo")?.value || "").trim();
+
+  const resp01 = (idadeCad && idadeCad !== "—" && idadeCad !== "0") ? (/anos/i.test(idadeCad) ? idadeCad : `${idadeCad} anos`) : "";
+  const resp02 = (cargoCad && cargoCad !== "—" && cargoCad.toLowerCase() !== "não informado") ? cargoCad : "";
+  const resp03 = (tempoCad && tempoCad !== "—" && tempoCad !== "0") ? (/ano|m[êe]s/i.test(tempoCad) ? tempoCad : `${tempoCad} anos`) : "";
+
+  const linhasRoteiro = [
+    `01. Qual é a sua idade ?: ${resp01}`,
+    `02. Qual é o seu cargo.: ${resp02}`,
+    `03. Quanto tempo está no cargo ?: ${resp03}`,
+    `04. É readaptado? Se sim, quais atividades exerce atualmente?: `,
+    `05. Qual foi a data do diagnóstico da doença ?: `,
+    `06. Qual doença está tratando que motivou o afastamento?: `,
+    `07. Com que frequência comparece às consultas?: `,
+    `08. Quais sintomas causam limitações para o trabalho?: `,
+    `09. Faz o uso de quais medicações?: `,
+    `10. Qual a dosagem (anotar mg/dia)?: `,
+    `11. Faz psicoterapia ou fisioterapia?: `,
+    ``,
+    `Observações / Exame Físico: `
+  ];
+
+  ta.value = linhasRoteiro.join("\n");
+  window._ia2BaseTextEscrita = ta.value.trim();
+  window._ia2EscritaApenasCadastroInicial = true;
+  window._ia2EscritaLimpouManualmente = false;
+  atualizarContadorEscritaIA2();
+
+  if (!silencioso) {
+    toast("📝 Roteiro de 11 perguntas inserido! Basta completar as respostas na frente de cada item.");
+    // Posicionar cursor na primeira pergunta em branco
+    const firstEmptyMatch = ta.value.match(/^\d{2}\.\s+.*?:\s*$/m);
+    if (firstEmptyMatch) {
+      const pos = firstEmptyMatch.index + firstEmptyMatch[0].length;
+      ta.focus();
+      try { ta.setSelectionRange(pos, pos); } catch (_) {}
+    }
+  }
+}
+
+function inserirFraseRapidaEscritaIA2(frase) {
+  const ta = $("ia2EscritaText");
+  if (!ta || !frase) return;
+
+  let val = ta.value || "";
+  window._ia2EscritaApenasCadastroInicial = false;
+
+  // Identificar se a frase rápida pertence a um item específico do roteiro (04, 07 ou 11)
+  let targetNum = null;
+  if (/readaptad/i.test(frase)) targetNum = "04";
+  else if (/consulta/i.test(frase)) targetNum = "07";
+  else if (/fisioterapia|psicoterapia|fisio\/psico/i.test(frase)) targetNum = "11";
+
+  if (targetNum) {
+    const reLinhaVazia = new RegExp(`(^|\\n)(${targetNum}\\.\\s+[^\\n]*?:\\s*)($|\\n)`, "i");
+    if (reLinhaVazia.test(val)) {
+      val = val.replace(reLinhaVazia, `$1$2${frase}$3`);
+      ta.value = val;
+      window._ia2BaseTextEscrita = ta.value.trim();
+      atualizarContadorEscritaIA2();
+      toast(`✅ Resposta preenchida automaticamente no Item ${targetNum}!`);
+      return;
+    }
+  }
+
+  // Caso contrário, adiciona de forma limpa ao final do texto
+  const sep = val.trim().length > 0 ? (val.endsWith("\n") || val.endsWith(" ") ? "" : "\n") : "";
+  ta.value = val + sep + frase;
+  window._ia2BaseTextEscrita = ta.value.trim();
+  atualizarContadorEscritaIA2();
+  toast("➕ Frase adicionada às anotações!");
+}
+
+function limparTextoEscritaIA2() {
+  const ta = $("ia2EscritaText");
+  if (!ta) return;
+  ta.value = "";
+  window._ia2BaseTextEscrita = "";
+  window._ia2EscritaApenasCadastroInicial = false;
+  window._ia2EscritaLimpouManualmente = true;
+  COLINHA_IA2_CONFIG.forEach(q => {
+    if (ia2EscritaColinhaStatus[q.id]) {
+      ia2EscritaColinhaStatus[q.id].matched = false;
+      ia2EscritaColinhaStatus[q.id].snippet = "";
+      ia2EscritaColinhaStatus[q.id].manualState = null;
+    }
+  });
+  atualizarContadorEscritaIA2();
+  ta.focus();
+  toast("🗑️ Campo limpo! Você pode digitar livremente ou clicar em 'Inserir Perguntas Guia'.");
+}
+
 function atualizarContadorEscritaIA2() {
-  const txt = ($("ia2EscritaText")?.value || "").trim();
-  const palavras = txt ? txt.split(/\s+/).length : 0;
-  const chars = txt.length;
+  const raw = ($("ia2EscritaText")?.value || "").trim();
+  const util = extrairTextoUtilEscritaIA2(raw);
+  const palavras = util ? util.split(/\s+/).length : 0;
+  const chars = util.length;
   const cont = $("ia2EscritaContador");
-  if (cont) cont.textContent = `${palavras} palavra(s) • ${chars} caractere(s)`;
+  if (cont) cont.textContent = `${palavras} palavra(s) preenchida(s) • ${chars} caractere(s)`;
+  analisarColinhaEscritaIA2(raw);
 }
 
 $("ia2GravacaoTranscricao")?.addEventListener("input", function() {
@@ -2804,6 +3113,7 @@ $("ia2GravacaoTranscricao")?.addEventListener("input", function() {
 
 $("ia2EscritaText")?.addEventListener("input", function() {
   window._ia2BaseTextEscrita = this.value.trim();
+  window._ia2EscritaApenasCadastroInicial = false;
   atualizarContadorEscritaIA2();
   if (ia2DitadoEscritaAtivo && ia2DitadoEscritaRecognition) {
     try { ia2DitadoEscritaRecognition.abort(); } catch (_) {}
@@ -2816,14 +3126,19 @@ async function colarTextoClipboardIA2() {
     if (text) {
       const t = $("ia2EscritaText");
       if (t) {
-        t.value = (t.value ? t.value.trim() + "\n\n" : "") + text.trim();
+        if (window._ia2EscritaApenasCadastroInicial) {
+          t.value = text.trim();
+        } else {
+          t.value = (t.value ? t.value.trim() + "\n\n" : "") + text.trim();
+        }
+        window._ia2EscritaApenasCadastroInicial = false;
         window._ia2BaseTextEscrita = t.value.trim();
         atualizarContadorEscritaIA2();
-        toast("Texto colado com sucesso!");
+        toast("📋 Texto colado com sucesso!");
       }
     }
   } catch (e) {
-    alert("Não foi possível acessar a área de transferência automaticamente. Por favor, use Ctrl + V.");
+    alert("Não foi possível acessar a área de transferência automaticamente. Por favor, clique dentro do campo e aperte Ctrl + V no teclado.");
   }
 }
 
@@ -2856,11 +3171,13 @@ async function alternarDitadoVozEscritaIA2() {
     }
     if (btnTxt) btnTxt.textContent = "Ditar por Voz";
     if (btn) {
-      btn.style.background = "#fff";
-      btn.style.color = "#059669";
+      btn.style.background = "#ECFDF5";
+      btn.style.color = "#047857";
+      btn.style.borderColor = "#10B981";
     }
     if (bubble) bubble.style.display = "none";
-    toast("Ditado por voz finalizado.");
+    atualizarContadorEscritaIA2();
+    toast("✅ Ditado por voz pausado.");
   } else {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
@@ -2872,13 +3189,21 @@ async function alternarDitadoVozEscritaIA2() {
 
     ia2DitadoEscritaAtivo = true;
     const tArea = $("ia2EscritaText");
+    if (tArea && window._ia2EscritaApenasCadastroInicial) {
+      // Se estava apenas com o roteiro vazio, limpa as linhas vazias para o ditado entrar limpo
+      const util = extrairTextoUtilEscritaIA2(tArea.value);
+      tArea.value = util ? util + "\n" : "";
+      window._ia2EscritaApenasCadastroInicial = false;
+    }
     window._ia2BaseTextEscrita = (tArea?.value || "").trim();
 
-    if (btnTxt) btnTxt.textContent = "🔴 Gravando Ditado... (Clique p/ parar)";
+    if (btnTxt) btnTxt.textContent = "🔴 Ouvindo sua Voz... (Clique aqui p/ Parar)";
     if (btn) {
-      btn.style.background = "#DCFCE7";
-      btn.style.color = "#15803D";
+      btn.style.background = "#FEE2E2";
+      btn.style.color = "#B91C1C";
+      btn.style.borderColor = "#EF4444";
     }
+    atualizarGuiaPassosEscritaIA2(2);
 
     function iniciarMotorDitadoEscrita() {
       if (!ia2DitadoEscritaAtivo) return;
@@ -2962,18 +3287,19 @@ async function alternarDitadoVozEscritaIA2() {
     }
 
     iniciarMotorDitadoEscrita();
-    toast("🎙️ Microfone ativo! Fale para preencher as anotações.");
+    toast("🎙️ Microfone ativo! Fale normalmente para preencher as anotações.");
   }
 }
 
 function inserirExemploEscritaIA2() {
-  const exemplo = `Servidora de 45 anos, professora de educação básica há 14 anos. Refere dor intensa em punho direito há 8 meses com piora ao escrever na lousa e corrigir provas. Diagnosticada com Síndrome do Túnel do Carpo (CID G56.0). Em uso de Ibuprofeno 600mg/dia e Paracetamol. Realiza fisioterapia 2 vezes por semana. Ao exame físico: Manobra de Phalen e sinal de Tinel positivos no punho direito, com dor à palpação do trajeto do nervo mediano. PA 120x80 mmHg. Sugiro afastamento de 30 dias para repouso articular e reabilitação funcional.`;
+  const exemplo = `Servidora de 45 anos, professora de educação básica há 14 anos. Não é readaptada. Refere dor intensa em punho direito há 8 meses com piora ao escrever na lousa e corrigir provas. Diagnosticada com Síndrome do Túnel do Carpo (CID G56.0), realizando consultas mensalmente. Em uso de Ibuprofeno 600mg/dia e Paracetamol. Realiza fisioterapia 2 vezes por semana. Ao exame físico: Manobra de Phalen e sinal de Tinel positivos no punho direito, com dor à palpação do trajeto do nervo mediano. PA 120x80 mmHg. Sugiro afastamento de 30 dias para repouso articular e reabilitação funcional.`;
   const t = $("ia2EscritaText");
   if (t) {
     t.value = exemplo;
+    window._ia2EscritaApenasCadastroInicial = false;
     window._ia2BaseTextEscrita = exemplo;
     atualizarContadorEscritaIA2();
-    toast("Exemplo pericial inserido no campo!");
+    toast("📄 Exemplo pericial completo inserido!");
   }
 }
 
@@ -2993,19 +3319,19 @@ function inserirTemplateClinicoEscritaIA2(tipo) {
   const templates = {
     lombar: `QUEIXA PRINCIPAL: Dor lombar intensa com irradiação para membro inferior e limitação funcional para flexão da coluna e esforço físico.
 INÍCIO DOS SINTOMAS: Iniciou há 3 dias após movimentação atípica no trabalho.
-TRATAMENTO: Em uso de anti-inflamatório (cetoprofeno 150mg) e analgésico potente. Nega cirurgias prévias de coluna.
+TRATAMENTO: Em uso de anti-inflamatório (cetoprofeno 150mg) e analgésico potente, consultas regulares. Realiza fisioterapia.
 EXAME FÍSICO: Marcha claudicante antiálgica, dor à palpação de musculatura paravertebral lombo-sacra com contratura muscular reflexa. Amplitude de movimento reduzida para flexão e rotação lombar. Teste de Lasègue negativo.
 DOCUMENTOS: Apresentou atestado médico assistente recomendando repouso.`,
 
     respiratorio: `QUEIXA PRINCIPAL: Síndrome gripal com febre aferida, tosse produtiva, coriza hialina, cefaleia e mialgia generalizada.
 INÍCIO DOS SINTOMAS: Iniciou há 2 dias com evolução aguda.
-TRATAMENTO: Em uso de sintomáticos (dipirona, hidratação oral vigorosa e repouso domiciliar).
+TRATAMENTO: Em uso de sintomáticos (dipirona 500mg, hidratação oral vigorosa e repouso domiciliar). Nega fisioterapia ou psicoterapia.
 EXAME FÍSICO: Bom estado geral, corado, hidratado, afebril no momento da perícia. Ausculta pulmonar com murmúrio vesicular universalmente audível, sem ruídos adventícios. Orofaringe sem placas exsudativas.
 DOCUMENTOS: Atestado emitido com indicação de afastamento temporário para recuperação.`,
 
     mental: `QUEIXA PRINCIPAL: Sintomas ansiosos e depressivos reativos, com insônia intermediária, fadiga mental e labilidade emocional no contexto ocupacional.
 INÍCIO DOS SINTOMAS: Quadro insidioso com intensificação significativa nas últimas semanas.
-TRATAMENTO: Acompanhamento psiquiátrico com uso de antidepressivo e psicoterapia semanal.
+TRATAMENTO: Acompanhamento psiquiátrico mensal com uso de antidepressivo (escitalopram 15mg/dia) e psicoterapia semanal.
 EXAME DO ESTADO MENTAL: Vigil, orientado no tempo e no espaço, contato e afeto preservados, congruente com o humor hipotímico, sem delírios ou ideação suicida ativa.
 DOCUMENTOS: Relatório médico detalhado emitido por médico psiquiatra assistente.`,
 
@@ -3018,18 +3344,27 @@ DOCUMENTOS: Atestado médico tempestivo apresentado dentro do prazo regulamentar
   const texto = templates[tipo] || "";
   if (!texto) return;
 
-  if (ta.value && ta.value.trim().length > 0) {
-    if (!confirm("O campo já contém texto. Deseja substituir pelo modelo selecionado? (Clique 'Cancelar' para apenas adicionar ao final)")) {
-      ta.value += "\n\n" + texto;
+  if (ta.value && ta.value.trim().length > 0 && !window._ia2EscritaApenasCadastroInicial) {
+    if (!confirm("Deseja adicionar este modelo ao final do que você já escreveu? (Clique 'OK' para adicionar ao final, ou 'Cancelar' para substituir tudo)")) {
+      ta.value = texto;
+      window._ia2EscritaApenasCadastroInicial = false;
       atualizarContadorEscritaIA2();
-      toast("Modelo adicionado ao final das anotações.");
+      toast("Modelo clínico inserido com sucesso!");
       return;
     }
+    ta.value = ta.value.trim() + "\n\n" + texto;
+    window._ia2EscritaApenasCadastroInicial = false;
+    atualizarContadorEscritaIA2();
+    toast("📋 Modelo clínico adicionado ao final das suas anotações!");
+    return;
   }
 
-  ta.value = texto;
+  // Se estava apenas com o roteiro inicial, preserva idade/cargo preenchidos e adiciona o modelo abaixo
+  const utilInicial = extrairTextoUtilEscritaIA2(ta.value || "");
+  ta.value = utilInicial ? (utilInicial + "\n\n" + texto) : texto;
+  window._ia2EscritaApenasCadastroInicial = false;
   atualizarContadorEscritaIA2();
-  toast("Modelo clínico inserido com sucesso!");
+  toast("📋 Modelo clínico inserido com sucesso!");
 }
 
 // Funções de Gerenciamento de Áudio Externo e Download
@@ -3229,12 +3564,13 @@ async function finalizarAtendimentoIA2(origem) {
 
     abrirModalDecisaoMedicoIA2("gravacao", txt);
   } else if (origem === "escrita") {
-    const txt = ($("ia2EscritaText")?.value || "").trim();
-    if (!txt) {
-      alert("Por favor, cole as anotações do atendimento ou digite as informações periciais antes de finalizar.");
+    const rawTxt = ($("ia2EscritaText")?.value || "").trim();
+    const txtUtil = extrairTextoUtilEscritaIA2(rawTxt);
+    if (!txtUtil || (window._ia2EscritaApenasCadastroInicial && txtUtil.split(/\r?\n/).length <= 3)) {
+      alert("Por favor, responda às perguntas no campo de texto, escolha um modelo rápido ou dite suas anotações antes de finalizar.");
       return;
     }
-    abrirModalDecisaoMedicoIA2("escrita", txt);
+    abrirModalDecisaoMedicoIA2("escrita", txtUtil);
   }
 }
 

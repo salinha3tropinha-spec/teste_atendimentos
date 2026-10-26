@@ -9,7 +9,7 @@
 
 <title>Ambiental — Avaliação Médica Pericial LTS</title>
 <!-- v15: validação determinística dos quesitos baseada diretamente nos radio buttons + sincronização de estado -->
-<link rel="stylesheet" href="/ambiental_assistente.css?v=2.0.2">
+<link rel="stylesheet" href="/ambiental_assistente.css?v=2.0.5">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/auth.js"></script><script src="/api.js"></script></head>
 <body><div id="authLoading" style="position:fixed;inset:0;background:#F2F6FA;z-index:999999;display:grid;place-items:center;font-family:Inter,system-ui,sans-serif;color:#073F87"><div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DDE6EF;border-radius:14px;padding:13px 16px;box-shadow:0 12px 35px rgba(10,30,55,.1);font-size:12px;font-weight:800"><img src="/logo.png" alt="" style="width:28px;height:28px;object-fit:contain"><span>Verificando sessão...</span></div></div>
 <script>
@@ -381,68 +381,149 @@
         </div>
       </div>
 
-      <!-- VIEW 3: MODO DE ESCRITA -->
+      <!-- VIEW 3: MODO DE ESCRITA / DITADO GUIADO -->
       <div id="ia2ViewEscrita" style="display:none">
-        <div class="ia2-escrita-panel">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+        <!-- Barra Guia Passo a Passo (1 -> 2 -> 3) para o Modo de Escrita -->
+        <div id="ia2GuiaPassosEscrita" class="ia2-stepper-guide">
+          <div id="ia2EscritaGuideStep1" class="ia2-guide-step active">
+            <span class="ia2-guide-num">1</span>
             <div>
-              <h3 style="font-size:18px;color:#0F172A;font-weight:900;margin:0 0 4px;display:flex;align-items:center;gap:8px">
-                <span>✍️</span> Modo de Escrita / Ditado
-              </h3>
-              <p style="font-size:13px;color:#64748B;margin:0">
-                Cole o atendimento, digite livremente ou utilize o ditado por voz. A IA fará a estruturação no prontuário de forma oculta em segundo plano.
-              </p>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <button type="button" class="btn btn-outline btn-sm" onclick="trocarSubViewIA2('gravacao')" style="font-weight:700">🎙️ Modo Gravação</button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="trocarSubViewIA2('selecao')" style="font-weight:700">⬅️ Voltar às Opções</button>
+              <strong>Inserir Perguntas, Digitar ou Ditar</strong>
+              <span>Use o botão "Inserir Perguntas Guia", digite ou fale no microfone</span>
             </div>
           </div>
+          <div class="ia2-guide-arrow">➜</div>
+          <div id="ia2EscritaGuideStep2" class="ia2-guide-step">
+            <span class="ia2-guide-num">2</span>
+            <div>
+              <strong>Preencher com Auxílio da Colinha</strong>
+              <span>Clique em qualquer pergunta à esquerda para inserir no texto</span>
+            </div>
+          </div>
+          <div class="ia2-guide-arrow">➜</div>
+          <div id="ia2EscritaGuideStep3" class="ia2-guide-step">
+            <span class="ia2-guide-num">3</span>
+            <div>
+              <strong>Concluir Atendimento</strong>
+              <span>Clique em "3. Finalizar Atendimento" para escolher o parecer</span>
+            </div>
+          </div>
+        </div>
 
-          <!-- Barra de Ações Rápidas -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-            <button type="button" class="btn btn-outline btn-sm" onclick="colarTextoClipboardIA2()" style="font-weight:700;display:flex;align-items:center;gap:6px">
-              <span>📋</span> Colar da Área de Transferência
+        <!-- Barra Superior Principal de Controles do Modo Escrita -->
+        <div style="background:#ffffff;border:1.5px solid #CBD5E1;border-radius:16px;padding:14px 20px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;box-shadow:0 4px 12px rgba(15,23,42,0.04)">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <!-- Botão Principal 1: Inserir Roteiro de Perguntas Prontas -->
+            <button type="button" class="btn btn-primary" onclick="inserirRoteiroPerguntasEscritaIA2()" style="font-weight:900;font-size:13.5px;padding:11px 18px;border-radius:12px;background:linear-gradient(135deg, #2563EB, #4F46E5);color:#fff;border:none;display:flex;align-items:center;gap:8px;box-shadow:0 3px 10px rgba(37,99,235,0.28)" title="Insere todas as perguntas no campo de texto para você apenas digitar as respostas na frente">
+              <span style="font-size:16px">📝</span> Inserir Perguntas Guia (Só Responder)
             </button>
-            <button type="button" id="ia2BtnDitadoEscrita" class="btn btn-outline btn-sm" onclick="alternarDitadoVozEscritaIA2()" style="font-weight:700;color:#059669;border-color:#10B981;display:flex;align-items:center;gap:6px">
-              <span>🎤</span> <span id="ia2DitadoEscritaText">Ditar por Voz</span>
+
+            <!-- Botão Principal 2: Ditar por Voz -->
+            <button type="button" id="ia2BtnDitadoEscrita" class="btn btn-outline" onclick="alternarDitadoVozEscritaIA2()" style="font-weight:900;font-size:13.5px;padding:11px 18px;border-radius:12px;color:#047857;border:2px solid #10B981;background:#ECFDF5;display:flex;align-items:center;gap:8px" title="Fale no microfone e o sistema escreve para você">
+              <span style="font-size:16px">🎤</span> <span id="ia2DitadoEscritaText">Ditar por Voz</span>
             </button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="inserirExemploEscritaIA2()" style="font-size:12px">
-              <span>📄</span> Inserir Exemplo Completo
-            </button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('ia2EscritaText').value='';atualizarContadorEscritaIA2();" style="font-size:12px;color:#EF4444">
-              <span>🗑️</span> Limpar
+
+            <!-- Botão 3: Colar Texto -->
+            <button type="button" class="btn btn-outline btn-sm" onclick="colarTextoClipboardIA2()" style="font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:10px;display:flex;align-items:center;gap:6px" title="Colar texto copiado do WhatsApp, Word ou Bloco de Notas">
+              <span>📋</span> Colar Texto
             </button>
           </div>
 
-          <!-- Modelos Clínicos Rápidos de Apoio -->
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-            <span style="font-size:11.5px;color:#64748B;font-weight:700">Modelos Rápidos:</span>
-            <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('lombar')" style="font-size:11.5px;padding:3px 9px;border-radius:12px;background:#F8FAFC">🦴 Músculo-esquelético</button>
-            <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('respiratorio')" style="font-size:11.5px;padding:3px 9px;border-radius:12px;background:#F8FAFC">🫁 Respiratório / Gripe</button>
-            <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('mental')" style="font-size:11.5px;padding:3px 9px;border-radius:12px;background:#F8FAFC">🧠 Saúde Mental</button>
-            <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('retrospectivo')" style="font-size:11.5px;padding:3px 9px;border-radius:12px;background:#F8FAFC">🩺 Normal Retrospectivo</button>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button type="button" class="btn btn-outline btn-sm" onclick="trocarSubViewIA2('gravacao')" style="font-weight:700;padding:8px 12px;font-size:12.5px" title="Alternar para o Modo de Gravação da conversa">🎙️ Ir para Modo Gravação</button>
+            <div id="ia2RetroacaoAvisoEscrita" style="display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:#FEE2E2;border:1.5px solid #F87171;color:#991B1B;font-size:12px;font-weight:800">
+              <span>⛔</span>
+              <span>Guia fora do prazo (&gt; 3 dias) • Parecer CONTRÁRIO</span>
+            </div>
+            <button type="button" id="ia2BtnFinalizarEscrita" class="btn btn-green" onclick="finalizarAtendimentoIA2('escrita')" style="font-weight:900;font-size:14px;padding:12px 22px;border-radius:12px;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;box-shadow:0 3px 12px rgba(16,185,129,0.35);display:flex;align-items:center;gap:8px">
+              <span>🏁</span> 3. Finalizar Atendimento
+            </button>
+          </div>
+        </div>
+
+        <!-- Layout Dividido: Perguntas Guia à esquerda + Campo de Escrita Assistido à direita -->
+        <div class="ia2-record-layout">
+          <!-- PAINEL ESQUERDO: PERGUNTAS AUXILIARES INTERATIVAS -->
+          <div class="ia2-colinha-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <strong style="font-size:14.5px;color:#0F172A;display:flex;align-items:center;gap:6px">
+                <span>📋</span> Perguntas para Auxiliar
+              </strong>
+              <span id="ia2EscritaColinhaBadge" class="badge" style="background:#EFF6FF;color:#1D4ED8;font-weight:800;font-size:12px;padding:4px 10px;border-radius:12px">
+                <span id="ia2EscritaColinhaCount">0</span> de 11 preenchidas
+              </span>
+            </div>
+
+            <!-- Barra de Progresso da Escrita -->
+            <div style="height:7px;background:#E2E8F0;border-radius:4px;overflow:hidden;margin-bottom:10px">
+              <div id="ia2EscritaColinhaProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg, #10B981, #059669);transition:width 0.3s ease"></div>
+            </div>
+
+            <div style="font-size:11.5px;color:#1E40AF;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:8px 10px;margin-bottom:12px;line-height:1.4">
+              👆 <strong>Como usar:</strong> Clique em qualquer pergunta abaixo para <strong>inseri-la no texto</strong> e responder, ou digite livremente que o sistema marca o que já foi respondido!
+            </div>
+
+            <!-- Lista interativa das 11 perguntas no Modo Escrita -->
+            <div id="ia2EscritaColinhaItemsList">
+              <!-- Rendered dynamically by JS -->
+            </div>
           </div>
 
-          <!-- Bubble de fala interina ao vivo para o Modo Escrita -->
-          <div id="ia2EscritaInterimBubble" class="ia2-live-bubble" style="display:none;margin-bottom:8px">
-            <span>🗣️</span>
-            <span id="ia2EscritaInterimText" style="font-style:italic">...</span>
-          </div>
-
-          <!-- Textarea Única -->
-          <textarea id="ia2EscritaText" class="ia2-escrita-textarea" placeholder="Cole aqui as anotações do atendimento pericial, anotações do médico ou dite por voz..."></textarea>
-
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:12px">
-            <span id="ia2EscritaContador" style="font-size:12px;color:#64748B">0 palavras • 0 caracteres</span>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <div id="ia2RetroacaoAvisoEscrita" style="display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:#FEE2E2;border:1.5px solid #F87171;color:#991B1B;font-size:12px;font-weight:800">
-                <span>⛔</span>
-                <span>Guia fora do prazo (&gt; 3 dias) • Parecer CONTRÁRIO</span>
+          <!-- PAINEL DIREITO: CAMPO DE ESCRITA / DITADO COM FRASES RÁPIDAS -->
+          <div class="ia2-escrita-panel" style="padding:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+              <strong style="font-size:14.5px;color:#0F172A;display:flex;align-items:center;gap:6px">
+                <span>✍️</span> Anotações do Atendimento Pericial
+              </strong>
+              <div style="display:flex;align-items:center;gap:6px">
+                <button type="button" class="btn btn-outline btn-sm" onclick="inserirExemploEscritaIA2()" style="font-size:11.5px;padding:5px 10px;font-weight:700" title="Preencher com um exemplo clínico para testar">
+                  <span>📄</span> Exemplo Pronto
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="limparTextoEscritaIA2()" style="font-size:11.5px;padding:5px 10px;color:#EF4444;font-weight:700">
+                  <span>🗑️</span> Limpar Campo
+                </button>
               </div>
-              <button type="button" class="btn btn-primary" onclick="finalizarAtendimentoIA2('escrita')" style="font-weight:900;font-size:14px;padding:12px 24px;border-radius:10px;background:linear-gradient(135deg, #2563EB 0%, #4F46E5 100%);color:#fff;border:none;box-shadow:0 3px 12px rgba(37,99,235,0.35);display:flex;align-items:center;gap:8px">
-                <span>✨</span> Finalizar Atendimento e Preencher Ficha (IA)
-              </button>
+            </div>
+
+            <!-- Barra 1: Modelos Clínicos Prontos por Especialidade -->
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:11.5px;color:#334155;font-weight:800;margin-right:2px">📋 Modelos Prontos (1 clique):</span>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('lombar')" style="font-size:11.5px;padding:4px 10px;border-radius:12px;background:#fff">🦴 Ortopedia / Coluna</button>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('mental')" style="font-size:11.5px;padding:4px 10px;border-radius:12px;background:#fff">🧠 Saúde Mental / Psiquiatria</button>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('respiratorio')" style="font-size:11.5px;padding:4px 10px;border-radius:12px;background:#fff">🫁 Respiratório / Clínico</button>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirTemplateClinicoEscritaIA2('retrospectivo')" style="font-size:11.5px;padding:4px 10px;border-radius:12px;background:#fff">🩺 Normal (Retrospectivo)</button>
+            </div>
+
+            <!-- Barra 2: Respostas Rápidas com 1 Clique (Sem Precisar Digitar) -->
+            <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:11.5px;color:#166534;font-weight:800;margin-right:2px">⚡ Inserir Frase Rápida:</span>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirFraseRapidaEscritaIA2('Não é readaptado(a).')" style="font-size:11px;padding:3px 9px;border-radius:10px;background:#fff;border-color:#86EFAC;color:#166534">➕ Não readaptado</button>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirFraseRapidaEscritaIA2('É readaptado(a), exercendo atividades administrativas.')" style="font-size:11px;padding:3px 9px;border-radius:10px;background:#fff;border-color:#86EFAC;color:#166534">➕ É readaptado</button>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirFraseRapidaEscritaIA2('Comparece às consultas médicas mensalmente.')" style="font-size:11px;padding:3px 9px;border-radius:10px;background:#fff;border-color:#86EFAC;color:#166534">➕ Consultas mensais</button>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirFraseRapidaEscritaIA2('Comparece às consultas médicas quinzenalmente.')" style="font-size:11px;padding:3px 9px;border-radius:10px;background:#fff;border-color:#86EFAC;color:#166534">➕ Consultas quinzenais</button>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirFraseRapidaEscritaIA2('Realiza sessões regulares de fisioterapia.')" style="font-size:11px;padding:3px 9px;border-radius:10px;background:#fff;border-color:#86EFAC;color:#166534">➕ Faz fisioterapia</button>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirFraseRapidaEscritaIA2('Realiza acompanhamento em psicoterapia.')" style="font-size:11px;padding:3px 9px;border-radius:10px;background:#fff;border-color:#86EFAC;color:#166534">➕ Faz psicoterapia</button>
+              <button type="button" class="btn btn-outline btn-sm ia2-template-pill" onclick="inserirFraseRapidaEscritaIA2('Nega realizar fisioterapia ou psicoterapia no momento.')" style="font-size:11px;padding:3px 9px;border-radius:10px;background:#fff;border-color:#86EFAC;color:#166534">➕ Nega fisio/psico</button>
+            </div>
+
+            <!-- Bubble de fala interina ao vivo para o Modo Escrita -->
+            <div id="ia2EscritaInterimBubble" class="ia2-live-bubble" style="display:none;margin-bottom:8px">
+              <span>🗣️</span>
+              <span id="ia2EscritaInterimText" style="font-style:italic">...</span>
+            </div>
+
+            <!-- Textarea Única Assistida -->
+            <textarea id="ia2EscritaText" class="ia2-escrita-textarea" style="height:380px;font-size:14.5px;line-height:1.65" placeholder="COMO PREENCHER COM FACILIDADE:
+1. Clique no botão azul '📝 Inserir Perguntas Guia' acima para carregar o roteiro pronto e apenas digitar as respostas; OU
+2. Clique em qualquer pergunta à esquerda para adicioná-la aqui; OU
+3. Clique em '🎤 Ditar por Voz' e fale naturalmente; OU
+4. Digite / cole suas anotações livremente (ex: 45 anos, PEB II há 12 anos, não readaptada, dor lombar há 6 meses, usa pregabalina 75mg, faz fisioterapia)..."></textarea>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:12px;background:#F8FAFC;padding:10px 14px;border-radius:10px;border:1px solid #E2E8F0">
+              <span id="ia2EscritaContador" style="font-size:12.5px;color:#475569;font-weight:700">0 palavras • 0 caracteres</span>
+              <span style="font-size:12px;color:#047857;font-weight:700">
+                💡 Quando terminar de escrever ou ditar, clique no botão verde <strong>"3. Finalizar Atendimento"</strong>.
+              </span>
             </div>
           </div>
         </div>
@@ -2562,7 +2643,7 @@ Atestado de 15 dias do dia 29/09 por Z98.8 favorável."></textarea>
   </div>
 </div>
 
-<script src="/ambiental_assistente.js?v=2.0.4"></script>
+<script src="/ambiental_assistente.js?v=2.0.5"></script>
 </div> <!-- Fecha a div .app -->
 
 <script>window.addEventListener("pageshow",()=>{AmbientalAuth.me().then(p=>{if(!p) location.replace("/login.html?reason=expired");}).catch(()=>{});});</script></body>
