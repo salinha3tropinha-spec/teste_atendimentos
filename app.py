@@ -8179,34 +8179,52 @@ def api_ai_refinar_dialogo_ia2():
 
         prompt = (
             "Você é um perito médico e especialista em inteligência clínica para estruturação de consultas periciais oficiais (medicina do trabalho / junta médica oficial).\n"
-            "Analise a consulta pericial entre a MÉDICA PERITA e o(a) PACIENTE/SERVIDOR.\n\n"
+            "Analise a consulta pericial gravada no áudio ou ditada pelo médico/periciado.\n\n"
             "CONTEXTO FUNDAMENTAL:\n"
             "Todo o conteúdo é um atendimento médico pericial real entre a MÉDICA PERITA e o(a) PACIENTE/SERVIDOR.\n"
             "- A MÉDICA PERITA conduz a perícia fazendo perguntas técnicas investigativas (idade, cargo, tempo de função, se é readaptado, data de diagnóstico da doença, sintomas limitantes, medicações, dosagens diárias, consultas, fisioterapia/psicoterapia).\n"
             "- O(A) PACIENTE/PERICIADO(A) responde em primeira pessoa relatando sua situação, dores, sintomas, limitações funcionais e tratamentos.\n\n"
             f"As 11 Perguntas Oficiais do Roteiro Pericial (Colinha) são:\n{perguntas_referencia}\n\n"
             "DIRETRIZES OBRIGATÓRIAS:\n"
-            "1. DIARIZAÇÃO POR TOM DE VOZ E ENTONAÇÃO: Quando houver áudio, diferencie com precisão quem está falando prestando atenção na mudança no tom de voz, timbre e entonação. A médica perita adota tom profissional e investigativo, formulando perguntas e orientações; o(a) paciente responde com entonação coloquial relatando queixas e dores.\n"
+            "1. DIARIZAÇÃO POR TOM DE VOZ E ENTONAÇÃO: Quando houver áudio, diferencie com precisão quem está falando prestando atenção na mudança no tom de voz, timbre e entonação. A médica perita adota tom profissional e investigativo; o(a) paciente responde relatando queixas e dores.\n"
             "2. TRANSCRIÇÃO DE ALTA PRECISÃO E CORREÇÃO FARMACOLÓGICA: Transcreva com fidelidade absoluta nomes de patologias, dosagens de remédios (ex: '20 mg/dia', '50 mg', '10 gotas'), horários/frequências e classes terapêuticas. Corrija possíveis distorções fonéticas comuns (ex: 'clonazepan' -> 'clonazepam', 'pregabalina', 'escitalopram', 'venlafaxina', 'dipirona', 'toragesic', 'tramadol', etc.).\n"
-            "3. ELIMINAÇÃO DE RUÍDOS E DÚVIDAS: Limpe e descarte hesitações ('hum...', 'é...'), gaguejos, ruídos de ambiente ou falas truncadas sem sentido. Se houver contradição corrigida na hora pelo paciente, registre a versão final corrigida. Em caso de ruído ambíguo ou incompreensível, SIMPLESMENTE REMOVA o trecho inútil para deixar o texto limpo, coeso e profissional.\n"
-            "4. SEPARAÇÃO ESTRUTURADA EM DIÁLOGO: Separe a conversa em pares estruturados de Diálogo: quem perguntou (Médico Perito) e quem respondeu (Periciado). Falas de introdução livre, anotações ou exames físicos rotule como tipo 'nota'.\n"
+            "3. ELIMINAÇÃO DE RUÍDOS E HESITAÇÕES: Limpe e descarte hesitações ('hum...', 'é...'), gaguejos, ruídos de ambiente ou falas truncadas sem sentido. Se houver contradição corrigida na hora pelo paciente, registre a versão final corrigida.\n"
+            "4. DESMEMBRAMENTO DE RESPOSTAS RÁPIDAS OU COMPOSTAS: Quando o paciente ou médico falar múltiplos itens juntos em sequência sem pausas (exemplo: '22 anos. Sou policial penal há 15 anos. Não sou readaptado.'), você DEVE DESMEMBRAR cada informação em seu respectivo par Q&A e item da Colinha:\n"
+            "   - Item 1: Pergunta: 'Qual é a sua idade?' | Resposta: '22 anos'\n"
+            "   - Item 2: Pergunta: 'Qual é o seu cargo?' | Resposta: 'Sou policial penal'\n"
+            "   - Item 3: Pergunta: 'Quanto tempo está no cargo?' | Resposta: 'Há 15 anos'\n"
+            "   - Item 4: Pergunta: 'É readaptado?' | Resposta: 'Não sou readaptado'\n"
+            "   - Item 5: Pergunta: 'Qual foi a data do diagnóstico da doença?' | Resposta: 'A data do início foi no dia 10/10'\n"
+            "   - Item 7: Pergunta: 'Com que frequência comparece às consultas?' | Resposta: 'Realizo consulta de 15 em 15 dias'\n"
+            "   - Item 8: Pergunta: 'Quais sintomas causam limitações para o trabalho?' | Resposta: 'Apresento sintomas de dores nas costas'\n"
+            "   NUNCA omita ou junte itens quando mais de um dado for dito na mesma fala! Nunca perca a idade ('22 anos') ou o cargo ('Policial Penal')!\n"
             "5. RECONHECIMENTO SEMÂNTICO (NLP): Para cada par Q&A, identifique a qual dos 11 itens da Colinha ele corresponde (colinha_id entre 1 e 11, ou null se não for nenhuma das 11). Identifique pela INTENÇÃO da pergunta, mesmo que formulada com palavras diferentes.\n"
             "6. DESTAQUE DE DÚVIDAS: Se houver alguma contradição clínica grave não resolvida, aponte em 'duvidas'. Se a dúvida era apenas hesitação ou ruído sonoro, NÃO marque como dúvida.\n"
             "7. Retorne ESTRITAMENTE um objeto JSON válido (sem comentários) no formato:\n"
             "{\n"
+            '  "colinha_status": [\n'
+            '    { "id": 1, "matched": true, "snippet": "22 anos" },\n'
+            '    { "id": 2, "matched": true, "snippet": "Sou policial penal" },\n'
+            '    { "id": 3, "matched": true, "snippet": "há 15 anos" },\n'
+            '    { "id": 4, "matched": true, "snippet": "Não sou readaptado" },\n'
+            '    { "id": 5, "matched": true, "snippet": "no dia 10/10" },\n'
+            '    { "id": 6, "matched": false, "snippet": null },\n'
+            '    { "id": 7, "matched": true, "snippet": "de 15 em 15 dias" },\n'
+            '    { "id": 8, "matched": true, "snippet": "dores nas costas" },\n'
+            '    { "id": 9, "matched": false, "snippet": null },\n'
+            '    { "id": 10, "matched": false, "snippet": null },\n'
+            '    { "id": 11, "matched": false, "snippet": null }\n'
+            '  ],\n'
             '  "dialogo": [\n'
             '    {\n'
             '      "tipo": "qa",\n'
             '      "colinha_id": 1,\n'
-            '      "pergunta": "Qual a sua idade?",\n'
-            '      "resposta": "Tenho 22 anos.",\n'
+            '      "pergunta": "Qual é a sua idade?",\n'
+            '      "resposta": "22 anos.",\n'
             '      "duvidas": []\n'
             '    }\n'
             '  ],\n'
-            '  "colinha_status": [\n'
-            '    { "id": 1, "matched": true, "snippet": "22 anos" }\n'
-            '  ],\n'
-            '  "texto_formatado": "Médico Perito: Qual a sua idade?\\nPericiado: Tenho 22 anos.\\n..."\n'
+            '  "texto_formatado": "Médico Perito: Qual a sua idade?\\nPericiado: 22 anos.\\n..."\n'
             "}"
         )
 
