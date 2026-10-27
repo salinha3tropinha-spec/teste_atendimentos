@@ -1382,8 +1382,8 @@ const COLINHA_IA2_CONFIG = [
     pergunta: "Qual foi a data do diagnóstico da doença ?",
     subtexto: "Data ou período de diagnóstico / início dos sintomas",
     validar: (text) => {
-      const m = text.match(/\b(?:data\s+(?:do\s+)?diagn[óo]stico|in[íi]cio\s+do\s+quadro|in[íi]cio\s+dos\s+sintomas|diagnosticad[oa]\s+em|descobri\s+em|come[çc]ou\s+em|iniciou\s+em)\s*[:=]?\s*([^\.\;\n]+)/i) ||
-                text.match(/\bdesde\s+(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|\d{1,2}\/\d{1,2}|\d{4})\b/i) ||
+      const m = text.match(/\b(?:(?:data\s+(?:do\s+)?)?diagn[óo]stico(?:\s+foi)?\s+em|data\s+(?:do\s+)?diagn[óo]stico|in[íi]cio\s+do\s+quadro|in[íi]cio\s+dos\s+sintomas|diagnosticad[oa]\s+em|descobri\s+em|come[çc]ou\s+em|iniciou\s+em)\s*[:=]?\s*([^\.\;\n]+)/i) ||
+                text.match(/\b(?:desde|em)\s+(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:\s+(?:de\s+)?\d{4})?\b/i) ||
                 text.match(/\bdesde\s+(\d{4})\b/i) ||
                 text.match(/\b(?:ano|m[êe]s|semana)\s+passad[oa]\b/i) ||
                 text.match(/\b(?:in[íi]cio|come[çc]ou|iniciou)\s+h[áa]\s+(\d+|poucos?|muitos?)\s+(?:dias|semanas|meses|anos)\b/i) ||
@@ -1526,7 +1526,7 @@ function destacarDuvidasHtml(texto, duvidasPersonalizadas = []) {
       motivo: "Frequência mensal atípica para tratamento continuado"
     },
     {
-      re: /\b(?:ou\s+melhor|acho\s+que|se\s+não\s+me\s+engano|talvez|não\s+tenho\s+certeza|não\s+lembro|mais\s+ou\s+menos|por\s+aí|esqueci)\b/gi,
+      re: /\b(?:ou\s+melhor|acho\s+que|se\s+não\s+me\s+engano|talvez|não\s+tenho\s+certeza|não\s+lembro|mais\s+ou\s+menos|por\s+aí|esqueci|não\s+sei\s+dizer|sei\s+lá)\b/gi,
       motivo: "Hesitação, dúvida ou incerteza relatada pelo interlocutor"
     },
     {
@@ -1536,7 +1536,11 @@ function destacarDuvidasHtml(texto, duvidasPersonalizadas = []) {
   ];
 
   padroesDuvida.forEach(p => {
-    html = html.replace(p.re, (m) => {
+    html = html.replace(p.re, (m, offset, full) => {
+      const antes = full.slice(0, offset);
+      const ultimoAbre = antes.lastIndexOf("<");
+      const ultimoFecha = antes.lastIndexOf(">");
+      if (ultimoAbre > ultimoFecha) return m;
       totalDuvidas++;
       return `<mark class="ia2-doubt-word" title="${p.motivo} — clique para editar">${m}</mark>`;
     });
@@ -10811,6 +10815,7 @@ function limparFragmentoClinicoRetroacaoJS(texto) {
   let s = String(texto).trim();
   s = s.replace(/^(?:o\s+periciado\s+relata|o\(a\)\s+periciado\(a\)\s+relata|relata\s+que|relata|com\s+relato\s+de\s+relata|com\s+relato\s+de)\s+/i, "");
   s = s.replace(/\s*(?:todavia|contudo|entretanto|porém),?\s+a\s+guia\s+pericial.*$/i, "");
+  s = s.replace(/\s+e$/i, "");
   s = s.replace(/[.;,]+$/, "");
   return s.trim();
 }
@@ -10833,6 +10838,7 @@ function construirJustificativaRetroacaoSemParentesesJS(st, v) {
   if (fragSintomas && fragSintomas.toLowerCase().startsWith("relato de ")) {
     fragSintomas = fragSintomas.slice(10).trim();
   }
+  fragSintomas = fragSintomas.replace(/\s+e$/i, "").trim();
 
   let justTexto = "";
   if (fragSintomas && fragSintomas.length > 5 && !isContraryLimitationText(fragSintomas)) {
@@ -10841,6 +10847,7 @@ function construirJustificativaRetroacaoSemParentesesJS(st, v) {
     const doencaIdent = cidVal ? `${cidVal} - ${cidNome}` : cidNome;
     justTexto = `Embora o periciado apresente histórico clínico e atestado médico compatíveis com ${doencaIdent}, com limitações funcionais temporárias para as atribuições habituais do cargo de ${cargo}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação em relação à data de emissão do atestado médico${clausulaDias} sem comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo e normativo do DPME SP, o parecer CONTRÁRIO.`;
   }
+  justTexto = justTexto.replace(/\b([eE])\s+(?:e\b)+/g, "$1");
   return removerParentesesTextoJS(justTexto);
 }
 window.construirJustificativaRetroacaoSemParentesesJS = construirJustificativaRetroacaoSemParentesesJS;
@@ -13128,9 +13135,15 @@ function cleanQueixaDuracao(text, atdDate) {
   t = t.replace(/(não informad[oa]\s+sua\s+dosagem)\s+(a\s+cada\s+\d+|de\s+\d+\/\d+h|se\s+dor|\d+x\s+ao\s+dia|para\s+analgesia)/gi, "$1, $2");
 
   // 14. Remoção de contradição de troca/alteração de dosagem quando o servidor relatou aumento/alteração
-  const temRelatoAltDose = /\b(?:aumentad[oa]|aumento|ajustad[oa]|ajuste|reduzid[oa]|redução|reducao|trocad[oa]|troca)\s+(?:a\s+medica[çc][ãa]o|de\s+medica[çc][ãa]o|d[ae]\s+dosagem|d[ae]\s+dose)\b|\b(?:foi\s+aumentada\s+a\s+medica[çc][ãa]o|aumentou\s+a\s+dose|trocou\s+a\s+medica[çc][ãa]o|ajustou\s+a\s+dose)\b|\b(?:recentemente\s+foi\s+aumentada\s+a\s+medica[çc][ãa]o)\b/i.test(t);
+  const temRelatoAltDose = /\b(?:aumentad[oa]|aumento|ajustad[oa]|ajuste|reduzid[oa]|redução|reducao|trocad[oa]|troca)\s+(?:a\s+medica[çc][ãa]o|de\s+medica[çc][ãa]o|d[ae]\s+dosagem|d[ae]\s+dose)\b|\b(?:foi\s+aumentada\s+a\s+medica[çc][ãa]o|aumentou\s+a\s+dose|trocou\s+a\s+medica[çc][ãa]o|ajustou\s+a\s+dose)\b|\b(?:recentemente\s+foi\s+aumentada\s+a\s+medica[çc][ãa]o)\b|\b(?:ajuste\s+recente\s+de\s+dose|ajuste\s+de\s+dose|altera[çc][ãa]o\s+de\s+dosagem|altera[çc][ãa]o\s+de\s+dose|troca\s+de\s+medica[çc][ãa]o)\b/i.test(t);
   if (temRelatoAltDose) {
+    t = t.replace(/\s*\(?\s*Não relatou troca de (?:medica[çc][ãa]o\s+ou\s+)?alteração de dosagem(?: da medicação)?\.?\s*\)?\s*/gi, " ");
     t = t.replace(/\s*\(?\s*Não relatou troca de alteração de dosagem da medicação\.?\s*\)?\s*/gi, " ");
+  }
+
+  // Deduplicação de negação de medicações (ex: 'Não relatou uso... Negou uso...')
+  if (/\b(?:n[ãa]o\s+relatou\s+uso\s+de\s+medica[çc][õo]es|sem\s+uso\s+de\s+medica[çc][õo]es)\b/i.test(t)) {
+    t = t.replace(/\s*\bNegou\s+uso\s+de\s+medica[çc][õo]es\.?\s*/gi, " ");
   }
 
   // 14b. Quando não há menção a uso ou negação de medicações mas consta "Não relatou troca de alteração de dosagem da medicação.", insere "Negou uso de medicações."
