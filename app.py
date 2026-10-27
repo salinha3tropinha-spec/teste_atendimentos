@@ -6432,6 +6432,17 @@ def api_ai_preencher_ficha():
             ctx_atual = raw.get("contexto_atual") if isinstance(raw.get("contexto_atual"), dict) else {}
             decisao_medico = raw.get("decisao_medico") if isinstance(raw.get("decisao_medico"), dict) else {}
 
+            pre_retro_invalida = bool(
+                esisla_pre.get("retroacao_invalida")
+                or ctx_atual.get("retroacaoInvalida")
+                or decisao_medico.get("retroacaoInvalida")
+            )
+            override_parecer_manual = str(
+                decisao_medico.get("parecerManualOverride")
+                or ctx_atual.get("parecerManualOverride")
+                or ""
+            ).strip().upper()
+
             instruction = (
                 TASK_PROMPTS["preencher_ficha"]
                 + "\n\nTEXTO BRUTO FORNECIDO PELO USUÁRIO (ANOTAÇÕES DO MÉDICO E/OU DADOS DO SISTEMA):\n"
@@ -6448,8 +6459,23 @@ def api_ai_preencher_ficha():
                     dec_inst += f"- Dias concedidos pelo médico: {decisao_medico['diasConcedidos']}\n"
                 if decisao_medico.get("observacoesMedico"):
                     dec_inst += f"- Observações clínicas / anotações confidenciais do perito: {decisao_medico['observacoesMedico']}\n"
-                dec_inst += "ATENÇÃO: A decisão do médico perito acima É SOBERANA. Você deve alinhar estritamente o parecer, exame clínico, justificativa e limitações a essas escolhas do perito, integrando-as com os fatos relatados na consulta.\n"
+                if pre_retro_invalida and override_parecer_manual != "FAVORÁVEL":
+                    dec_inst += (
+                        "ATENÇÃO (CASO DE RETROAÇÃO INVÁLIDA > 3 DIAS): O parecer é CONTRÁRIO por retroação inválida da guia, "
+                        "PORÉM você DEVE manter todo o atendimento do médico perito, o EXAME FÍSICO e as LIMITAÇÕES FUNCIONAIS "
+                        "(limitacao_funcional='Sim', limitacao_rol='Sim', desc_limitacao e atividades_comprometidas) EXATAMENTE COMO SE O PARECER FOSSE FAVORÁVEL! "
+                        "Aplique o motivo do parecer CONTRÁRIO (retroação > 3 dias) APENAS no campo 'justificativa'.\n"
+                    )
+                else:
+                    dec_inst += "ATENÇÃO: A decisão do médico perito acima É SOBERANA. Você deve alinhar estritamente o parecer, exame clínico, justificativa e limitações a essas escolhas do perito, integrando-as com os fatos relatados na consulta.\n"
                 instruction += dec_inst
+            elif pre_retro_invalida and override_parecer_manual != "FAVORÁVEL":
+                instruction += (
+                    "\n\nATENÇÃO (CASO DE RETROAÇÃO INVÁLIDA > 3 DIAS): O parecer deve ser CONTRÁRIO por retroação inválida da guia, "
+                    "PORÉM você DEVE manter todo o atendimento do médico perito, o EXAME FÍSICO e as LIMITAÇÕES FUNCIONAIS "
+                    "(limitacao_funcional='Sim', limitacao_rol='Sim', desc_limitacao e atividades_comprometidas) EXATAMENTE COMO SE O PARECER FOSSE FAVORÁVEL! "
+                    "Aplique o motivo do parecer CONTRÁRIO (retroação > 3 dias) APENAS no campo 'justificativa'.\n"
+                )
 
             result = _generate_structured(instruction, PreenchimentoCompletoResult)
 
@@ -6694,6 +6720,15 @@ def api_ai_preencher_ficha():
                         )
                 except Exception:
                     pass
+            if not retro_invalida and pre_retro_invalida:
+                retro_invalida = True
+                if retro_dias is None:
+                    try:
+                        retro_dias = int(decisao_medico.get("retroacaoDias") or ctx_atual.get("retroacaoDias") or esisla_pre.get("retroacao_dias") or 4)
+                    except Exception:
+                        retro_dias = 4
+                if not retro_motivo:
+                    retro_motivo = f"Guia expedida com {retro_dias} dias de retroação (> limite regulamentar de 3 dias)."
 
             # Normalização de Unidade de Tempo
             t_unid = (result.tempo_unidade or "").strip().lower()
@@ -6715,7 +6750,7 @@ def api_ai_preencher_ficha():
                 if not result.outros_subtipo or result.outros_subtipo.strip().lower() in ("none", "null", "", "outros"):
                     result.outros_subtipo = "Exame Físico Geral"
                 if not result.outros_resultado or result.outros_resultado.strip().lower() in ("none", "null", ""):
-                    fav = "favor" in (result.parecer or "").lower()
+                    fav = "favor" in (result.parecer or "").lower() or retro_invalida
                     result.outros_resultado = "Alterado" if fav else "Normal"
 
             if not (result.alteracoes_clinicas_exames or "").strip():
@@ -6857,36 +6892,48 @@ def api_ai_preencher_ficha():
             par_upper = (result.parecer or "").strip().upper()
             cargo_label = (result.cargo or "servidor").strip()
 
-            if retro_invalida:
-                # Regra DPME: Guia com mais de 3 dias de retroação sem internação hospitalar é CONTRÁRIO obrigatório
+            if retro_invalida and override_parecer_manual != "FAVORÁVEL":
+                # Regra DPME para Retroação Inválida (> 3 dias):
+                # Aplica automaticamente o parecer CONTRÁRIO, porém mantém o atendimento do médico,
+                # as limitações e o exame físico como se fosse FAVORÁVEL, aplicando o motivo do contrário na justificativa.
                 result.parecer = "CONTRÁRIO"
-                result.limitacao_funcional = "Não"
-                result.limitacao_rol = "Não"
-                result.capacidade = "Capacidade laborativa preservada"
+                result.limitacao_funcional = "Sim"
+                result.limitacao_rol = "Sim"
+                if not (decisao_medico and str(decisao_medico.get("exameFisicoResultado") or "").strip()):
+                    result.outros_resultado = "Alterado"
 
-                lim_base = (result.desc_limitacao or result.sintomas_limitacao or "").strip()
+                lim_curr = (result.desc_limitacao or "").strip()
+                # Remover eventual trecho administrativo que a IA tenha inserido em desc_limitacao
+                lim_curr = re.sub(
+                    r"\s*(?:Todavia|Contudo|Entretanto|Porém),?\s+em\s+raz[ãa]o\s+da\s+emiss[ãa]o\s+extempor[âa]nea.*$",
+                    "",
+                    lim_curr,
+                    flags=re.IGNORECASE
+                ).strip()
+                if not lim_curr or _is_contrary_limitation_text(lim_curr):
+                    result.desc_limitacao = _resolve_favorable_limitation(
+                        {"cid": result.cid, "exame_fisico_tipo": result.exame_fisico_tipo, "desc_limitacao": result.sintomas_limitacao},
+                        cargo_label
+                    )
+                elif "rol de atividades" not in lim_curr.lower():
+                    result.desc_limitacao = f"{lim_curr.rstrip('.,; ')}, atividades estas constantes no Rol de Atividades do cargo de {cargo_label}."
+                else:
+                    result.desc_limitacao = lim_curr
+
                 cid_clause = f" ({result.cid})" if result.cid else ""
                 mot_clause = result.doenca_motivo or "patologia alegada"
-                if lim_base and not _is_contrary_limitation_text(lim_base):
-                    result.desc_limitacao = (
-                        f"Apresentou histórico com relato de limitações funcionais decorrentes de {mot_clause}{cid_clause}, tais como: {lim_base.rstrip('. ')}, "
-                        f"com repercussão sobre as atividades que demandam higidez plena no Rol de Atividades do cargo de {cargo_label}. "
-                        f"Todavia, em razão da emissão extemporânea da guia pericial ({retro_dias} dias de retroação > limite regulamentar de 3 dias) "
-                        f"sem comprovação documental de internamento hospitalar, a concessão resta obstada por determinação regulamentar oficial do DPME/SP."
-                    )
-                else:
-                    result.desc_limitacao = (
-                        f"Apresentou histórico pericial referente ao cargo de {cargo_label}, todavia a guia pericial foi expedida com {retro_dias} dias de retroação "
-                        f"em relação ao atestado médico sem comprovação documental de internamento hospitalar, ensejando parecer administrativo CONTRÁRIO por determinação expressa do DPME/SP."
-                    )
-
+                dias_txt = f" ({retro_dias} dias)" if retro_dias is not None else ""
                 result.justificativa = (
-                    f"Embora o(a) servidor(a) tenha apresentado histórico compatível com {mot_clause}{cid_clause}, com relato de limitações para as atribuições rotineiras do cargo atual de {cargo_label}, "
-                    f"constata-se que a guia pericial foi expedida com mais de 3 dias de retroação ({retro_dias} dias) em relação à emissão do documento médico, "
+                    f"Embora o(a) servidor(a) tenha apresentado histórico e quadro compatível com {mot_clause}{cid_clause}, com relato de limitações para as atribuições rotineiras do cargo atual de {cargo_label}, "
+                    f"constata-se que a guia pericial foi expedida com mais de 3 dias de retroação{dias_txt} em relação à emissão do documento médico, "
                     f"não havendo comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, "
                     f"ensejando, por estrito critério administrativo-normativo do DPME/SP, o parecer CONTRÁRIO."
                 )
             else:
+                if override_parecer_manual == "FAVORÁVEL":
+                    par_upper = "FAVORÁVEL"
+                elif override_parecer_manual == "CONTRÁRIO":
+                    par_upper = "CONTRÁRIO"
                 is_fav = "FAV" in par_upper or par_upper == "FAVORÁVEL"
                 if is_fav:
                     result.parecer = "FAVORÁVEL"
@@ -6937,7 +6984,7 @@ def api_ai_preencher_ficha():
 
             # Garantir conformidade de quesitos oficiais
             if not result.quesitos:
-                if (result.parecer or "").strip().upper() == "FAVORÁVEL":
+                if (result.parecer or "").strip().upper() == "FAVORÁVEL" or (retro_invalida and override_parecer_manual != "FAVORÁVEL"):
                     result.quesitos = [
                         QuesitoPreenchimentoItem(id=1, pergunta="Há doença(s) ou sequela(s) de doença(s) prévia(s)?", resposta="Sim"),
                         QuesitoPreenchimentoItem(id=2, pergunta="A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)?", resposta="Sim"),

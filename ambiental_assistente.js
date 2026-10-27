@@ -2292,7 +2292,8 @@ function trocarSubViewIA2(view) {
   } else if (view === "escrita") {
     const tEsc = $("ia2EscritaText");
     if (tEsc) {
-      if (!tEsc.value.trim() && !window._ia2EscritaLimpouManualmente) {
+      const utilAtual = extrairTextoUtilEscritaIA2(tEsc.value || "");
+      if ((!tEsc.value.trim() || !utilAtual) && !window._ia2EscritaLimpouManualmente) {
         inserirRoteiroPerguntasEscritaIA2(true);
       } else {
         window._ia2BaseTextEscrita = (tEsc.value || "").trim();
@@ -3189,15 +3190,10 @@ async function alternarDitadoVozEscritaIA2() {
 
     ia2DitadoEscritaAtivo = true;
     const tArea = $("ia2EscritaText");
-    if (tArea && window._ia2EscritaApenasCadastroInicial) {
-      // Se estava apenas com o roteiro vazio, limpa as linhas vazias para o ditado entrar limpo
-      const util = extrairTextoUtilEscritaIA2(tArea.value);
-      tArea.value = util ? util + "\n" : "";
-      window._ia2EscritaApenasCadastroInicial = false;
-    }
+    window._ia2EscritaApenasCadastroInicial = false;
     window._ia2BaseTextEscrita = (tArea?.value || "").trim();
 
-    if (btnTxt) btnTxt.textContent = "🔴 Ouvindo sua Voz... (Clique aqui p/ Parar)";
+    if (btnTxt) btnTxt.textContent = "🔴 Ouvindo sua Voz... (Clique p/ Parar)";
     if (btn) {
       btn.style.background = "#FEE2E2";
       btn.style.color = "#B91C1C";
@@ -3628,13 +3624,13 @@ function abrirModalDecisaoMedicoIA2(origem, texto) {
         <strong style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px">
           <span>⛔</span> Guia Expedida Fora do Prazo Regulamentar (${retroDias} dias de retroação > 3 dias)
         </strong>
-        <span>A guia pericial foi emitida além do prazo legal de 3 dias do atestado. Pela regulamentação DPME/SP, o parecer administrativo é <strong>CONTRÁRIO</strong>, exceto se comprovado internamento hospitalar.</span>
+        <span>Parecer <strong>CONTRÁRIO</strong> aplicado automaticamente por retroação inválida, mantendo todo o atendimento clínico, limitações e exame físico como favoráveis e aplicando o motivo na justificativa.</span>
       `;
     }
     if (alertInfo) alertInfo.style.display = "none";
     selecionarDecisaoParecerIA2("CONTRÁRIO");
-    selecionarDecisaoExameIA2("Normal");
-    atualizarDecisaoDiasIA2("zero");
+    selecionarDecisaoExameIA2("Alterado");
+    atualizarDecisaoDiasIA2("original");
   } else {
     if (alertRetro) alertRetro.style.display = "none";
     if (alertInfo) alertInfo.style.display = "block";
@@ -3659,6 +3655,7 @@ function selecionarDecisaoParecerIA2(parecer) {
   ia2DecisaoParecerEscolhido = parecer;
   const cFav = $("ia2DecisaoCardFav");
   const cContr = $("ia2DecisaoCardContr");
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
 
   if (parecer === "FAVORÁVEL") {
     if (cFav) cFav.className = "ia2-decision-card selected-fav";
@@ -3669,7 +3666,11 @@ function selecionarDecisaoParecerIA2(parecer) {
   } else {
     if (cFav) cFav.className = "ia2-decision-card";
     if (cContr) cContr.className = "ia2-decision-card selected-contr";
-    atualizarDecisaoDiasIA2("zero");
+    if (!isRetroInv) {
+      atualizarDecisaoDiasIA2("zero");
+    } else {
+      atualizarDecisaoDiasIA2("original");
+    }
   }
 }
 
@@ -3696,8 +3697,9 @@ function atualizarDecisaoDiasIA2(modo) {
 }
 
 function confirmarDecisaoEEstruturarIA2() {
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   let diasFinal = ia2DecisaoDiasValorOriginal;
-  if (ia2DecisaoDiasModo === "zero") {
+  if (ia2DecisaoDiasModo === "zero" && !isRetroInv) {
     diasFinal = 0;
   } else if (ia2DecisaoDiasModo === "custom") {
     const val = parseInt($("ia2DecisaoDiasInput")?.value, 10);
@@ -3705,10 +3707,13 @@ function confirmarDecisaoEEstruturarIA2() {
   }
 
   const decisaoMedico = {
-    parecer: ia2DecisaoParecerEscolhido,
+    parecer: isRetroInv ? "CONTRÁRIO" : ia2DecisaoParecerEscolhido,
     exameFisicoResultado: ia2DecisaoExameEscolhido,
     diasConcedidos: diasFinal,
-    observacoesMedico: ($("ia2DecisaoObsMedico")?.value || "").trim()
+    observacoesMedico: ($("ia2DecisaoObsMedico")?.value || "").trim(),
+    retroacaoInvalida: isRetroInv,
+    retroacaoDias: state.aux?.retroacaoDias || state.retroacaoDias || null,
+    parecerManualOverride: (!isRetroInv && ia2DecisaoParecerEscolhido) ? ia2DecisaoParecerEscolhido : (ia2DecisaoParecerEscolhido === "FAVORÁVEL" && isRetroInv ? "FAVORÁVEL" : "")
   };
 
   fecharModalDecisaoMedicoIA2();
@@ -3837,7 +3842,10 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
         dataDocumento: state.dataDocumento || state.aux?.dataDocumento || "",
         dataExpedicao: state.aux?.dataExpedicao || state.dataExpedicao || "",
         dataExpedicaoIso: state.aux?.dataExpedicaoIso || state.dataExpedicao || "",
-        diasSolicitados: state.diasSolicitados || state.aux?.diasSolicitados || ""
+        diasSolicitados: state.diasSolicitados || state.aux?.diasSolicitados || "",
+        retroacaoInvalida: Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida),
+        retroacaoDias: state.aux?.retroacaoDias || state.retroacaoDias || null,
+        parecerManualOverride: state.parecerManualOverride || ""
       }
     };
 
@@ -4924,12 +4932,14 @@ function aplicarDadosEsisla(dados) {
     if ($("agilOutrosWrap")) $("agilOutrosWrap").style.display = "none";
     if ($("btnIaJustificativa")) $("btnIaJustificativa").style.display = "none";
 
-    // Regra DPME: Se a retroação entre Local e Data da Expedição e Data de Emissão for > 3 dias, definir Parecer CONTRÁRIO
+    // Regra DPME: Se a retroação entre Local e Data da Expedição e Data de Emissão for > 3 dias, definir Parecer CONTRÁRIO mantendo limitações favoráveis
     const isRetroInvalida = Boolean(dados.retroacao_invalida || (dados.retroacao_dias && dados.retroacao_dias > 3));
     if (isRetroInvalida) {
-      const retroJust = dados.justificativa || "Guia com mais de 3 dias de retroação, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão da guia.";
+      const retroJust = dados.justificativa || "Guia com mais de 3 dias de retroação, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão da guia, ensejando parecer CONTRÁRIO.";
       state.parecer = "CONTRÁRIO";
       state.justificativa = retroJust;
+      state.retroacaoInvalida = true;
+      state.retroacaoDias = dados.retroacao_dias;
       if (!state.aux) state.aux = {};
       state.aux.parecer = "CONTRÁRIO";
       state.aux.justificativa = retroJust;
@@ -4941,22 +4951,14 @@ function aplicarDadosEsisla(dados) {
       setRadio("agilParecer", "CONTRÁRIO");
       if ($("justificativa")) $("justificativa").value = retroJust;
       if ($("agilJustificativa")) $("agilJustificativa").value = retroJust;
-      state.capacidade = "Capacidade laborativa preservada";
-      setRadio("capacidade", "Capacidade laborativa preservada");
-      state.limitacaoFuncional = "Não";
-      state.limitacaoRol = "Não";
-      setRadio("limitacaoFuncional", "Não");
-      setRadio("limitacaoRol", "Não");
-      const cNome = state.aux?.cargo || state.cargo || "servidor";
-      const dLim = `Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de ${cNome}, constantes no rol de atividades.`;
-      state.descLimitacao = dLim;
-      state.aux.descLimitacao = dLim;
-      if ($("descLimitacao")) $("descLimitacao").value = dLim;
-      const isRd = (state.readaptado === "Sim" || state.aux?.readaptado === "Sim");
+      state.limitacaoFuncional = "Sim";
+      state.limitacaoRol = "Sim";
+      setRadio("limitacaoFuncional", "Sim");
+      setRadio("limitacaoRol", "Sim");
       if (typeof QuesitoService !== "undefined") {
         QuesitoService.set(0, "Sim");
-        QuesitoService.set(1, isRd ? "Sim" : "Não");
-        QuesitoService.set(2, "Não");
+        QuesitoService.set(1, "Sim");
+        QuesitoService.set(2, "Sim");
         if (typeof renderQuesitos === "function") renderQuesitos();
       }
     } else {
@@ -5593,14 +5595,24 @@ function aplicarPreenchimentoIAResultado(dados) {
     if (altVal) state.aux.altura = altVal;
     if (pesoVal) state.aux.peso = pesoVal;
 
-    state.limitacaoFuncional = dados.limitacao_funcional || state.limitacaoFuncional || "Sim";
-    state.limitacaoRol = dados.limitacao_rol || state.limitacaoRol || "Sim";
+    const isRetroInv = Boolean(dados.retroacao_invalida || state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+    if (dados.retroacao_invalida !== undefined) {
+      state.retroacaoInvalida = Boolean(dados.retroacao_invalida);
+      if (state.aux) state.aux.retroacaoInvalida = Boolean(dados.retroacao_invalida);
+    }
+    if (dados.retroacao_dias !== undefined && dados.retroacao_dias !== null) {
+      state.retroacaoDias = dados.retroacao_dias;
+      if (state.aux) state.aux.retroacaoDias = dados.retroacao_dias;
+    }
+
+    state.limitacaoFuncional = (isRetroInv && state.parecerManualOverride !== "CONTRÁRIO") ? "Sim" : (dados.limitacao_funcional || state.limitacaoFuncional || "Sim");
+    state.limitacaoRol = (isRetroInv && state.parecerManualOverride !== "CONTRÁRIO") ? "Sim" : (dados.limitacao_rol || state.limitacaoRol || "Sim");
     state.capacidade = dados.capacidade || state.capacidade || "Capacidade parcial e temporariamente prejudicada";
-    state.parecer = dados.parecer || state.parecer || "FAVORÁVEL";
+    state.parecer = (isRetroInv && state.parecerManualOverride !== "FAVORÁVEL") ? "CONTRÁRIO" : (dados.parecer || state.parecer || "FAVORÁVEL");
     state.justificativa = dados.justificativa || state.justificativa || "";
 
     // Subtipo e Resultado do Exame Físico "Outros"
-    const parecerFavoravel = String(state.parecer).toUpperCase().includes("FAVOR");
+    const parecerFavoravel = String(state.parecer).toUpperCase().includes("FAVOR") || isRetroInv;
     let subtipoOutros = dados.outros_subtipo || state.outrosSubtipo || "Exame Físico Geral";
     if (subtipoOutros.toLowerCase() === "outros" || subtipoOutros.toLowerCase() === "none") {
       subtipoOutros = "Exame Físico Geral";
@@ -5860,18 +5872,38 @@ function aplicarPreenchimentoIAResultado(dados) {
     if (state.exameFisicoTipo === "Outros") {
       if (typeof renderOutrosUI === "function") renderOutrosUI();
     } else if (state.exameFisicoTipo === "Exame Mental") {
+      if (isRetroInv && !state.exameMentalResultado) {
+        state.exameMentalResultado = "Alterado";
+      }
       const btnNormal = $("btnAgilMentalNormal");
       const btnAlterado = $("btnAgilMentalAlterado");
       if (btnNormal) btnNormal.classList.toggle("selected-normal", state.exameMentalResultado === "Normal");
+      if (btnAlterado) btnAlterado.classList.toggle("selected-alterado", state.exameMentalResultado === "Alterado");
     } else if (state.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo") {
-      const parecerFav = String(state.parecer || dados.parecer || "").toUpperCase().includes("FAVOR");
+      const parecerFav = String(state.parecer || dados.parecer || "").toUpperCase().includes("FAVOR") || isRetroInv;
       if (!parecerFav) {
-        // Se parecer CONTRÁRIO: Marca como NORMAL (todas as regiões normais / verde)
+        // Se parecer CONTRÁRIO (com expedição em dia): Mantém os critérios analisados pelo médico
+        const prevExameDesc = state.exameFisicoDescricao;
+        const prevJust = state.justificativa;
+        const prevDescLim = dados.desc_limitacao || state.descLimitacao;
         if (typeof aplicarOsteomuscularNormal === "function") {
           aplicarOsteomuscularNormal();
         }
+        if (prevExameDesc) {
+          state.exameFisicoDescricao = prevExameDesc;
+          setVal("exameFisicoDescricao", prevExameDesc);
+          setVal("agilExameFisicoDescricao", prevExameDesc);
+        }
+        if (prevJust) {
+          state.justificativa = prevJust;
+          setVal("justificativa", prevJust);
+          setVal("agilJustificativa", prevJust);
+        }
+        if (prevDescLim) {
+          state.descLimitacao = prevDescLim;
+        }
       } else {
-        // Se parecer FAVORÁVEL: Seleciona todas as partes do corpo condizentes como ALTERADO (vermelho)
+        // Se parecer FAVORÁVEL ou Retroação Inválida: Seleciona todas as partes do corpo condizentes como ALTERADO (vermelho)
         const rawTxt = dados.texto_bruto || dados.texto || $("txtPreenchimentoIABruto")?.value || $("ia2EscritaText")?.value || $("ia2GravacaoTranscricao")?.value || window.__ia2UltimoTextoProcessado || "";
         let regioesAfetadas = Array.isArray(dados.regioes_osteomusculares) && dados.regioes_osteomusculares.length > 0
           ? dados.regioes_osteomusculares
@@ -6577,17 +6609,15 @@ function focusValidationItem(step,label){
 
 function renderParecerHint(){
   const p = getRadio("parecer");
-  const isRetroInvalida = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
-
-  if (p === "FAVORÁVEL" && isRetroInvalida) {
-    toast("⛔ Guia com retroação > 3 dias. Pelo regulamento oficial DPME/SP, o parecer é obrigatoriamente CONTRÁRIO.");
-    state.parecer = "CONTRÁRIO";
+  if (p === "FAVORÁVEL" || p === "CONTRÁRIO") {
+    state.parecer = p;
+    state.parecerManualOverride = p;
     if (!state.aux) state.aux = {};
-    state.aux.parecer = "CONTRÁRIO";
-    setRadio("parecer", "CONTRÁRIO");
-    setRadio("agilParecer", "CONTRÁRIO");
-    aplicarParecerContrarioRetroacao();
-    return;
+    state.aux.parecer = p;
+    setRadio("agilParecer", p);
+    if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") {
+      atualizarEstiloBotoesParecerDataAntiga();
+    }
   }
 
   $("parecerHint").textContent = p === "CONTRÁRIO"
@@ -7787,17 +7817,32 @@ function aplicarRegioesOsteomusculares() {
     state.capacidade = "Capacidade parcial e temporariamente prejudicada";
     setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
     
-    state.parecer = "FAVORÁVEL";
-    setRadio("parecer", "FAVORÁVEL");
-    
-    state.aux.justificativa = justificativaTexto;
-    state.justificativa = justificativaTexto;
-    if ($("agilJustificativa")) $("agilJustificativa").value = justificativaTexto;
-    if ($("justificativa")) $("justificativa").value = justificativaTexto;
-    
-    autoSave();
-    const nomes = grupos.map(g => g.label).join(", ");
-    toast(`Região (${nomes}) marcada como ALTERADA: achados, limitações e parecer FAVORÁVEL preenchidos.`);
+    const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+    if (isRetroInv && state.parecerManualOverride !== "FAVORÁVEL") {
+      aplicarParecerContrarioRetroacao(true);
+      autoSave();
+      const nomes = grupos.map(g => g.label).join(", ");
+      toast(`Região (${nomes}) marcada como ALTERADA: exame e limitações mantidos favoráveis, parecer CONTRÁRIO mantido por retroação inválida.`);
+    } else if (state.parecerManualOverride === "CONTRÁRIO") {
+      state.parecer = "CONTRÁRIO";
+      setRadio("parecer", "CONTRÁRIO");
+      setRadio("agilParecer", "CONTRÁRIO");
+      autoSave();
+      const nomes = grupos.map(g => g.label).join(", ");
+      toast(`Região (${nomes}) marcada como ALTERADA (Parecer CONTRÁRIO mantido conforme sua escolha).`);
+    } else {
+      state.parecer = "FAVORÁVEL";
+      setRadio("parecer", "FAVORÁVEL");
+      setRadio("agilParecer", "FAVORÁVEL");
+      state.aux.justificativa = justificativaTexto;
+      state.justificativa = justificativaTexto;
+      if ($("agilJustificativa")) $("agilJustificativa").value = justificativaTexto;
+      if ($("justificativa")) $("justificativa").value = justificativaTexto;
+      autoSave();
+      const nomes = grupos.map(g => g.label).join(", ");
+      toast(`Região (${nomes}) marcada como ALTERADA: achados, limitações e parecer FAVORÁVEL preenchidos.`);
+    }
+    if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") atualizarEstiloBotoesParecerDataAntiga();
   } else if (Object.keys(regMap).length > 0 && Object.values(regMap).every(v => v === "Normal")) {
     aplicarOsteomuscularNormal();
   }
@@ -7829,6 +7874,29 @@ function aplicarOsteomuscularNormal() {
   if ($("agilExameFisicoDescricao")) $("agilExameFisicoDescricao").value = descOsteoNormal;
   if ($("exameFisicoDescricao")) $("exameFisicoDescricao").value = descOsteoNormal;
   
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  if (isRetroInv && state.parecerManualOverride !== "FAVORÁVEL") {
+    aplicarParecerContrarioRetroacao(true);
+    updateOsteoUI();
+    autoSave();
+    if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") atualizarEstiloBotoesParecerDataAntiga();
+    return;
+  }
+  if (state.parecerManualOverride === "FAVORÁVEL") {
+    state.parecer = "FAVORÁVEL";
+    setRadio("parecer", "FAVORÁVEL");
+    setRadio("agilParecer", "FAVORÁVEL");
+    state.limitacaoFuncional = "Sim";
+    state.limitacaoRol = "Sim";
+    setRadio("limitacaoFuncional", "Sim");
+    setRadio("limitacaoRol", "Sim");
+    updateOsteoUI();
+    autoSave();
+    if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") atualizarEstiloBotoesParecerDataAntiga();
+    toast("Exame osteomuscular NORMAL (Parecer FAVORÁVEL mantido conforme sua escolha).");
+    return;
+  }
+
   state.limitacaoFuncional = "Não";
   state.limitacaoRol = "Não";
   setRadio("limitacaoFuncional", "Não");
@@ -7850,6 +7918,7 @@ function aplicarOsteomuscularNormal() {
   
   state.parecer = "CONTRÁRIO";
   setRadio("parecer", "CONTRÁRIO");
+  setRadio("agilParecer", "CONTRÁRIO");
   ajustarQuesitosPorParecerEReadaptacao();
   
   state.aux.justificativa = TEXTO_OSTEO_NORMAL_JUSTIFICATIVA;
@@ -7859,6 +7928,7 @@ function aplicarOsteomuscularNormal() {
   
   updateOsteoUI();
   autoSave();
+  if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") atualizarEstiloBotoesParecerDataAntiga();
   toast("Exame osteomuscular NORMAL: capacidade preservada e parecer CONTRÁRIO preenchidos.");
 }
 
@@ -8731,13 +8801,13 @@ function escolherOutrosResultado(resultado) {
   renderOutrosUI();
 
   const isRetroInvalida = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
-  const parecerAtual = String(state.parecer || state.aux?.parecer || $("agilParecer")?.value || $("parecer")?.value || "").toUpperCase();
+  const parecerAtual = String(state.parecerManualOverride || state.parecer || state.aux?.parecer || $("agilParecer")?.value || $("parecer")?.value || "").toUpperCase();
   const isParecerFav = (parecerAtual === "FAVORÁVEL" || parecerAtual === "FAVORAVEL");
 
   if (resultado === "Normal") {
-    if (isRetroInvalida) {
-      aplicarParecerContrarioRetroacao();
-      toast(`Avaliação: NORMAL • Parecer CONTRÁRIO obrigatório por retroação inválida (> 3 dias).`);
+    if (isRetroInvalida && state.parecerManualOverride !== "FAVORÁVEL") {
+      aplicarParecerContrarioRetroacao(true);
+      toast(`Avaliação: NORMAL • Parecer CONTRÁRIO mantido por retroação inválida (> 3 dias).`);
     } else if (isParecerFav) {
       // Perícia Retrospectiva / Homologação Pretérita: Exame físico atual normal por recuperação, mantendo parecer favorável para os dias do atestado
       state.limitacaoFuncional = "Sim";
@@ -8748,6 +8818,7 @@ function escolherOutrosResultado(resultado) {
       setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
       state.parecer = "FAVORÁVEL";
       setRadio("parecer", "FAVORÁVEL");
+      setRadio("agilParecer", "FAVORÁVEL");
       if (typeof QuesitoService !== "undefined") {
         QuesitoService.set(0, "Sim");
         QuesitoService.set(1, "Sim");
@@ -8765,14 +8836,20 @@ function escolherOutrosResultado(resultado) {
       setRadio("capacidade", "Capacidade laborativa preservada");
       state.parecer = "CONTRÁRIO";
       setRadio("parecer", "CONTRÁRIO");
+      setRadio("agilParecer", "CONTRÁRIO");
       ajustarQuesitosPorParecerEReadaptacao();
       if (typeof atualizarDiasConcedidosAutomatico === "function") atualizarDiasConcedidosAutomatico();
       toast(`Avaliação (${state.outrosSubtipo || "Outros"}): NORMAL.`);
     }
   } else if (resultado === "Alterado") {
-    if (isRetroInvalida) {
-      aplicarParecerContrarioRetroacao();
+    if (isRetroInvalida && state.parecerManualOverride !== "FAVORÁVEL") {
+      aplicarParecerContrarioRetroacao(true);
       toast(`Avaliação: ALTERADO • Parecer CONTRÁRIO mantido por retroação da guia (> 3 dias).`);
+    } else if (state.parecerManualOverride === "CONTRÁRIO") {
+      state.parecer = "CONTRÁRIO";
+      setRadio("parecer", "CONTRÁRIO");
+      setRadio("agilParecer", "CONTRÁRIO");
+      toast(`Avaliação: ALTERADO • Parecer CONTRÁRIO mantido conforme sua escolha.`);
     } else {
       state.limitacaoFuncional = "Sim";
       state.limitacaoRol = "Sim";
@@ -8782,6 +8859,7 @@ function escolherOutrosResultado(resultado) {
       setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
       state.parecer = "FAVORÁVEL";
       setRadio("parecer", "FAVORÁVEL");
+      setRadio("agilParecer", "FAVORÁVEL");
       if (typeof QuesitoService !== "undefined") {
         QuesitoService.set(0, "Sim");
         QuesitoService.set(1, "Sim");
@@ -8811,6 +8889,7 @@ function escolherOutrosResultado(resultado) {
     if (typeof atualizarDiasConcedidosAutomatico === "function") atualizarDiasConcedidosAutomatico();
     toast(`Avaliação (${state.outrosSubtipo || "Outros"}): ALTERADO. Limitações funcionais vinculadas ao CID.`);
   }
+  if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") atualizarEstiloBotoesParecerDataAntiga();
   autoSave();
 }
 
@@ -9054,6 +9133,27 @@ function aplicarExameMentalNormal() {
   if ($("agilExameFisicoDescricao")) $("agilExameFisicoDescricao").value = descMentalNormal;
   if ($("exameFisicoDescricao")) $("exameFisicoDescricao").value = descMentalNormal;
   
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  if (isRetroInv && state.parecerManualOverride !== "FAVORÁVEL") {
+    aplicarParecerContrarioRetroacao(true);
+    autoSave();
+    if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") atualizarEstiloBotoesParecerDataAntiga();
+    return;
+  }
+  if (state.parecerManualOverride === "FAVORÁVEL") {
+    state.parecer = "FAVORÁVEL";
+    setRadio("parecer", "FAVORÁVEL");
+    setRadio("agilParecer", "FAVORÁVEL");
+    state.limitacaoFuncional = "Sim";
+    state.limitacaoRol = "Sim";
+    setRadio("limitacaoFuncional", "Sim");
+    setRadio("limitacaoRol", "Sim");
+    autoSave();
+    if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") atualizarEstiloBotoesParecerDataAntiga();
+    toast("Exame mental NORMAL (Parecer FAVORÁVEL mantido conforme sua escolha).");
+    return;
+  }
+
   state.limitacaoFuncional = "Não";
   state.limitacaoRol = "Não";
   setRadio("limitacaoFuncional", "Não");
@@ -9074,6 +9174,7 @@ function aplicarExameMentalNormal() {
   
   state.parecer = "CONTRÁRIO";
   setRadio("parecer", "CONTRÁRIO");
+  setRadio("agilParecer", "CONTRÁRIO");
   ajustarQuesitosPorParecerEReadaptacao();
   
   state.aux.justificativa = TEXTO_JUSTIFICATIVA_NORMAL;
@@ -9082,6 +9183,7 @@ function aplicarExameMentalNormal() {
   if ($("justificativa")) $("justificativa").value = TEXTO_JUSTIFICATIVA_NORMAL;
   
   autoSave();
+  if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") atualizarEstiloBotoesParecerDataAntiga();
   toast("Exame mental NORMAL: achados, limitações, quesitos e parecer CONTRÁRIO preenchidos.");
 }
 
@@ -9137,16 +9239,29 @@ function aplicarExameMentalAlterado() {
   state.capacidade = "Capacidade parcial e temporariamente prejudicada";
   setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
   
-  state.parecer = "FAVORÁVEL";
-  setRadio("parecer", "FAVORÁVEL");
-  
-  state.aux.justificativa = TEXTO_JUSTIFICATIVA_ALTERADO;
-  state.justificativa = TEXTO_JUSTIFICATIVA_ALTERADO;
-  if ($("agilJustificativa")) $("agilJustificativa").value = TEXTO_JUSTIFICATIVA_ALTERADO;
-  if ($("justificativa")) $("justificativa").value = TEXTO_JUSTIFICATIVA_ALTERADO;
-  
-  autoSave();
-  toast("Exame mental ALTERADO: achados, limitações, quesitos e parecer FAVORÁVEL preenchidos.");
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  if (isRetroInv && state.parecerManualOverride !== "FAVORÁVEL") {
+    aplicarParecerContrarioRetroacao(true);
+    autoSave();
+    toast("Exame mental ALTERADO: exame e limitações mantidos favoráveis, parecer CONTRÁRIO mantido por retroação inválida.");
+  } else if (state.parecerManualOverride === "CONTRÁRIO") {
+    state.parecer = "CONTRÁRIO";
+    setRadio("parecer", "CONTRÁRIO");
+    setRadio("agilParecer", "CONTRÁRIO");
+    autoSave();
+    toast("Exame mental ALTERADO (Parecer CONTRÁRIO mantido conforme sua escolha).");
+  } else {
+    state.parecer = "FAVORÁVEL";
+    setRadio("parecer", "FAVORÁVEL");
+    setRadio("agilParecer", "FAVORÁVEL");
+    state.aux.justificativa = TEXTO_JUSTIFICATIVA_ALTERADO;
+    state.justificativa = TEXTO_JUSTIFICATIVA_ALTERADO;
+    if ($("agilJustificativa")) $("agilJustificativa").value = TEXTO_JUSTIFICATIVA_ALTERADO;
+    if ($("justificativa")) $("justificativa").value = TEXTO_JUSTIFICATIVA_ALTERADO;
+    autoSave();
+    toast("Exame mental ALTERADO: achados, limitações, quesitos e parecer FAVORÁVEL preenchidos.");
+  }
+  if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") atualizarEstiloBotoesParecerDataAntiga();
 }
 
 /* =========================================================
@@ -9747,8 +9862,9 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
   const alteradas = Object.keys(regMap).filter(k => regMap[k] === "Alterado" && DADOS_OSTEOMUSCULAR[k]);
   const isOsteoAlterado = isOsteo && alteradas.length > 0;
   const isMentalAlterado = isMental && st.exameMentalResultado === "Alterado";
+  const isRetroInv = Boolean(st.aux?.retroacaoInvalida || st.retroacaoInvalida);
   const pVal = String(st.parecer || v.parecer || (typeof getRadio === 'function' ? getRadio("parecer") : "") || "").toUpperCase();
-  const isFav = pVal === "F" || pVal.startsWith("FAV") || isOsteoAlterado || isMentalAlterado;
+  const isFav = pVal === "F" || pVal.startsWith("FAV") || isOsteoAlterado || isMentalAlterado || (isRetroInv && st.parecerManualOverride !== "CONTRÁRIO");
   
   if (isMental) {
     if (isFav) {
@@ -9886,8 +10002,9 @@ function aplicarSintesePericialMelhoriaContinua(force = false) {
   // 4. Limitações e Rol de Atividades
   const narrativaLim = gerarNarrativaLimitacoesMelhoriaContinua(state, v);
   const curDescLim = (state.descLimitacao || state.aux?.descLimitacao || "").trim();
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   const pStr = String(state.parecer || v.parecer || (typeof getRadio === 'function' ? getRadio("parecer") : "") || "").toUpperCase();
-  const isPParFav = pStr === "F" || pStr.startsWith("FAV");
+  const isPParFav = pStr === "F" || pStr.startsWith("FAV") || (isRetroInv && state.parecerManualOverride !== "CONTRÁRIO");
   const needLimUpdate = force || !curDescLim || curDescLim.length < 20 || (isPParFav && isContraryLimitationText(curDescLim)) || (!isPParFav && !isContraryLimitationText(curDescLim) && curDescLim.includes("Apresenta limitações"));
   if (narrativaLim && needLimUpdate) {
     state.descLimitacao = narrativaLim;
@@ -9972,7 +10089,11 @@ function ensureAgileBackgroundDefaults() {
     if ($("agilInicioTratamento")) $("agilInicioTratamento").value = "";
   }
   
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  const manualOverride = state.parecerManualOverride || "";
+
   const isFavGeneral = String(state.parecer || getRadio("parecer") || "").toUpperCase().startsWith("FAV")
+    || (isRetroInv && manualOverride !== "CONTRÁRIO")
     || (state.exameFisicoTipo === "Exame Mental" && state.exameMentalResultado === "Alterado")
     || (state.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo" && Object.values(state.osteomuscularRegioes || {}).some(v => v === "Alterado"));
 
@@ -9995,7 +10116,43 @@ function ensureAgileBackgroundDefaults() {
   }
 
   // 06, 07, 08 — Limitações, Quesitos, Capacidade, Parecer, Justificativa
-  if (state.exameFisicoTipo === "Exame Mental") {
+  if (isRetroInv && manualOverride !== "FAVORÁVEL") {
+    // Caso de retroação inválida (> 3 dias): Parecer CONTRÁRIO automático, mantendo limitações e exame como favorável
+    state.parecer = "CONTRÁRIO";
+    state.aux.parecer = "CONTRÁRIO";
+    state.limitacaoFuncional = "Sim";
+    state.limitacaoRol = "Sim";
+    state.capacidade = "Capacidade parcial e temporariamente prejudicada";
+    if (!state.descLimitacao || isContraryLimitationText(state.descLimitacao)) {
+      state.descLimitacao = gerarNarrativaLimitacoesMelhoriaContinua(state, values());
+      state.aux.descLimitacao = state.descLimitacao;
+    }
+    const curJ = ($("agilJustificativa")?.value || state.justificativa || state.aux.justificativa || "").trim();
+    if (!curJ || !curJ.toLowerCase().includes("retroação")) {
+      aplicarParecerContrarioRetroacao(true);
+    } else {
+      state.aux.justificativa = curJ;
+      state.justificativa = curJ;
+    }
+  } else if (manualOverride === "FAVORÁVEL" || manualOverride === "CONTRÁRIO") {
+    state.parecer = manualOverride;
+    state.aux.parecer = manualOverride;
+    if (manualOverride === "FAVORÁVEL") {
+      state.limitacaoFuncional = "Sim";
+      state.limitacaoRol = "Sim";
+      state.capacidade = "Capacidade parcial e temporariamente prejudicada";
+      if (!state.descLimitacao || isContraryLimitationText(state.descLimitacao)) {
+        state.descLimitacao = gerarNarrativaLimitacoesMelhoriaContinua(state, values());
+        state.aux.descLimitacao = state.descLimitacao;
+      }
+    } else {
+      state.limitacaoFuncional = "Não";
+      state.limitacaoRol = "Não";
+      state.capacidade = "Capacidade laborativa preservada";
+    }
+    state.aux.justificativa = $("agilJustificativa")?.value || state.justificativa || state.aux.justificativa || gerarNarrativaJustificativaMelhoriaContinua(state, values());
+    state.justificativa = state.aux.justificativa;
+  } else if (state.exameFisicoTipo === "Exame Mental") {
     if (state.exameMentalResultado === "Alterado") {
       state.limitacaoFuncional = "Sim";
       state.limitacaoRol = "Sim";
@@ -10064,8 +10221,18 @@ function ensureAgileBackgroundDefaults() {
   setRadio("limitacaoRol", state.limitacaoRol);
   setRadio("capacidade", state.capacidade);
   setRadio("parecer", state.parecer);
+  setRadio("agilParecer", state.parecer);
   if ($("justificativa")) $("justificativa").value = state.aux.justificativa || "";
-  ajustarQuesitosPorParecerEReadaptacao();
+  if (isRetroInv && manualOverride !== "FAVORÁVEL") {
+    if (typeof QuesitoService !== "undefined") {
+      QuesitoService.set(0, "Sim");
+      QuesitoService.set(1, "Sim");
+      QuesitoService.set(2, "Sim");
+      if (typeof renderQuesitos === "function") renderQuesitos();
+    }
+  } else {
+    ajustarQuesitosPorParecerEReadaptacao();
+  }
 }
 
 function finalizarAtendimentoAgil() {
@@ -10179,12 +10346,12 @@ function atualizarDiasConcedidosAutomatico() {
 }
 
 function calcularDatasAtestado() {
-  const dtDoc = $("agilDataDocumento")?.value || state.aux?.dataDocumento || $("dataDocumento")?.value || "";
-  const diasStr = $("agilDiasSolicitados")?.value || state.aux?.diasSolicitados || $("diasSolicitados")?.value || "";
+  const dtDoc = $("agilDataDocumento")?.value || $("dataDocumento")?.value || state.aux?.dataDocumento || state.dataDocumento || "";
+  const diasStr = $("agilDiasSolicitados")?.value || $("diasSolicitados")?.value || state.aux?.diasSolicitados || state.diasSolicitados || "";
   const dias = parseInt(diasStr, 10);
   
   // Data de Expedição da Guia (prioridade absoluta sobre a data atual conforme regra DPME)
-  const dtExpRaw = $("agilDataExpedicao")?.value || state.aux?.dataExpedicao || state.aux?.dataExpedicaoIso || state.dataExpedicao || "";
+  const dtExpRaw = $("agilDataExpedicao")?.value || $("dataExpedicao")?.value || state.aux?.dataExpedicao || state.aux?.dataExpedicaoIso || state.dataExpedicao || "";
   
   const alertBadge = $("retroacaoAlertaBadge");
   const alertExp = $("retroacaoExplicacao");
@@ -10242,6 +10409,8 @@ function calcularDatasAtestado() {
     if (diasTxt) diasTxt.textContent = "--";
     if (retroacaoTxt) retroacaoTxt.textContent = "--";
     if (btnContrario) btnContrario.style.display = "none";
+    if ($("agilOpcaoParecerDataAntigaBox")) $("agilOpcaoParecerDataAntigaBox").style.display = "none";
+    if ($("sec8OpcaoParecerDataAntigaBox")) $("sec8OpcaoParecerDataAntigaBox").style.display = "none";
     return;
   }
 
@@ -10251,6 +10420,7 @@ function calcularDatasAtestado() {
   // Diferença em dias corridos entre a referência (Expedição da Guia) e a emissão do atestado
   const diffTime = refDate.getTime() - docDate.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const diffHoje = Math.floor((todayZero.getTime() - docDate.getTime()) / (1000 * 60 * 60 * 24));
 
   if (retroacaoTxt) {
     if (diffDays > 0) {
@@ -10288,7 +10458,7 @@ function calcularDatasAtestado() {
           </div>
           <div style="font-size:12px;color:#7C2D12;line-height:1.45;margin-top:4px">
             O intervalo entre a <strong>${refDesc}</strong> e a <strong>Data de Emissão do Atestado (${fmtDoc})</strong> é de <strong>${diffDays} dias</strong> (superior ao limite regulamentar de 3 dias).
-            Conforme normativo oficial do DPME/SP, guias com mais de 3 dias de retroação sem comprovação documental de internamento hospitalar ou impedimento absoluto ensejam <strong>PARECER CONTRÁRIO</strong>.
+            O parecer <strong>CONTRÁRIO</strong> foi aplicado automaticamente (mantendo limitações e exame físico como favorável e aplicando o motivo na justificativa).
           </div>
         </div>
       `;
@@ -10312,9 +10482,9 @@ function calcularDatasAtestado() {
     const avisoIA2E = $("ia2RetroacaoAvisoEscrita");
     if (avisoIA2E) avisoIA2E.style.display = "inline-flex";
 
-    // Aplicação automática de Parecer Contrário por retroação inválida
-    if (state.parecer !== "CONTRÁRIO" || state.aux?.parecer !== "CONTRÁRIO") {
-      aplicarParecerContrarioRetroacao();
+    // Aplicação automática de Parecer Contrário por retroação inválida (mesmo sem o médico clicar em aplicar)
+    if (state.parecerManualOverride !== "FAVORÁVEL") {
+      aplicarParecerContrarioRetroacao(true);
     }
   } else {
     if (!state.aux) state.aux = {};
@@ -10342,6 +10512,9 @@ function calcularDatasAtestado() {
     if (avisoIA2E) avisoIA2E.style.display = "none";
   }
 
+  // Atualizar opção de Parecer abaixo da Justificativa quando identificar data antiga do atestado
+  atualizarOpcaoParecerDataAntigaUI(diffDays, diffHoje, fmtDoc);
+
   if (!isNaN(dias) && dias > 0) {
     if (diasTxt) diasTxt.textContent = `${dias} dia${dias > 1 ? "s" : ""}`;
     const endDate = new Date(docDate.getTime());
@@ -10356,23 +10529,27 @@ function calcularDatasAtestado() {
   }
 }
 
-function aplicarParecerContrarioRetroacao() {
+function aplicarParecerContrarioRetroacao(silent = false) {
   const cargo = state.aux?.cargo || state.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor";
   const cidVal = state.cid || state.aux?.cid || $("agilCid")?.value || $("cid")?.value || "";
   const cidInfo = typeof findCID === "function" ? findCID(cidVal) : null;
   const cidNome = cidInfo?.n || state.aux?.doencaMotivo || "patologia em tratamento";
   const sintomasExistentes = ($("agilSintomasLimitacao")?.value || state.aux?.sintomasLimitacao || state.sintomasLimitacao || state.descLimitacao || "").trim();
+  const retroDias = state.aux?.retroacaoDias || state.retroacaoDias || "";
+  const diasClause = retroDias ? ` (${retroDias} dias)` : "";
 
-  // Preservar e deixar a justificativa robusta e híbrida (clínica + administrativa DPME)
+  // Justificativa com o motivo do contrário por retroação inválida (> 3 dias)
   let justTexto = "";
   if (sintomasExistentes && sintomasExistentes.length > 5 && !isContraryLimitationText(sintomasExistentes)) {
-    justTexto = `Embora o(a) periciado(a) tenha apresentado atestado e histórico com relato de ${sintomasExistentes.replace(/\.$/, "")}, e limitações para as atividades do cargo de ${cargo}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação em relação à data de emissão do atestado médico, não havendo comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo-normativo do DPME/SP, o parecer CONTRÁRIO.`;
+    const sintClean = sintomasExistentes.replace(/\s*(?:Todavia|Contudo|Entretanto|Porém),?\s+a\s+guia\s+pericial.*$/i, "").replace(/\.$/, "");
+    justTexto = `Embora o(a) periciado(a) tenha apresentado atestado e histórico com relato de ${sintClean}, e limitações para as atividades do cargo de ${cargo}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação${diasClause} em relação à data de emissão do atestado médico, não havendo comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo-normativo do DPME/SP, o parecer CONTRÁRIO.`;
   } else {
-    justTexto = `Guia com mais de 3 dias de retroação, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão da guia, ensejando parecer CONTRÁRIO nos termos da diretriz regulamentar oficial do DPME/SP.`;
+    justTexto = `Embora o(a) servidor(a) tenha apresentado histórico compatível com ${cidVal ? cidVal + " (" + cidNome + ")" : cidNome}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação${diasClause} em relação à emissão do atestado médico, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando parecer CONTRÁRIO nos termos da diretriz regulamentar oficial do DPME/SP.`;
   }
 
   state.parecer = "CONTRÁRIO";
   state.justificativa = justTexto;
+  state.retroacaoInvalida = true;
   if (!state.aux) state.aux = {};
   state.aux.parecer = "CONTRÁRIO";
   state.aux.justificativa = justTexto;
@@ -10386,36 +10563,197 @@ function aplicarParecerContrarioRetroacao() {
   if ($("justificativa")) $("justificativa").value = justTexto;
   if ($("agilJustificativa")) $("agilJustificativa").value = justTexto;
 
-  state.capacidade = "Capacidade laborativa preservada";
-  setRadio("capacidade", "Capacidade laborativa preservada");
-  state.limitacaoFuncional = "Não";
-  state.limitacaoRol = "Não";
-  setRadio("limitacaoFuncional", "Não");
-  setRadio("limitacaoRol", "Não");
+  // Manter limitações e quesitos como se fosse FAVORÁVEL (e preservar o exame físico do médico)
+  state.limitacaoFuncional = "Sim";
+  state.limitacaoRol = "Sim";
+  setRadio("limitacaoFuncional", "Sim");
+  setRadio("agilLimitacaoFuncional", "Sim");
+  setRadio("limitacaoRol", "Sim");
+  setRadio("agilLimitacaoRol", "Sim");
+  state.capacidade = "Capacidade parcial e temporariamente prejudicada";
+  setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
 
-  // Descrição das limitações: MANTER o que foi relatado e deixar MAIOR e MAIS ROBUSTO
-  let descLim = "";
-  if (sintomasExistentes && sintomasExistentes.length > 5 && !isContraryLimitationText(sintomasExistentes)) {
-    descLim = `Apresentou histórico com relato de limitações funcionais decorrentes de ${cidVal ? cidVal + ' (' + cidNome + ')' : cidNome}, tais como: ${sintomasExistentes.replace(/\.$/, "")}, com repercussão para as tarefas que demandam higidez plena no rol de atividades do cargo de ${cargo}. Todavia, a guia pericial foi expedida com mais de 3 dias de retroação em relação ao atestado médico sem comprovação de internamento hospitalar, ensejando parecer administrativo CONTRÁRIO por determinação regulamentar oficial do DPME/SP.`;
-  } else {
-    descLim = `Apresentou relato de alterações clínicas associadas ao CID ${cidVal ? cidVal + ' (' + cidNome + ')' : cidNome}, porém a guia pericial foi expedida com mais de 3 dias de retroação em relação ao atestado médico sem comprovação de internação hospitalar, ensejando parecer administrativo CONTRÁRIO por determinação regulamentar oficial do DPME/SP.`;
+  let descLim = gerarNarrativaLimitacoesMelhoriaContinua(state, typeof values === "function" ? values() : {});
+  descLim = descLim.replace(/\s*(?:Todavia|Contudo|Entretanto|Porém),?\s+a\s+guia\s+pericial.*$/i, "").trim();
+  if (descLim && !descLim.toLowerCase().includes("rol de atividades")) {
+    descLim = `${descLim.replace(/[.,;]+$/, "")}, atividades estas constantes no Rol de Atividades do cargo de ${cargo}.`;
   }
-  state.descLimitacao = descLim;
-  state.aux.descLimitacao = descLim;
-  if ($("descLimitacao")) $("descLimitacao").value = descLim;
+  if (descLim) {
+    state.descLimitacao = descLim;
+    state.aux.descLimitacao = descLim;
+    if ($("descLimitacao")) $("descLimitacao").value = descLim;
+    if ($("agilDescLimitacao")) $("agilDescLimitacao").value = descLim;
+    if (!state.atividadesComprometidas || isContraryLimitationText(state.atividadesComprometidas)) {
+      state.atividadesComprometidas = descLim;
+      state.aux.atividadesComprometidas = descLim;
+      if ($("atividadesComprometidas")) $("atividadesComprometidas").value = descLim;
+    }
+  }
 
-  const isReadap = (state.readaptado === "Sim" || state.aux?.readaptado === "Sim");
   if (typeof QuesitoService !== "undefined") {
     QuesitoService.set(0, "Sim");
-    QuesitoService.set(1, isReadap ? "Sim" : "Não");
-    QuesitoService.set(2, "Não");
+    QuesitoService.set(1, "Sim");
+    QuesitoService.set(2, "Sim");
     if (typeof renderQuesitos === "function") renderQuesitos();
   }
 
+  if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") {
+    atualizarEstiloBotoesParecerDataAntiga();
+  }
+
   autoSave();
-  toast("⛔ Parecer CONTRÁRIO aplicado por retroação inválida (> 3 dias). Limitações clínicas e justificativa mantidas e robustecidas.");
+  if (!silent) {
+    toast("⛔ Parecer CONTRÁRIO aplicado por retroação inválida (> 3 dias). Exame físico e limitações mantidos como favoráveis.");
+  }
 }
 window.aplicarParecerContrarioRetroacao = aplicarParecerContrarioRetroacao;
+
+function atualizarOpcaoParecerDataAntigaUI(diffDays, diffHoje, fmtDoc) {
+  const boxAgil = $("agilOpcaoParecerDataAntigaBox");
+  const boxSec8 = $("sec8OpcaoParecerDataAntigaBox");
+  const isDataAntiga = (typeof diffDays === "number" && diffDays > 0) || (typeof diffHoje === "number" && diffHoje > 0);
+
+  if (!isDataAntiga) {
+    if (boxAgil) boxAgil.style.display = "none";
+    if (boxSec8) boxSec8.style.display = "none";
+    return;
+  }
+
+  const isRetroInv = typeof diffDays === "number" && diffDays > 3;
+  const diasRef = (typeof diffDays === "number" && diffDays > 0) ? diffDays : diffHoje;
+  const tituloTxt = isRetroInv
+    ? `Atestado com Data Antiga (${fmtDoc} • ${diffDays} dias de retroação > 3 dias)`
+    : `Atestado com Data Antiga Identificada (${fmtDoc} • ${diasRef} dia${diasRef > 1 ? "s" : ""} atrás)`;
+  const subTxt = isRetroInv
+    ? `Parecer CONTRÁRIO aplicado automaticamente mantendo exame físico e limitações favoráveis. Caso deseje, escolha abaixo o parecer independente do exame físico:`
+    : `Data anterior identificada no atestado. Você pode definir o parecer Contrário ou Favorável abaixo, independente do exame físico:`;
+
+  if (boxAgil) {
+    boxAgil.style.display = "block";
+    if ($("agilOpcaoParecerDataAntigaTitulo")) $("agilOpcaoParecerDataAntigaTitulo").textContent = tituloTxt;
+    if ($("agilOpcaoParecerDataAntigaSub")) $("agilOpcaoParecerDataAntigaSub").textContent = subTxt;
+  }
+  if (boxSec8) {
+    boxSec8.style.display = "block";
+    if ($("sec8OpcaoParecerDataAntigaTitulo")) $("sec8OpcaoParecerDataAntigaTitulo").textContent = tituloTxt;
+    if ($("sec8OpcaoParecerDataAntigaSub")) $("sec8OpcaoParecerDataAntigaSub").textContent = subTxt;
+  }
+
+  atualizarEstiloBotoesParecerDataAntiga();
+}
+
+function atualizarEstiloBotoesParecerDataAntiga() {
+  const pAtual = String(state.parecer || state.aux?.parecer || getRadio("parecer") || "").toUpperCase();
+  const isFav = pAtual.includes("FAV");
+  const isContr = pAtual.includes("CONTR");
+
+  const pairs = [
+    { btnC: $("btnAgilParecerDataAntigaContrario"), btnF: $("btnAgilParecerDataAntigaFavoravel"), status: $("agilOpcaoParecerDataAntigaStatus") },
+    { btnC: $("btnSec8ParecerDataAntigaContrario"), btnF: $("btnSec8ParecerDataAntigaFavoravel"), status: $("sec8OpcaoParecerDataAntigaStatus") }
+  ];
+
+  pairs.forEach(({ btnC, btnF, status }) => {
+    if (btnC) {
+      btnC.style.background = isContr ? "#DC2626" : "#FEF2F2";
+      btnC.style.color = isContr ? "#FFFFFF" : "#B91C1C";
+      btnC.style.boxShadow = isContr ? "0 3px 10px rgba(220,38,38,0.28)" : "none";
+    }
+    if (btnF) {
+      btnF.style.background = isFav ? "#10B981" : "#ECFDF5";
+      btnF.style.color = isFav ? "#FFFFFF" : "#047857";
+      btnF.style.boxShadow = isFav ? "0 3px 10px rgba(16,185,129,0.28)" : "none";
+    }
+    if (status) {
+      if (isContr) {
+        status.textContent = "ATUAL: CONTRÁRIO";
+        status.style.background = "#FEE2E2";
+        status.style.color = "#991B1B";
+      } else if (isFav) {
+        status.textContent = "ATUAL: FAVORÁVEL";
+        status.style.background = "#DCFCE7";
+        status.style.color = "#15803D";
+      } else {
+        status.textContent = "SELECIONE O PARECER";
+        status.style.background = "#FEF3C7";
+        status.style.color = "#92400E";
+      }
+    }
+  });
+}
+
+function selecionarParecerDataAntigaManual(parecerEscolhido) {
+  const par = String(parecerEscolhido || "").toUpperCase().includes("FAV") ? "FAVORÁVEL" : "CONTRÁRIO";
+  state.parecerManualOverride = par;
+  state.parecer = par;
+  if (!state.aux) state.aux = {};
+  state.aux.parecer = par;
+
+  if ($("parecer")) $("parecer").value = par;
+  if ($("agilParecer")) $("agilParecer").value = par;
+  setRadio("parecer", par);
+  setRadio("agilParecer", par);
+
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  const cargo = state.aux?.cargo || state.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor";
+  const cidVal = state.cid || state.aux?.cid || $("agilCid")?.value || $("cid")?.value || "";
+  const cidInfo = typeof findCID === "function" ? findCID(cidVal) : null;
+  const cidNome = cidInfo?.n || state.aux?.doencaMotivo || "patologia avaliada";
+
+  if (par === "CONTRÁRIO") {
+    if (isRetroInv) {
+      aplicarParecerContrarioRetroacao(true);
+    } else {
+      state.limitacaoFuncional = "Não";
+      state.limitacaoRol = "Não";
+      setRadio("limitacaoFuncional", "Não");
+      setRadio("agilLimitacaoFuncional", "Não");
+      setRadio("limitacaoRol", "Não");
+      setRadio("agilLimitacaoRol", "Não");
+      state.capacidade = "Capacidade laborativa preservada";
+      setRadio("capacidade", "Capacidade laborativa preservada");
+      const justContr = `Constato a capacidade laborativa preservada no presente ato pericial, não se observando elementos incapacitantes atuais para as atribuições do cargo de ${cargo}, ensejando parecer CONTRÁRIO.`;
+      state.justificativa = justContr;
+      state.aux.justificativa = justContr;
+      if ($("justificativa")) $("justificativa").value = justContr;
+      if ($("agilJustificativa")) $("agilJustificativa").value = justContr;
+      ajustarQuesitosPorParecerEReadaptacao();
+    }
+    toast("🔴 Parecer CONTRÁRIO aplicado (mantendo o exame físico registrado pelo médico).");
+  } else {
+    state.limitacaoFuncional = "Sim";
+    state.limitacaoRol = "Sim";
+    setRadio("limitacaoFuncional", "Sim");
+    setRadio("agilLimitacaoFuncional", "Sim");
+    setRadio("limitacaoRol", "Sim");
+    setRadio("agilLimitacaoRol", "Sim");
+    state.capacidade = "Capacidade parcial e temporariamente prejudicada";
+    setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
+    if (typeof QuesitoService !== "undefined") {
+      QuesitoService.set(0, "Sim");
+      QuesitoService.set(1, "Sim");
+      QuesitoService.set(2, "Sim");
+      if (typeof renderQuesitos === "function") renderQuesitos();
+    }
+    const limFav = gerarNarrativaLimitacoesMelhoriaContinua(state, typeof values === "function" ? values() : {});
+    if (limFav) {
+      state.descLimitacao = limFav;
+      state.aux.descLimitacao = limFav;
+      if ($("descLimitacao")) $("descLimitacao").value = limFav;
+      if ($("agilDescLimitacao")) $("agilDescLimitacao").value = limFav;
+    }
+    const justFav = `Considerando o histórico clínico, a documentação médica apresentada e a sintomatologia compatível com ${cidVal ? cidVal + " (" + cidNome + ")" : cidNome}, considero a capacidade laborativa parcial e temporariamente prejudicada para as atribuições do rol do cargo de ${cargo}, referente ao período pleiteado no atestado médico.`;
+    state.justificativa = justFav;
+    state.aux.justificativa = justFav;
+    if ($("justificativa")) $("justificativa").value = justFav;
+    if ($("agilJustificativa")) $("agilJustificativa").value = justFav;
+    toast("🟢 Parecer FAVORÁVEL aplicado (independente do exame físico atual).");
+  }
+
+  atualizarEstiloBotoesParecerDataAntiga();
+  if (typeof atualizarDiasConcedidosAutomatico === "function") atualizarDiasConcedidosAutomatico();
+  autoSave();
+}
+window.selecionarParecerDataAntigaManual = selecionarParecerDataAntigaManual;
 
 function concederMesmosDiasAtestado() {
   const dtDoc = $("agilDataDocumento")?.value || state.aux?.dataDocumento || "";
