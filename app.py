@@ -1762,9 +1762,9 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO:
   * NUNCA DEIXE ESTE CAMPO VAZIO quando houver menção a qualquer queixa, dor, sintoma, limitação ou enfermidade nas anotações.
 - medications: Lista de medicamentos em uso. Corrija sempre a grafia comercial/farmacológica ("Utrogestan", "Doxiciclina", "Clonazepam", "Amoxicilina", "Duloxetina", "Lítio", "Bupropiona", "Tramadol", "Dipirona"). Se informado nome informal ou sem dose (ex.: "dipirona"), padronize tecnicamente: medicamento "Dipirona", dosagem "1 g", frequencia "se dor até 6/6h", observacao "analgesia".
 - alteracao_med: "Não" (ou "Sim" se relatada troca recente).
-- psicoterapia: false ou true (OBRIGATÓRIO: Se o texto relatar afirmativamente início, realização ou acompanhamento de psicoterapia, psicologia, psico, psicólogo/psicóloga ou terapia psicológica (ex: "faz psicoterapia", "faz psico", "psicóloga 1x por semana", "em terapia"), marque true; se negar explicitamente ("nega psicoterapia", "nega psico") ou omitir completamente, marque false).
-- fisioterapia: false ou true (OBRIGATÓRIO: Se o texto relatar afirmativamente início, realização, indicação ou sessões de fisioterapia motora/respiratória/analgésica ou fisio (ex: "iniciou fisioterapia", "faz fisio", "ta fazendo fisio motora", "sessões de reabilitação motora"), marque true; se negar explicitamente ("nega fisioterapia", "nega fisio", "não faz") ou omitir completamente, marque false).
-- obs_terapias: Redação formal pericial descrevendo as terapias realizadas ou negadas (ex.: "A periciada relata início recente de fisioterapia motora (2 vezes por semana) e nega realização de psicoterapia." ou "Não alegou fazer fisioterapia e psicoterapia.").
+- psicoterapia: false ou true (ATENÇÃO MÁXIMA: Analise cuidadosamente se o servidor FAZ ou NÃO FAZ psicoterapia. Se o texto disser "psicoterapia não faz", "psicoterapia: não", "nega psicoterapia", "sem psicoterapia", "não realiza psicoterapia" ou se apenas constar a pergunta do roteiro sem resposta afirmativa, marque OBRIGATORIAMENTE false! Marque true SOMENTE se houver afirmação clara de que realiza acompanhamento psicológico/psicoterapia).
+- fisioterapia: false ou true (ATENÇÃO MÁXIMA: Analise cuidadosamente se o servidor FAZ ou NÃO FAZ fisioterapia. Mesmo que a palavra venha antes do verbo, como em "fisioterapia faz duas vezes por semana", "fisioterapia 2x por semana", "em fisioterapia motora", marque OBRIGATORIAMENTE true! Se negar explicitamente como "fisioterapia não faz", "nega fisioterapia", marque false).
+- obs_terapias: Redação formal pericial sem parênteses descrevendo fielmente as terapias realizadas ou negadas (ex.: "O periciado relata realização de fisioterapia motora duas vezes por semana e nega acompanhamento em psicoterapia." ou "Não alegou fazer fisioterapia e psicoterapia.").
 - outras_doencas: "Sim" se houver outras patologias informadas, senão "Não".
 - conditions: Lista de comorbidades prévias estruturadas com tratamento.
 - historico_pregresso: CAMPO OBRIGATÓRIO — Histórico patológico pregresso / antecedentes mórbidos formalmente redigido em linguagem médica culta no padrão oficial DPME, sem copiar anotações telegráficas brutas, sem erros de concordância e NUNCA mencionando dias de atestado concedidos.
@@ -1773,21 +1773,21 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO:
   * Se o periciado não tiver comorbidades ou negar doenças prévias, preencha OBRIGATORIAMENTE com a redação oficial padrão DPME: "Nega antecedentes mórbidos relevantes, cirurgias prévias, neoplasias ou hábitos tabágicos e etilistas." (ou para acompanhante: "Nega comorbidades próprias, cirurgias prévias e neoplasias.").
   * NUNCA DEIXE historico_pregresso VAZIO.
 
-3. ATESTADO DO MÉDICO ASSISTENTE, DATA DE EXPEDIÇÃO DA GUIA E CID:
-- cid: Código CID-10 oficial pontuado principal que motivou o atestado/afastamento (ex.: "M51.1", "Z98.8", "F32.1", "M54.5"). Se vier sem ponto (ex.: "Z988"), formate com ponto ("Z98.8"). Em perícia de acompanhante (Artigo 199), o CID principal é "Z76.3".
-- cid_descricao: Descrição correspondente do CID-10 principal (ex.: "Transtornos de discos lombares com radiculopatia", "Outros estados pós-cirúrgicos especificados").
-- cids_secundarios: Lista com os códigos CID-10 oficiais pontuados de TODOS os demais CIDs secundários, diagnósticos adicionais ou atestados associados informados no texto bruto (ex.: ["M54.4", "G56.0", "M77.1", "F41.2"]). Se houver múltiplos CIDs além do principal, inclua rigorosamente TODOS nesta lista.
-- crm_cro: Dígitos numéricos do CRM do médico assistente (ex.: "224574").
-- nome_medico_assistente: Nome do médico assistente (ex.: "Bruna de Morais Torres").
-- data_documento: Data de emissão do atestado médico no formato ISO "YYYY-MM-DD" (ex.: "2026-09-29") ou DD/MM/AAAA.
-- data_expedicao: Data de Expedição da Guia Pericial (Local e Data da Expedição / Data da Expedição / Guia expedida em) no formato ISO "YYYY-MM-DD" (ex.: "15 de Outubro de 2026" -> "2026-10-15") ou DD/MM/AAAA. Diferencie sempre da data_documento (emissão do atestado).
-- dias_solicitados: Número de dias em dígitos (ex.: "15").
-- obs_documentos: Síntese formal do documento (ex.: "Atestado médico emitido em 29/09/2026 pela Dra. Bruna de Morais Torres (CRM 224574), indicando 15 dias de repouso por CID Z98.8.").
+3. ATESTADO DO MÉDICO ASSISTENTE, DATA DE EXPEDIÇÃO DA GUIA E CID (FOCO MÁXIMO E PRECISÃO ABSOLUTA):
+- cid: Código CID-10 oficial pontuado principal que motivou o atestado/afastamento (ex.: "M51.1", "Z98.8", "F32.1", "M54.4"). Se vier sem ponto (ex.: "Z988", "M544"), formate com ponto ("Z98.8", "M54.4"). Em perícia de acompanhante (Artigo 199), o CID principal é "Z76.3".
+- cid_descricao: Descrição correspondente do CID-10 principal (ex.: "Lumbago com ciática", "Transtornos de discos lombares com radiculopatia").
+- cids_secundarios: Lista com os códigos CID-10 oficiais pontuados de TODOS os demais CIDs secundários, diagnósticos adicionais ou atestados associados informados no texto bruto (ex.: ["M51.1", "G56.0", "M77.1", "F41.2"]). Se houver múltiplos CIDs além do principal, inclua rigorosamente TODOS nesta lista.
+- crm_cro: Dígitos numéricos do CRM ou CRO do médico/dentista assistente que emitiu o atestado (ex.: "142890", "224574"). Extraia com atenção máxima mesmo em texto corrido sem pontuação (ex.: "dr marcos vinicius crm 142890" -> "142890").
+- nome_medico_assistente: Nome completo e devidamente capitalizado do médico assistente que emitiu o atestado (ex.: "Marcos Vinicius", "Bruna de Morais Torres").
+- data_documento: Data de emissão ou início de vigência do atestado médico do médico assistente no formato ISO "YYYY-MM-DD" (ex.: "solicitando vinte e um dias a partir do dia 15/01/2026" -> "2026-01-15"). ATENÇÃO CRÍTICA: JAMAIS confunda a data do atestado com a data de início/piora dos sintomas (ex.: "piorou dia 12 de janeiro") nem com a data de realização de exames complementares (ex.: "ressonância feita em 18/11/2025").
+- data_expedicao: Data de Expedição da Guia Pericial pelo setor/sistema (ex.: "Local e Data da Expedição", "Data da Expedição", "guia expedida pelo setor em 29/01/2026" -> "2026-01-29") no formato ISO "YYYY-MM-DD". ATENÇÃO CRÍTICA: Diferencie rigorosamente da data_documento (emissão do atestado) e JAMAIS use datas de sintomas ou exames como data_expedicao.
+- dias_solicitados: Número exato de dias de afastamento solicitados no atestado médico convertido em dígitos numéricos (ex.: se o texto disser "vinte e um dias", preencha "21"; "quinze dias" -> "15"; "trinta dias" -> "30"). NUNCA preencha "1" se o atestado solicitar outra quantidade de dias.
+- obs_documentos: Síntese formal do documento sem uso desnecessário de parênteses (ex.: "Atestado médico emitido em 15/01/2026 pelo Dr. Marcos Vinicius, CRM 142890, indicando 21 dias de afastamento sob CID M54.4.").
 
 4. EXAME FÍSICO / MENTAL, EXAMES COMPLEMENTARES E SINAIS VITAIS:
 - exame_fisico_tipo: Categoria correspondente ("Exame Mental" para patologias mentais/CID F; "Aparelho Osteomuscular e Tecido Conjutivo" para osteo/articular/CID M; "Outros" para procedimentos cirúrgicos, dermatologia, mamas, feridas, etc.).
 - outros_subtipo: Quando exame_fisico_tipo for "Outros", selecione o segmento correspondente dentre: "Exame Físico Geral", "Tecido celular subcutâneo", "Pele e Fâneros", "Aparelho Circulatório", "Aparelho Respiratório", "Aparelho Hemolinfopoético", "Aparelho Digestivo", "Aparelho Geniturinário", "Aparelho Endócrino", "Sistema Nervoso", "Órgãos dos Sentidos" ou "E outros". Para pós-operatório, mamas ou cirurgias gerais com ferida operatória, utilize "Exame Físico Geral". Se exame não for Outros, use "".
-- outros_resultado: Quando exame_fisico_tipo for "Outros", utilize "Alterado" se o parecer for FAVORÁVEL (com deiscência, dor, limitação funcional) ou "Normal" se parecer CONTRÁRIO (sem achados patológicos). Se exame não for Outros, use "".
+- outros_resultado: Quando exame_fisico_tipo for "Outros", utilize "Alterado" se o parecer for FAVORÁVEL (com deiscência, dor, limitação funcional) ou se for retroação inválida com achados clínicos; ou "Normal" se parecer CONTRÁRIO por ausência de incapacidade. Se exame não for Outros, use "".
 - exame_mental_resultado: Se exame mental, "Alterado" ou "Normal"; senão vazio.
 - exame_fisico_descricao: Redija uma propedêutica médica objetiva, técnica e plausível condizente com a queixa informada (ex.: para pós-operatório com deiscência: "Estado geral bom, consciente e orientada, acianótica, eupneica, afebril. Mamas simétricas, ferida operatória em cicatrização com edema moderado e deiscência de 3 pontos cirúrgicos sem secreção purulenta ativa. Dor à palpação local e limitação antálgica à abdução e elevação de membros superiores acima de 90 graus.").
 - alteracoes_clinicas_exames: Se o texto bruto mencionar exames complementares apresentados (ressonância, ultrassonografia, radiografia, tomografia, exames laboratoriais), redija o relato técnico dos achados; caso não tenham sido apresentados exames complementares, registre: "Não foram apresentados exames complementares (imagem ou laboratoriais) no ato pericial.".
@@ -1798,23 +1798,24 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO:
 - peso: Apenas dígitos do peso em quilogramas (ex.: "74"). NUNCA inclua "kg". Se não constar, deixe vazio.
 
 5. LIMITAÇÕES, ROL E JUSTIFICATIVA DO PARECER:
-- limitacao_funcional: "Sim" se incapacidade temporária / parecer favorável; "Não" se parecer contrário.
-- limitacao_rol: "Sim" se favorável; "Não" se contrário.
+- limitacao_funcional: "Sim" se incapacidade temporária / parecer favorável ou se retroação inválida com quadro clínico limitante; "Não" se parecer contrário por ausência de incapacidade.
+- limitacao_rol: "Sim" se favorável ou retroação inválida; "Não" se contrário por ausência de incapacidade.
 - desc_limitacao: Descreva as limitações funcionais objetivas para as atribuições do cargo público (ex.: "Apresenta limitações físicas temporárias decorrentes do pós-operatório recente de cirurgia mamária com deiscência de pontos cirúrgicos, inviabilizando esforços físicos com membros superiores, levantamento de peso e permanência prolongada em sala de aula, atividades estas constantes no Rol de Atividades do cargo de [cargo].").
 - atividades_comprometidas: Atividades específicas do rol comprometidas (ex.: "Regência de classe, escrita em lousa, transporte de materiais pedagógicos e controle de sala de aula.").
 - capacidade: "Capacidade parcial e temporariamente prejudicada" (se favorável) ou "Capacidade laborativa preservada" (se contrário).
-- parecer: "FAVORÁVEL" ou "CONTRÁRIO" (se o texto do médico disser "favorável", use "FAVORÁVEL"). Se houver retroação > 3 dias entre data_expedicao e data_documento sem internação hospitalar, e o médico não afirmou parecer favorável, sugira "CONTRÁRIO".
+- parecer: "FAVORÁVEL" ou "CONTRÁRIO". Se houver retroação > 3 dias entre data_expedicao e data_documento sem internação hospitalar, o parecer é OBRIGATORIAMENTE "CONTRÁRIO".
 - quesitos:
-  * Se Favorável:
+  * Se Favorável ou se Contrário exclusivamente por retroação inválida (> 3 dias):
     1: Sim (Há doença(s) ou sequela(s) de doença(s) prévia(s)?)
     2: Sim (A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)?)
     3: Sim (A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol?)
-  * Se Contrário: 1: Sim, 2: Não (ou Sim se readaptado), 3: Não.
-- justificativa: Redija em 1ª pessoa no padrão DPME, sem expressões como "Concedo X dias":
-  * Se Favorável: "Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de [cargo], em razão de limitações físicas decorrentes de [doenca_motivo] (CID [cid]), referente ao período pleiteado."
-  * Se Contrário: "Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações incapacitantes para as atribuições rotineiras do cargo atual de [cargo]."
+  * Se Contrário por ausência de incapacidade: 1: Sim, 2: Não (ou Sim se readaptado), 3: Não.
+- justificativa: Redija em padrão médico-pericial DPME, SEM utilizar parênteses () em nenhuma hipótese e sem expressões como "Concedo X dias":
+  * Se Favorável: "Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de [cargo], em razão de limitações físicas decorrentes de [doenca_motivo], CID [cid], referente ao período pleiteado."
+  * Se Contrário por retroação > 3 dias: Reconheça o quadro clínico e as limitações para o cargo de [cargo], porém fundamente o parecer contrário exclusivamente na expedição extemporânea da guia pericial com mais de 3 dias de retroação em relação à data de emissão do atestado médico, sem comprovação documental de internação hospitalar ou impedimento absoluto, SEM utilizar parênteses ().
+  * Se Contrário por ausência de incapacidade: "Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações incapacitantes para as atribuições rotineiras do cargo atual de [cargo]."
 
-REGRA TERMINOLÓGICA MANDATÓRIA: NUNCA utilize o termo "Paciente" ou "paciente". Utilize SEMPRE "Servidor", "Servidora" ou "Periciado/Periciada".
+REGRA TERMINOLÓGICA MANDATÓRIA: NUNCA utilize o termo "Paciente" ou "paciente". Utilize SEMPRE "Servidor", "Servidora" ou "Periciado/Periciada", sem usar barras ou parênteses de gênero como "servidor(a)" ou "periciado(a)".
 """.strip()
 }
 
@@ -4933,6 +4934,212 @@ def _clean_esisla_text(text: str) -> str:
 
 
 
+def _remover_parenteses_texto(texto: str) -> str:
+    if not texto:
+        return ""
+    s = str(texto)
+    s = re.sub(r"\bo\(a\)\s+periciado\(a\)\b", "o periciado", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bo\(a\)\s+servidor\(a\)\b", "o servidor", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bservidor\(a\)\b", "servidor", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bpericiado\(a\)\b", "periciado", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bdr\(a\)\.?\b", "Dr.", s, flags=re.IGNORECASE)
+    # Substituir conteúdo entre parênteses por vírgula ou espaço fluido sem usar ()
+    s = re.sub(r"\s*\(\s*CID\s*[:\-]?\s*([A-Z]\d{2}(?:\.\d+)?)\s*\)", r", sob CID \1,", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s*\(\s*([A-Z]\d{2}(?:\.\d+)?)\s*\)", r", sob CID \1,", s)
+    s = re.sub(r"\s*\(\s*(\d+)\s*dias?\s*(?:de\s+retroa[çc][ãa]o)?\s*\)", r", totalizando \1 dias de retroação,", s, flags=re.IGNORECASE)
+    s = re.sub(r"[()]", "", s)
+    s = re.sub(r"\s+,", ",", s)
+    s = re.sub(r",\s*,+", ",", s)
+    s = re.sub(r",\s*\.", ".", s)
+    s = re.sub(r"\.\s*\.", ".", s)
+    s = re.sub(r"\bcom\s+relato\s+de\s+(?:relata|refere|queixa-se\s+de|apresenta)\s+", "com relato de ", s, flags=re.IGNORECASE)
+    s = re.sub(r"\.\s+e\s+limita[çc][õo]es\b", " e limitações", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s{2,}", " ", s).strip()
+    return s
+
+
+def _limpar_fragmento_clinico_retroacao(texto: str) -> str:
+    if not texto:
+        return ""
+    s = _remover_parenteses_texto(texto)
+    s = re.sub(
+        r"^(?:o\s+periciado|a\s+periciada|o\s+servidor|a\s+servidora|paciente|periciando|periciada)?\s*(?:relata|relatou|refere|referiu|queixa-se\s+de|apresenta|apresentando|comparece\s+com|vem\s+com)\s+",
+        "",
+        s,
+        flags=re.IGNORECASE,
+    ).strip(" ,.;:")
+    if len(s) > 1 and s[0].isupper() and not re.match(r"^[A-Z]{2,}\b", s):
+        s = s[0].lower() + s[1:]
+    return s.strip(" ,.;:")
+
+
+def _construir_justificativa_retroacao(
+    *,
+    is_fem: bool = False,
+    cargo: str = "servidor",
+    doenca_motivo: str = "",
+    cid: str = "",
+    sintomas: str = "",
+    doc_date_br: str = "",
+    exp_date_br: str = "",
+    retro_dias: int | None = None,
+) -> str:
+    sujeito = "a servidora" if is_fem else "o servidor"
+    cargo_clean = _remover_parenteses_texto(cargo or "servidor").strip(" ,.;") or "servidor"
+    cid_clean = re.sub(r"[^A-Z0-9\.]", "", (cid or "").upper()).strip(".")
+    mot_raw = re.sub(r"\s*\(?\s*CID\s*[:\-]?\s*[A-Z]\d{2}(?:\.\d+)?\s*\)?", "", doenca_motivo or "", flags=re.I)
+    mot_clean = _limpar_fragmento_clinico_retroacao(mot_raw) or "patologia clínica relatada no ato pericial"
+    if cid_clean and cid_clean.lower() in mot_clean.lower():
+        cid_clause = ""
+    elif cid_clean:
+        cid_clause = f" sob CID {cid_clean}"
+    else:
+        cid_clause = ""
+
+    sint_clean = _limpar_fragmento_clinico_retroacao(sintomas)
+    if sint_clean and sint_clean.lower() != mot_clean.lower() and len(sint_clean) > 8:
+        if len(sint_clean) > 180:
+            sint_clean = sint_clean[:180].rsplit(" ", 1)[0].rstrip(" ,.;:")
+        relato_clause = f", com relato de {sint_clean} e limitações funcionais temporárias para as atribuições habituais do cargo de {cargo_clean},"
+    else:
+        relato_clause = f", com relato de limitações funcionais temporárias para o exercício das atribuições habituais do cargo de {cargo_clean},"
+
+    if doc_date_br and exp_date_br and retro_dias is not None and retro_dias > 3:
+        prazo_clause = (
+            f"constata-se que a Guia com mais de 3 dias de retroação foi expedida somente em {exp_date_br} para atestado emitido em {doc_date_br}, "
+            f"totalizando {retro_dias} dias de retroação, prazo superior ao limite regulamentar previsto nas normas médico-periciais do DPME"
+        )
+    elif retro_dias is not None and retro_dias > 3:
+        prazo_clause = (
+            f"constata-se que a Guia com mais de 3 dias de retroação foi expedida com {retro_dias} dias de retroação em relação à emissão do documento médico, "
+            f"prazo superior ao limite regulamentar previsto nas normas médico-periciais do DPME"
+        )
+    else:
+        prazo_clause = (
+            "constata-se que a Guia com mais de 3 dias de retroação foi expedida superando o limite regulamentar previsto nas normas médico-periciais do DPME"
+        )
+
+    texto = (
+        f"Embora {sujeito} apresente quadro clínico compatível com {mot_clean}{cid_clause}{relato_clause} "
+        f"{prazo_clause}. "
+        f"Diante da ausência de comprovação documental de internação hospitalar ou de impedimento absoluto para a emissão tempestiva da guia, "
+        f"emite-se parecer CONTRÁRIO à concessão da licença pleiteada por estrito critério administrativo e normativo do DPME SP."
+    )
+    return _remover_parenteses_texto(texto)
+
+
+def _is_retroacao_invalida_payload(payload: dict[str, Any], just_val: str = "") -> tuple[bool, int | None, str, str]:
+    retro_flag = bool(
+        payload.get("retroacao_invalida")
+        or payload.get("retroacaoInvalida")
+        or (isinstance(payload.get("aux"), dict) and payload["aux"].get("retroacaoInvalida"))
+    )
+    retro_dias = None
+    raw_rd = (
+        payload.get("retroacao_dias")
+        or payload.get("retroacaoDias")
+        or (payload.get("aux") or {}).get("retroacaoDias")
+    )
+    if raw_rd is not None and str(raw_rd).strip() != "":
+        try:
+            retro_dias = int(str(raw_rd).strip())
+        except Exception:
+            pass
+
+    raw_doc = str(payload.get("data_documento") or payload.get("dataDocumento") or "").strip()
+    raw_exp = str(
+        payload.get("data_expedicao")
+        or payload.get("dataExpedicao")
+        or (payload.get("aux") or {}).get("dataExpedicaoIso")
+        or (payload.get("aux") or {}).get("dataExpedicao")
+        or ""
+    ).strip()
+
+    doc_br = _format_date_br(raw_doc) if raw_doc else ""
+    exp_br = _format_date_br(raw_exp) if raw_exp else ""
+
+    def _parse_any_date(val: str):
+        if not val:
+            return None
+        m_iso = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", val)
+        if m_iso:
+            try:
+                return datetime.strptime(val, "%Y-%m-%d").date()
+            except Exception:
+                return None
+        m_br = re.match(r"^(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})$", val)
+        if m_br:
+            try:
+                return datetime(int(m_br.group(3)), int(m_br.group(2)), int(m_br.group(1))).date()
+            except Exception:
+                return None
+        return None
+
+    dt_doc = _parse_any_date(raw_doc)
+    dt_exp = _parse_any_date(raw_exp)
+    if dt_doc and dt_exp:
+        diff = (dt_exp - dt_doc).days
+        retro_dias = diff
+        if diff > 3:
+            retro_flag = True
+
+    just_low = (just_val or str(payload.get("justificativa") or payload.get("agilJustificativa") or "")).lower()
+    if not retro_flag and (
+        "retroação" in just_low
+        or "retroacao" in just_low
+        or "emissão extemporânea" in just_low
+        or "expedição extemporânea" in just_low
+    ):
+        retro_flag = True
+        if retro_dias is None:
+            m_d = re.search(r"(\d+)\s*dias?\s+de\s+retroa[çc][ãa]o", just_low)
+            if m_d:
+                try:
+                    retro_dias = int(m_d.group(1))
+                except Exception:
+                    pass
+
+    return retro_flag, retro_dias, doc_br, exp_br
+
+
+def _aprimorar_justificativa_retroacao_esisla(payload: dict[str, Any], just_atual: str = "") -> str:
+    is_fem = bool(re.search(r"\b(?:feminino|mulher|f|servidora)\b", str(payload.get("sexo") or "").strip(), re.I))
+    _, retro_dias, doc_br, exp_br = _is_retroacao_invalida_payload(payload, just_atual)
+    cargo = str(payload.get("cargo") or "servidor").strip()
+    doenca = str(payload.get("doenca_motivo") or payload.get("cid_descricao") or "").strip()
+    cid = str(payload.get("cid") or "").strip()
+    sintomas = str(payload.get("sintomas_limitacoes") or payload.get("sintomas_limitacao") or payload.get("queixa_duracao") or "").strip()
+    ef_desc = str(payload.get("exame_fisico_descricao") or "").strip()
+
+    base_just = _construir_justificativa_retroacao(
+        is_fem=is_fem,
+        cargo=cargo,
+        doenca_motivo=doenca,
+        cid=cid,
+        sintomas=sintomas,
+        doc_date_br=doc_br,
+        exp_date_br=exp_br,
+        retro_dias=retro_dias,
+    )
+
+    # Na geração da ficha e-SISLA, refinar ainda mais integrando a propedêutica clínica quando disponível
+    if ef_desc and len(ef_desc) > 15 and "sem alterações incapacitantes" not in ef_desc.lower():
+        ef_clean = _limpar_fragmento_clinico_retroacao(
+            re.sub(r"^(?:Exame F[íi]sico Geral|Aparelho Osteomuscular[^\:]*|Exame Mental)\s*:\s*", "", ef_desc, flags=re.I)
+        )
+        if ef_clean and len(ef_clean) > 120:
+            ef_clean = ef_clean[:120].rsplit(" ", 1)[0].rstrip(" ,.;:")
+        if ef_clean and ef_clean.lower() not in base_just.lower():
+            base_just = re.sub(
+                r",\s*verifica-se que\b",
+                f", bem como achados clínicos ao exame pericial compatíveis com a queixa, verifica-se que",
+                base_just,
+                count=1,
+            )
+
+    return _remover_parenteses_texto(base_just)
+
+
 def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
     payload = _desacoplar_e_rotear_fatos_clinicos(payload)
     idade = str(payload.get("idade") or "").strip()
@@ -5024,15 +5231,15 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
         # Se na queixa completa ainda não constar terapias (fisio/psico), inclui
         if not re.search(r"\b(?:fisioterapia|psicoterapia)\b", corpo_queixa, re.I):
             if fisio_bool and psico_bool:
-                f_str = f" ({fisio_desc})" if fisio_desc else ""
-                p_str = f" ({psico_desc})" if psico_desc else ""
+                f_str = f" {fisio_desc}" if fisio_desc else ""
+                p_str = f" {psico_desc}" if psico_desc else ""
                 corpo_queixa = corpo_queixa.rstrip(".,; ") + f". Realiza fisioterapia{f_str} e psicoterapia{p_str}."
             elif fisio_bool:
-                f_str = f" ({fisio_desc})" if fisio_desc else ""
-                corpo_queixa = corpo_queixa.rstrip(".,; ") + f". Realiza fisioterapia{f_str} (e não realiza psicoterapia)."
+                f_str = f" {fisio_desc}" if fisio_desc else ""
+                corpo_queixa = corpo_queixa.rstrip(".,; ") + f". Realiza fisioterapia{f_str} e não realiza psicoterapia."
             elif psico_bool:
-                p_str = f" ({psico_desc})" if psico_desc else ""
-                corpo_queixa = corpo_queixa.rstrip(".,; ") + f". Realiza psicoterapia{p_str} (e não realiza fisioterapia)."
+                p_str = f" {psico_desc}" if psico_desc else ""
+                corpo_queixa = corpo_queixa.rstrip(".,; ") + f". Realiza psicoterapia{p_str} e não realiza fisioterapia."
             else:
                 corpo_queixa = corpo_queixa.rstrip(".,; ") + ". Não alegou fazer fisioterapia e psicoterapia."
     else:
@@ -5063,15 +5270,15 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
             corpo_queixa += " Negou uso de medicações."
 
         if fisio_bool and psico_bool:
-            f_str = f" ({fisio_desc})" if fisio_desc else ""
-            p_str = f" ({psico_desc})" if psico_desc else ""
+            f_str = f" {fisio_desc}" if fisio_desc else ""
+            p_str = f" {psico_desc}" if psico_desc else ""
             corpo_queixa += f" Realiza fisioterapia{f_str} e psicoterapia{p_str}."
         elif fisio_bool:
-            f_str = f" ({fisio_desc})" if fisio_desc else ""
-            corpo_queixa += f" Realiza fisioterapia{f_str} (e não realiza psicoterapia)."
+            f_str = f" {fisio_desc}" if fisio_desc else ""
+            corpo_queixa += f" Realiza fisioterapia{f_str} e não realiza psicoterapia."
         elif psico_bool:
-            p_str = f" ({psico_desc})" if psico_desc else ""
-            corpo_queixa += f" Realiza psicoterapia{p_str} (e não realiza fisioterapia)."
+            p_str = f" {psico_desc}" if psico_desc else ""
+            corpo_queixa += f" Realiza psicoterapia{p_str} e não realiza fisioterapia."
         else:
             corpo_queixa += " Não alegou fazer fisioterapia e psicoterapia."
 
@@ -5095,8 +5302,11 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
     if not alt_clin:
         alt_clin = "Não foram apresentados exames complementares (imagem ou laboratoriais) no ato pericial."
 
+    just_raw = str(payload.get("justificativa") or payload.get("agilJustificativa") or "").strip()
+    is_retro_invalida, _, _, _ = _is_retroacao_invalida_payload(payload, just_raw)
+
     par_val = str(payload.get("parecer") or "").strip().upper()
-    is_contra = "CONTR" in par_val
+    is_contra = ("CONTR" in par_val) or is_retro_invalida
     parecer_label = "CONTRÁRIO" if is_contra else "FAVORÁVEL"
     dias = "0" if is_contra else str(payload.get("dias_solicitados") or payload.get("dias") or payload.get("atestado_dias") or "1").strip()
     data_doc = str(payload.get("data_documento") or "").strip()
@@ -5107,7 +5317,14 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
         cid_code = f"{cid_code[:3]}.{cid_code[3:]}"
     cid_desc = str(payload.get("doenca_motivo") or payload.get("cid_descricao") or payload.get("cid_desc") or "").strip()
 
-    if is_contra:
+    if is_retro_invalida:
+        # Na retroação inválida (> 3 dias), o parecer final é CONTRÁRIO (0 dias),
+        # porém preserva-se o atendimento do médico (limitações favoráveis e quesitos Sim/Sim/Sim)
+        # e aprimora-se a justificativa médico-pericial de retroação sem uso de parênteses ().
+        lim_text = _resolve_favorable_limitation(payload, cargo)
+        just_text = _aprimorar_justificativa_retroacao_esisla(payload, just_raw)
+        q1, q2, q3 = "Sim", "Sim", "Sim"
+    elif is_contra:
         if is_readap:
             lim_text = (
                 "Apresenta limitações físicas funcionais parciais decorrentes de sua patologia de base, "
@@ -5130,7 +5347,7 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
             q1, q2, q3 = "Sim", "Não", "Não"
     else:
         lim_text = _resolve_favorable_limitation(payload, cargo)
-        just_text = str(payload.get("justificativa") or payload.get("agilJustificativa") or "").strip()
+        just_text = just_raw
         if not just_text:
             just_text = f"Capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo}, em razão dos sintomas e limitações registradas no ato pericial."
         q1, q2, q3 = "Sim", "Sim", "Sim"
@@ -5496,10 +5713,19 @@ def api_ai_esisla():
 
             # Justificativa do Parecer Médico: preservar estritamente se o médico tiver digitado no atendimento
             just_val = str(payload.get("justificativa") or payload.get("agilJustificativa") or "").strip()
+            is_retro_invalida, _, _, _ = _is_retroacao_invalida_payload(payload, just_val)
+            if is_retro_invalida:
+                is_contra = True
+                ficha_text = re.sub(r"^(Parecer:[ \t]*)[^\r\n]*$", "Parecer: CONTRÁRIO", ficha_text, flags=re.MULTILINE)
+                ficha_text = re.sub(r"^(N[ºo°\.]*[ \t]*Dias:[ \t]*)[^\r\n]*$", "Nº Dias: 0", ficha_text, flags=re.MULTILINE)
+
             m_just = re.search(r"(\(\*\)\s*Justificativa Parecer M[ée]dico:?\s*\n\s*)(.*?)(\n\s*\(\*\)\s*Parecer Final)", ficha_text, re.DOTALL | re.IGNORECASE)
             if m_just:
                 cargo_nome = payload.get("cargo") or "servidor"
-                if is_contra:
+                if is_retro_invalida:
+                    just_val = _aprimorar_justificativa_retroacao_esisla(payload, just_val or m_just.group(2).strip())
+                    ficha_text = ficha_text[:m_just.start(2)] + just_val + ficha_text[m_just.end(2):]
+                elif is_contra:
                     if not just_val or "prejudicada" in just_val.lower():
                         if "z76" in cid_val.lower() or "acompanha" in desc_val.lower():
                             just_val = "Capacidade laborativa própria preservada, não restando preenchidos os requisitos médico-periciais para concessão de licença nos termos do Artigo 199 da Lei Estadual nº 10.261/1968, referente ao período pleiteado."
@@ -5592,8 +5818,8 @@ def api_ai_esisla():
                 ficha_text = re.sub(r"\biniciou-se\s+seu\s+tratamento\s+em\s+\d{1,2}/\d{1,2}/\d{4}\b", f"iniciou-se seu tratamento em {raw_ini}", ficha_text, flags=re.IGNORECASE)
                 ficha_text = re.sub(r"\biniciou-se\s+seu\s+tratamento\s+hoje\b", f"iniciou-se seu tratamento em {raw_ini}", ficha_text, flags=re.IGNORECASE)
 
-            # Limitações Físicas e Mentais: se parecer CONTRÁRIO, registrar ausência de limitações incapacitantes
-            if is_contra:
+            # Limitações Físicas e Mentais: se parecer CONTRÁRIO (e NÃO for retroação inválida), registrar ausência de limitações incapacitantes
+            if is_contra and not is_retro_invalida:
                 cargo_nome = payload.get("cargo") or "servidor"
                 lim_contra = f"Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo_nome}, constantes no rol de atividades."
                 m_lim = re.search(r"(\(\*\)\s*Descri[çc][ãa]o\s*da\(s\)\s*Limita[çc][ãa]o[^\n\r]*\n\s*)(.*?)(\n\s*\(\*\)\s*Parecer\s*M[ée]dico)", ficha_text, re.DOTALL | re.IGNORECASE)
@@ -5621,7 +5847,7 @@ def api_ai_esisla():
             ficha_text = re.sub(r"\(\s*Tipo-Data-Resultado\s*\):?\s*", "", ficha_text, flags=re.IGNORECASE)
 
             # Garantir preenchimento dos 3 quesitos oficiais conforme regra pericial
-            if is_contra:
+            if is_contra and not is_retro_invalida:
                 q1_ans = "Sim"
                 q2_ans = "Sim" if is_readap else "Não"
                 q3_ans = "Não"
@@ -6349,56 +6575,178 @@ def _detectar_regiao_osteomuscular(cid: str, texto: str, doenca: str, exame: str
     res = _detectar_todas_regioes_osteomusculares(cid, texto, doenca, exame)
     return res[0] if res else "lombar"
 
+def _converter_numero_extenso_dias(expr: str) -> str:
+    if not expr:
+        return ""
+    s = re.sub(r"\s+", " ", expr.strip().lower())
+    s = re.sub(r"\b(?:dias?)\b", "", s).strip()
+    m_dig = re.search(r"\b(\d{1,3})\b", s)
+    if m_dig:
+        return m_dig.group(1)
+    unidades = {
+        "um": 1, "uma": 1, "dois": 2, "duas": 2, "tres": 3, "três": 3,
+        "quatro": 4, "cinco": 5, "seis": 6, "sete": 7, "oito": 8, "nove": 9,
+        "dez": 10, "onze": 11, "doze": 12, "treze": 13, "quatorze": 14,
+        "catorze": 14, "quinze": 15, "dezesseis": 16, "dezessete": 17,
+        "dezoito": 18, "dezenove": 19,
+    }
+    dezenas = {
+        "vinte": 20, "trinta": 30, "quarenta": 40, "cinquenta": 50,
+        "cinqüenta": 50, "sessenta": 60, "setenta": 70, "oitenta": 80, "noventa": 90,
+    }
+    centenas = {"cem": 100, "cento": 100}
+    tokens = [t for t in re.split(r"\s+e\s+|\s+", s) if t]
+    total = 0
+    matched = False
+    for tk in tokens:
+        if tk in centenas:
+            total += centenas[tk]
+            matched = True
+        elif tk in dezenas:
+            total += dezenas[tk]
+            matched = True
+        elif tk in unidades:
+            total += unidades[tk]
+            matched = True
+        else:
+            return ""
+    return str(total) if matched and total > 0 else ""
+
+
+def _extrair_dias_solicitados_texto(text: str) -> str:
+    if not text:
+        return ""
+    # 1. Rótulos formais do e-SISLA ou atestado com dígitos
+    for pat in (
+        r'(?:N[ºo°\ufffd]?\s*)?Dias:\s*(\d{1,3})\b',
+        r'\b(\d{1,3})\s*Dias:',
+        r'\b(?:atestado(?:\s+m[ée]dico)?(?:\s+emitido[^\.\n\r]{0,90}?)?\s*(?:de|por|com|solicitando|indicando|pedindo|concedendo|sugerindo)|afastamento\s+de|repouso\s+de|licen[çc]a\s+de|solicita(?:ndo)?|indica(?:ndo)?|pede|pedindo|concede(?:ndo)?|sugere|sugerindo)\s+(\d{1,3})\s*(?:\([^)]+\)\s*)?dias\b',
+        r'\b(\d{1,3})\s*(?:\([^)]+\)\s*)?dias\s+(?:de\s+(?:afastamento|repouso|atestado|licen[çc]a)|a\s+partir)\b',
+    ):
+        m = re.search(pat, text, re.I)
+        if m:
+            return m.group(1).strip()
+
+    # 2. Quantidade de dias por extenso em português (ex.: "solicitando vinte e um dias a partir do dia 15/01/2026")
+    num_words = (
+        r"(?:cem|cento|vinte|trinta|quarenta|cinquenta|cinqüenta|sessenta|setenta|oitenta|noventa|"
+        r"um|uma|dois|duas|tr[êe]s|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|treze|quatorze|catorze|"
+        r"quinze|dezesseis|dezessete|dezoito|dezenove)"
+    )
+    ext_group = rf"({num_words}(?:\s+e\s+{num_words}){{0,2}})"
+    for pat_ext in (
+        rf'\b(?:atestado(?:\s+m[ée]dico)?(?:\s+emitido[^\.\n\r]{{0,90}}?)?\s*(?:de|por|com|solicitando|indicando|pedindo|concedendo|sugerindo)|afastamento\s+de|repouso\s+de|licen[çc]a\s+de|solicita(?:ndo)?|indica(?:ndo)?|pede|pedindo|concede(?:ndo)?|sugere|sugerindo)\s+{ext_group}\s+dias\b',
+        rf'\b{ext_group}\s+dias\s+(?:de\s+(?:afastamento|repouso|atestado|licen[çc]a)|a\s+partir)\b',
+    ):
+        m_ext = re.search(pat_ext, text, re.I)
+        if m_ext:
+            conv = _converter_numero_extenso_dias(m_ext.group(1))
+            if conv:
+                return conv
+    return ""
+
+
+def _extrair_datas_documento_texto(text: str) -> tuple[str, str, str]:
+    if not text:
+        return ("", "", "")
+
+    crm = ""
+    m_crm = re.search(r"\b(?:crm|cro)(?:\s*(?:sp|rj|mg|rs|pr|sc|ba|pe|ce|go|es)?\s*[:\-\s]?\s*)(\d{4,9})\b", text, re.I)
+    if m_crm:
+        crm = m_crm.group(1).strip()
+
+    dt_exp = ""
+    m_exp = re.search(
+        r"\b(?:guia(?:\s+pericial)?\s*(?:expedida|emitida)[^\.\n\r]{0,60}?(?:em|no\s+dia|dia)\s+|expedi[çc][ãa]o(?:\s+da\s+guia)?[:\s\-]+)(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})\b",
+        text,
+        re.I,
+    )
+    if m_exp:
+        dt_exp = _format_date_br(m_exp.group(1))
+
+    dt_doc = ""
+    for pat in (
+        r"\b(?:a\s+partir\s+(?:do\s+dia\s+|de\s+)?|in[íi]cio\s+(?:em\s+|no\s+dia\s+|do\s+afastamento\s+em\s+)?|afastamento\s+a\s+partir\s+de\s+|emitido\s+(?:em\s+|no\s+dia\s+)?|data\s+do\s+atestado[:\s\-]+|atestado\s+(?:do\s+dia\s+|de\s+))(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})\b",
+        r"\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})\b",
+    ):
+        for m in re.finditer(pat, text, re.I):
+            cand = _format_date_br(m.group(1))
+            if dt_exp and cand == dt_exp and pat == r"\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})\b":
+                continue
+            dt_doc = cand
+            break
+        if dt_doc:
+            break
+
+    return (dt_doc, dt_exp, crm)
+
+
 def _detectar_terapias_texto(text: str, current_obs: str = "") -> tuple[bool, bool]:
-    # 1. Avaliar 'text' (texto bruto fornecido pelo médico) de forma primária e soberana
+    # 1. Avaliar 'text' (texto bruto fornecido pelo médico) de forma primária e soberana,
+    # removendo antes o cabeçalho/pergunta do roteiro para não gerar falsos positivos.
     t_clean = (text or "").lower()
+    t_clean = re.sub(r'(?:11\s*[\.\)\-]\s*)?(?:faz|realiza)\s+psicoterapia\s+ou\s+fisioterapia\s*\??\s*:?', ' ', t_clean)
+    t_clean = re.sub(r'(?:faz|realiza)\s+fisioterapia\s+ou\s+psicoterapia\s*\??\s*:?', ' ', t_clean)
 
+    # Negação combinada ("nega fisioterapia e psicoterapia", "não faz fisio nem psico")
+    neg_ambas = bool(re.search(
+        r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|sem)\s+(?:fazer\s+|realizar\s+)?(?:fisioterapia|fisio)\s+(?:e|ou|nem)\s+(?:psicoterapia|psico)\b|'
+        r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|sem)\s+(?:fazer\s+|realizar\s+)?(?:psicoterapia|psico)\s+(?:e|ou|nem)\s+(?:fisioterapia|fisio)\b|'
+        r'\b(?:fisioterapia|fisio)\s+(?:e|ou)\s+(?:psicoterapia|psico)\s*[:\-,]?\s*(?:n[ãa]o(?:\s+faz|\s+realiza)?|nega|sem)\b',
+        t_clean
+    ))
+
+    # Fisioterapia: afirmação antes OU depois do termo ("faz fisioterapia", "fisioterapia faz duas vezes por semana", "fisioterapia: sim")
     afirm_fisio_raw = bool(re.search(
-        r'\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de)\s+(?:de\s+)?(?:tratamento\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia)\b|\b(?:fisioterapia|fisio)\s+(?:motora|respirat[óo]ria|analg[ée]sica|[0-9]x|duas|tr[êe]s|semanal|ambulatorial|di[áa]ria)\b',
+        r'\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia)\b|'
+        r'\b(?:fisioterapia|fisio|cinesioterapia)\s*[:\-,]?\s*(?:sim|faz|fazendo|realiza|realizando|iniciou|iniciando|est[áa]\s+fazendo|t[áa]\s+fazendo|motora|respirat[óo]ria|analg[ée]sica|p[ée]lvica|[0-9]+\s*x|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|semanal|quinzenal|di[áa]ria|ambulatorial|na\s+cl[íi]nica|no\s+conv[êe]nio|pelo\s+conv[êe]nio)\b',
         t_clean
-    )) or bool(re.search(r'\bfaz\s+fisio\b|\bem\s+fisio\b|\brealiza\s+fisio\b', t_clean))
-    neg_fisio_raw = bool(re.search(
-        r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora)\b',
+    ))
+    # Fisioterapia: negação antes OU depois do termo ("não faz fisioterapia", "fisioterapia não faz", "fisioterapia: não")
+    neg_fisio_raw = neg_ambas or bool(re.search(
+        r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora)\b|'
+        r'\b(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora)\s*[:\-,]?\s*(?:n[ãa]o(?:\s+faz|\s+realiza|\s+iniciou|\s+fez|\s+est[áa]\s+fazendo)?|nega|sem|nenhuma|nunca\s+fez|parou|suspendeu)\b',
         t_clean
     ))
 
+    # Psicoterapia: afirmação antes OU depois do termo ("faz psicoterapia", "psicoterapia semanal", "psicoterapia: sim", "acompanhamento semanal com psicóloga")
     afirm_psico_raw = bool(re.search(
-        r'\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de)\s+(?:de\s+)?(?:tratamento\s+de\s+)?(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico)\b|\b(?:psicoterapia|psico)\s+(?:semanal|quinzenal|mensal|[0-9]x|ambulatorial)\b',
-        t_clean
-    )) or bool(re.search(r'\bfaz\s+psico\b|\bem\s+psico\b|\brealiza\s+psico\b', t_clean))
-    neg_psico_raw = bool(re.search(
-        r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico)\b',
+        r'\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|passa\s+com|acompanha\s+com|acompanhamento(?:\s+\w+)?\s+com|consulta(?:\s+\w+)?\s+com|terapia\s+com|mant[ée]m)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|acompanhamento\s+com\s+)?(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico)\b|'
+        r'\b(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico)\s*[:\-,]?\s*(?:sim|faz|fazendo|realiza|realizando|iniciou|iniciando|est[áa]\s+fazendo|t[áa]\s+fazendo|semanal|quinzenal|mensal|[0-9]+\s*x|uma\s+vez|duas\s+vezes|ambulatorial|na\s+cl[íi]nica|no\s+conv[êe]nio|pelo\s+conv[êe]nio)\b',
         t_clean
     ))
-
-    if bool(re.search(r'\b(?:nega|n[ãa]o\s+faz|sem)\s+(?:fazer\s+|realizar\s+)?(?:fisioterapia|fisio)\s+(?:e|ou)\s+(?:psicoterapia|psico)\b|\b(?:nega|n[ãa]o\s+faz|sem)\s+(?:fazer\s+|realizar\s+)?(?:psicoterapia|psico)\s+(?:e|ou)\s+(?:fisioterapia|fisio)\b', t_clean)):
-        neg_fisio_raw = True
-        neg_psico_raw = True
+    # Psicoterapia: negação antes OU depois do termo ("não faz psicoterapia", "psicoterapia não faz", "psicoterapia: não", "psicoterapia nega")
+    neg_psico_raw = neg_ambas or bool(re.search(
+        r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu|n[ãa]o\s+passa\s+com)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|acompanhamento\s+com\s+|sess[õo]es\s+de\s+)?(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico)\b|'
+        r'\b(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico)\s*[:\-,]?\s*(?:n[ãa]o(?:\s+faz|\s+realiza|\s+iniciou|\s+fez|\s+passa|\s+est[áa]\s+fazendo)?|nega|sem|nenhuma|nunca\s+fez|parou|suspendeu)\b',
+        t_clean
+    ))
 
     # Decisão de Fisioterapia
-    if afirm_fisio_raw and not neg_fisio_raw:
-        fisio = True
-    elif neg_fisio_raw:
+    if neg_fisio_raw and not afirm_fisio_raw:
         fisio = False
-    elif "fisio" in t_clean or "fisioterapia" in t_clean:
+    elif afirm_fisio_raw and not neg_fisio_raw:
         fisio = True
+    elif afirm_fisio_raw and neg_fisio_raw:
+        # Se ambos bateram, verifica proximidade imediata de "fisioterapia" com negação vs afirmação
+        fisio = not bool(re.search(r'\b(?:fisioterapia|fisio)\s*[:\-,]?\s*(?:n[ãa]o|nega|sem)\b|\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|sem)\s+(?:fisioterapia|fisio)\b', t_clean))
     else:
         obs_clean = (current_obs or "").lower()
-        if re.search(r'\b(?:realiza|faz|em)\s+fisioterapia\b', obs_clean) and not re.search(r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+alegou)\b', obs_clean):
+        if re.search(r'\b(?:realiza|faz|em|acompanhamento\s+em)\s+(?:tratamento\s+de\s+)?fisioterapia\b', obs_clean) and not re.search(r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou)\s+(?:acompanhamento\s+em\s+|realiza[çc][ãa]o\s+de\s+)?fisioterapia\b', obs_clean):
             fisio = True
         else:
             fisio = False
 
     # Decisão de Psicoterapia
-    if afirm_psico_raw and not neg_psico_raw:
-        psico = True
-    elif neg_psico_raw:
+    if neg_psico_raw and not afirm_psico_raw:
         psico = False
-    elif "psico" in t_clean or "psicoterapia" in t_clean or "psicólog" in t_clean:
+    elif afirm_psico_raw and not neg_psico_raw:
         psico = True
+    elif afirm_psico_raw and neg_psico_raw:
+        psico = not bool(re.search(r'\b(?:psicoterapia|psico|psic[oó]log[ao])\s*[:\-,]?\s*(?:n[ãa]o|nega|sem)\b|\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|sem)\s+(?:psicoterapia|psico|psic[oó]log[ao])\b', t_clean))
     else:
         obs_clean = (current_obs or "").lower()
-        if re.search(r'\b(?:realiza|faz|em)\s+psicoterapia\b', obs_clean) and not re.search(r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+alegou)\b', obs_clean):
+        if re.search(r'\b(?:realiza|faz|em|acompanhamento\s+em)\s+(?:tratamento\s+de\s+)?psicoterapia\b', obs_clean) and not re.search(r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou)\s+(?:acompanhamento\s+em\s+|realiza[çc][ãa]o\s+de\s+)?psicoterapia\b', obs_clean):
             psico = True
         else:
             psico = False
@@ -6451,30 +6799,30 @@ def api_ai_preencher_ficha():
 
             if decisao_medico:
                 dec_inst = "\n\nDECISÃO CLÍNICA/PERICIAL DEFINIDA PELO MÉDICO PERITO NO SISTEMA:\n"
-                if decisao_medico.get("parecer"):
+                if decisao_medico.get("parecer") and not pre_retro_invalida:
                     dec_inst += f"- Parecer definido pelo médico: {decisao_medico['parecer']}\n"
                 if decisao_medico.get("exameFisicoResultado"):
                     dec_inst += f"- Avaliação do exame físico pelo perito: {decisao_medico['exameFisicoResultado']}\n"
-                if decisao_medico.get("diasConcedidos") is not None:
+                if decisao_medico.get("diasConcedidos") is not None and str(decisao_medico.get("diasConcedidos")) not in ("1", "0"):
                     dec_inst += f"- Dias concedidos pelo médico: {decisao_medico['diasConcedidos']}\n"
                 if decisao_medico.get("observacoesMedico"):
                     dec_inst += f"- Observações clínicas / anotações confidenciais do perito: {decisao_medico['observacoesMedico']}\n"
-                if pre_retro_invalida and override_parecer_manual != "FAVORÁVEL":
+                if pre_retro_invalida:
                     dec_inst += (
-                        "ATENÇÃO (CASO DE RETROAÇÃO INVÁLIDA > 3 DIAS): O parecer é CONTRÁRIO por retroação inválida da guia, "
+                        "ATENÇÃO (CASO DE RETROAÇÃO INVÁLIDA > 3 DIAS): O parecer é OBRIGATORIAMENTE CONTRÁRIO por retroação inválida da guia, "
                         "PORÉM você DEVE manter todo o atendimento do médico perito, o EXAME FÍSICO e as LIMITAÇÕES FUNCIONAIS "
                         "(limitacao_funcional='Sim', limitacao_rol='Sim', desc_limitacao e atividades_comprometidas) EXATAMENTE COMO SE O PARECER FOSSE FAVORÁVEL! "
-                        "Aplique o motivo do parecer CONTRÁRIO (retroação > 3 dias) APENAS no campo 'justificativa'.\n"
+                        "Aplique o motivo do parecer CONTRÁRIO (retroação > 3 dias) APENAS no campo 'justificativa', sem usar parênteses ().\n"
                     )
                 else:
                     dec_inst += "ATENÇÃO: A decisão do médico perito acima É SOBERANA. Você deve alinhar estritamente o parecer, exame clínico, justificativa e limitações a essas escolhas do perito, integrando-as com os fatos relatados na consulta.\n"
                 instruction += dec_inst
-            elif pre_retro_invalida and override_parecer_manual != "FAVORÁVEL":
+            elif pre_retro_invalida:
                 instruction += (
-                    "\n\nATENÇÃO (CASO DE RETROAÇÃO INVÁLIDA > 3 DIAS): O parecer deve ser CONTRÁRIO por retroação inválida da guia, "
+                    "\n\nATENÇÃO (CASO DE RETROAÇÃO INVÁLIDA > 3 DIAS): O parecer deve ser OBRIGATORIAMENTE CONTRÁRIO por retroação inválida da guia, "
                     "PORÉM você DEVE manter todo o atendimento do médico perito, o EXAME FÍSICO e as LIMITAÇÕES FUNCIONAIS "
                     "(limitacao_funcional='Sim', limitacao_rol='Sim', desc_limitacao e atividades_comprometidas) EXATAMENTE COMO SE O PARECER FOSSE FAVORÁVEL! "
-                    "Aplique o motivo do parecer CONTRÁRIO (retroação > 3 dias) APENAS no campo 'justificativa'.\n"
+                    "Aplique o motivo do parecer CONTRÁRIO (retroação > 3 dias) APENAS no campo 'justificativa', sem usar parênteses ().\n"
                 )
 
             result = _generate_structured(instruction, PreenchimentoCompletoResult)
@@ -6501,23 +6849,56 @@ def api_ai_preencher_ficha():
             if not (result.readaptado or "").strip():
                 result.readaptado = str(esisla_pre.get("readaptado") or ctx_atual.get("readaptado") or "Não").strip()
 
-            if not (result.crm_cro or "").strip():
-                result.crm_cro = str(esisla_pre.get("crm_cro") or ctx_atual.get("crmCro") or "").strip()
+            # FOCO EM DADOS DO ATESTADO DO MÉDICO ASSISTENTE & PRAZOS:
+            raw_dt_doc, raw_dt_exp, raw_crm = _extrair_datas_documento_texto(texto_bruto)
+
+            # 1. CRM/CRO do Médico Assistente
+            pre_crm = str(esisla_pre.get("crm_cro") or "").strip()
+            if pre_crm:
+                result.crm_cro = pre_crm
+            elif raw_crm and (not (result.crm_cro or "").strip() or not re.search(r"\d{4}", result.crm_cro)):
+                result.crm_cro = raw_crm
+            elif not (result.crm_cro or "").strip():
+                result.crm_cro = str(ctx_atual.get("crmCro") or "").strip()
             else:
                 result.crm_cro = re.sub(r"^(?:CRM|CRO)[:\s\-]*", "", result.crm_cro.strip(), flags=re.I).strip()
 
+            # 2. Nome do Médico Assistente
             if not (result.nome_medico_assistente or "").strip():
                 result.nome_medico_assistente = str(esisla_pre.get("nome_medico_assistente") or ctx_atual.get("medicoAssistenteNome") or "").strip()
 
-            if not (result.dias_solicitados or "").strip():
-                result.dias_solicitados = str(esisla_pre.get("dias_solicitados") or ctx_atual.get("diasSolicitados") or "").strip()
+            # 3. Dias solicitados no atestado (prioriza extração determinística de dígitos ou extenso do texto bruto)
+            pre_dias = str(esisla_pre.get("dias_solicitados") or "").strip() or _extrair_dias_solicitados_texto(texto_bruto)
+            res_dias_raw = str(result.dias_solicitados or "").strip()
+            res_dias_parsed = _converter_numero_extenso_dias(res_dias_raw)
+            if pre_dias:
+                result.dias_solicitados = pre_dias
+            elif res_dias_parsed and (res_dias_parsed != "1" or re.search(r"\b(?:1|um)\s+dia\b", texto_bruto, re.I)):
+                result.dias_solicitados = res_dias_parsed
             else:
-                m_ds = re.search(r"\d+", str(result.dias_solicitados))
-                if m_ds:
-                    result.dias_solicitados = m_ds.group(0)
+                ctx_dias = str(ctx_atual.get("diasSolicitados") or "").strip()
+                if ctx_dias and (ctx_dias != "1" or re.search(r"\b(?:1|um)\s+dia\b", texto_bruto, re.I)):
+                    result.dias_solicitados = ctx_dias
+                elif res_dias_parsed:
+                    result.dias_solicitados = res_dias_parsed
 
-            if not (result.data_documento or "").strip():
-                result.data_documento = str(esisla_pre.get("data_documento") or esisla_pre.get("data_documento_br") or ctx_atual.get("dataDocumento") or "").strip()
+            # 4. Data de Emissão do Atestado (prioriza data extraída do trecho do atestado sobre datas de sintomas/exames)
+            pre_doc_date = str(esisla_pre.get("data_documento") or esisla_pre.get("data_documento_br") or "").strip()
+            if pre_doc_date:
+                result.data_documento = pre_doc_date
+            elif raw_dt_doc and (not (result.data_documento or "").strip() or not re.search(r"\d{4}", result.data_documento)):
+                result.data_documento = raw_dt_doc
+            elif not (result.data_documento or "").strip():
+                result.data_documento = str(ctx_atual.get("dataDocumento") or "").strip()
+
+            # 5. Data de Expedição da Guia (prioridade absoluta para cálculo de retroação)
+            pre_exp_date = str(esisla_pre.get("data_expedicao") or esisla_pre.get("data_expedicao_br") or "").strip()
+            if pre_exp_date:
+                result.data_expedicao = pre_exp_date
+            elif raw_dt_exp and (not (result.data_expedicao or "").strip() or not re.search(r"\d{4}", result.data_expedicao)):
+                result.data_expedicao = raw_dt_exp
+            elif not (result.data_expedicao or "").strip():
+                result.data_expedicao = str(ctx_atual.get("dataExpedicao") or ctx_atual.get("dataExpedicaoIso") or "").strip()
 
             if not (result.cid or "").strip():
                 result.cid = str(esisla_pre.get("cid") or ctx_atual.get("cid") or "").strip()
@@ -6612,12 +6993,12 @@ def api_ai_preencher_ficha():
             termo_p = "A periciada" if is_fem else "O periciado"
 
             if det_fisio and not det_psico:
-                m_freq = re.search(r'\b(\d+x\s*(?:/\s*sem(?:ana)?)?|duas\s+vezes\s+por\s+semana|tr[êe]s\s+vezes\s+por\s+semana)\b', texto_bruto, re.I)
-                f_info = f" ({m_freq.group(1).strip()})" if m_freq else ""
-                result.obs_terapias = f"{termo_p} relata realização de fisioterapia motora{f_info} e nega psicoterapia."
+                m_freq = re.search(r'\b(\d+x\s*(?:/\s*sem(?:ana)?)?|duas\s+vezes\s+por\s+semana|tr[êe]s\s+vezes\s+por\s+semana|uma\s+vez\s+por\s+semana)\b', texto_bruto, re.I)
+                f_info = f" {m_freq.group(1).strip()}" if m_freq else ""
+                result.obs_terapias = f"{termo_p} relata realização de fisioterapia motora{f_info} e nega acompanhamento em psicoterapia."
             elif det_psico and not det_fisio:
-                m_freq = re.search(r'\b(\d+x\s*(?:/\s*sem(?:ana)?)?|semanal|quinzenal)\b', texto_bruto, re.I)
-                f_info = f" ({m_freq.group(1).strip()})" if m_freq else ""
+                m_freq = re.search(r'\b(\d+x\s*(?:/\s*sem(?:ana)?)?|semanal|quinzenal|uma\s+vez\s+por\s+semana)\b', texto_bruto, re.I)
+                f_info = f" {m_freq.group(1).strip()}" if m_freq else ""
                 result.obs_terapias = f"{termo_p} relata acompanhamento em psicoterapia{f_info} e nega fisioterapia."
             elif det_fisio and det_psico:
                 result.obs_terapias = f"{termo_p} relata acompanhamento em fisioterapia e psicoterapia."
@@ -6684,8 +7065,8 @@ def api_ai_preencher_ficha():
             # Normalização de Data da Expedição da Guia (para ISO YYYY-MM-DD e DD/MM/YYYY)
             raw_exp = (
                 esisla_pre.get("data_expedicao_iso")
-                or result.data_expedicao
                 or esisla_pre.get("data_expedicao")
+                or result.data_expedicao
                 or ctx_atual.get("dataExpedicaoIso")
                 or ctx_atual.get("dataExpedicao")
                 or ""
@@ -6715,8 +7096,8 @@ def api_ai_preencher_ficha():
                     if retro_dias > 3:
                         retro_invalida = True
                         retro_motivo = (
-                            f"Guia expedida em {exp_date_br} e atestado emitido em {doc_date_br or _format_date_br(result.data_documento)} "
-                            f"({retro_dias} dias de retroação > limite regulamentar de 3 dias)."
+                            f"Guia expedida em {exp_date_br} e atestado emitido em {doc_date_br or _format_date_br(result.data_documento)}, "
+                            f"totalizando {retro_dias} dias de retroação, acima do limite regulamentar de 3 dias."
                         )
                 except Exception:
                     pass
@@ -6728,7 +7109,7 @@ def api_ai_preencher_ficha():
                     except Exception:
                         retro_dias = 4
                 if not retro_motivo:
-                    retro_motivo = f"Guia expedida com {retro_dias} dias de retroação (> limite regulamentar de 3 dias)."
+                    retro_motivo = f"Guia expedida com {retro_dias} dias de retroação, acima do limite regulamentar de 3 dias."
 
             # Normalização de Unidade de Tempo
             t_unid = (result.tempo_unidade or "").strip().lower()
@@ -6761,15 +7142,15 @@ def api_ai_preencher_ficha():
                 if doc_date_br or result.data_documento:
                     partes_doc.append(f"emitido em {doc_date_br or _format_date_br(result.data_documento)}")
                 if result.nome_medico_assistente:
-                    partes_doc.append(f"por Dr(a). {result.nome_medico_assistente}")
+                    partes_doc.append(f"pelo Dr. {result.nome_medico_assistente}")
                 if result.crm_cro:
-                    partes_doc.append(f"(CRM {result.crm_cro})")
+                    partes_doc.append(f"CRM {result.crm_cro}")
                 if result.dias_solicitados:
                     partes_doc.append(f"indicando {result.dias_solicitados} dias de afastamento")
                 if result.cid:
                     partes_doc.append(f"sob CID {result.cid}")
                 if partes_doc:
-                    result.obs_documentos = "Atestado médico " + " ".join(partes_doc) + "."
+                    result.obs_documentos = "Atestado médico " + ", ".join(partes_doc) + "."
 
             # Higienização e extração determinística de sinais vitais (PA, Pulso, Altura, Peso)
             # 1. Pressão Sistólica e Diastólica
@@ -6879,8 +7260,14 @@ def api_ai_preencher_ficha():
                     result.outros_resultado = "Normal"
 
                 user_dias = decisao_medico.get("diasConcedidos")
+                user_dias_modo = str(decisao_medico.get("diasModo") or "").strip().lower()
                 if user_dias is not None and str(user_dias).strip() != "":
-                    result.dias_solicitados = str(user_dias).strip()
+                    u_dias_str = str(user_dias).strip()
+                    # Não sobrescrever dias reais do atestado (ex: 21) com o fallback "1" do formulário vazio
+                    if u_dias_str in ("1", "0") and user_dias_modo != "reduzir" and (result.dias_solicitados or "").strip() not in ("", "1", "0"):
+                        pass
+                    elif u_dias_str != "0":
+                        result.dias_solicitados = u_dias_str
 
                 user_obs = str(decisao_medico.get("observacoesMedico") or "").strip()
                 if user_obs and user_obs not in (result.exame_fisico_descricao or ""):
@@ -6892,10 +7279,11 @@ def api_ai_preencher_ficha():
             par_upper = (result.parecer or "").strip().upper()
             cargo_label = (result.cargo or "servidor").strip()
 
-            if retro_invalida and override_parecer_manual != "FAVORÁVEL":
-                # Regra DPME para Retroação Inválida (> 3 dias):
-                # Aplica automaticamente o parecer CONTRÁRIO, porém mantém o atendimento do médico,
-                # as limitações e o exame físico como se fosse FAVORÁVEL, aplicando o motivo do contrário na justificativa.
+            if retro_invalida:
+                # Regra DPME estrita para Retroação Inválida (> 3 dias):
+                # Aplica obrigatoriamente o parecer CONTRÁRIO (não libera parecer favorável),
+                # porém mantém todo o atendimento do médico, as limitações e o exame físico como se fosse FAVORÁVEL,
+                # aplicando na justificativa o motivo da retroação sem utilizar parênteses ().
                 result.parecer = "CONTRÁRIO"
                 result.limitacao_funcional = "Sim"
                 result.limitacao_rol = "Sim"
@@ -6920,14 +7308,15 @@ def api_ai_preencher_ficha():
                 else:
                     result.desc_limitacao = lim_curr
 
-                cid_clause = f" ({result.cid})" if result.cid else ""
-                mot_clause = result.doenca_motivo or "patologia alegada"
-                dias_txt = f" ({retro_dias} dias)" if retro_dias is not None else ""
-                result.justificativa = (
-                    f"Embora o(a) servidor(a) tenha apresentado histórico e quadro compatível com {mot_clause}{cid_clause}, com relato de limitações para as atribuições rotineiras do cargo atual de {cargo_label}, "
-                    f"constata-se que a guia pericial foi expedida com mais de 3 dias de retroação{dias_txt} em relação à emissão do documento médico, "
-                    f"não havendo comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, "
-                    f"ensejando, por estrito critério administrativo-normativo do DPME/SP, o parecer CONTRÁRIO."
+                result.justificativa = _construir_justificativa_retroacao(
+                    is_fem=is_fem,
+                    cargo=cargo_label,
+                    doenca_motivo=result.doenca_motivo or result.cid_descricao or "",
+                    cid=result.cid or "",
+                    sintomas=result.sintomas_limitacao or "",
+                    doc_date_br=doc_date_br or _format_date_br(result.data_documento or ""),
+                    exp_date_br=exp_date_br,
+                    retro_dias=retro_dias,
                 )
             else:
                 if override_parecer_manual == "FAVORÁVEL":
@@ -7215,17 +7604,26 @@ def parse_esisla_text(text: str) -> dict:
     else:
         data['readaptado'] = 'Não'
 
-    # 9. CRM Médico Assistente
-    m = re.search(r'CRM\s*(?:M[ée\ufffd]?dico)?[:\s\-]+([0-9]{3,10}(?:\/[A-Za-z]{2})?)', text, re.I)
-    if m: data['crm_cro'] = m.group(1).strip()
+    # 9. CRM / CRO Médico Assistente
+    m = re.search(r'\b(?:CRM|CRO)\s*(?:M[ée\ufffd]?dico|Dentista)?[:\s\-]+([0-9]{3,10}(?:\/[A-Za-z]{2})?)\b', text, re.I)
+    if m:
+        data['crm_cro'] = m.group(1).strip()
 
     # 10. Nome Médico Assistente
     m = re.search(r'CRM[^\n\r]*?Nome:\s*([^\n\r]+)', text, re.I)
     if not m:
         m = re.search(r'Nome do M[ée\ufffd]?dico:\s*([^\n\r]+)', text, re.I)
+    if not m:
+        m = re.search(
+            r'\b(?:atestado(?:\s+m[ée]dico)?\s+(?:emitido|assinado)\s+(?:por|pelo|pela)\s+)?(?:dr\.?|dra\.?|doutor|doutora)\s+([A-Za-zÀ-ÖØ-öø-ÿ]{2,}(?:\s+[A-Za-zÀ-ÖØ-öø-ÿ]{2,}){0,4}?)(?=\s+(?:crm|cro|cid|solicitando|indicando|pedindo|concedendo|com|em|no\s+dia|a\s+partir|\d|,|\.)|$)',
+            text,
+            re.I
+        )
     if m:
-        raw_nm = re.sub(r'\s+', ' ', m.group(1)).strip()
-        raw_nm = re.split(r'\s+CID', raw_nm, flags=re.I)[0].strip()
+        raw_nm = re.sub(r'\s+', ' ', m.group(1)).strip(" ,.;:-")
+        raw_nm = re.split(r'\s+(?:CID|CRM|CRO)\b', raw_nm, flags=re.I)[0].strip(" ,.;:-")
+        if raw_nm.islower():
+            raw_nm = " ".join(w.capitalize() if len(w) > 2 else w for w in raw_nm.split())
         data['nome_medico_assistente'] = raw_nm
 
     # 11. CID 10
@@ -7242,27 +7640,52 @@ def parse_esisla_text(text: str) -> dict:
         # Mantém limpo para que o médico perito relate os sintomas/tratamento reais.
         data['doenca_motivo'] = ""
 
-    # 12. Nº Dias
-    m = re.search(r'(?:N[ºo°\ufffd]?\s*)?Dias:\s*(\d+)', text, re.I)
-    if not m:
-        m = re.search(r'(\d+)\s*Dias:', text, re.I)
-    if not m:
-        m = re.search(r'\b(?:atestado\s+(?:m[ée]dico\s+)?de|afastamento\s+de|solicita(?:ndo)?)\s+(\d{1,3})\s*dias\b', text, re.I)
-    if m:
-        data['dias_solicitados'] = m.group(1).strip()
-        data['dias_concedidos'] = m.group(1).strip()
+    # 12. Nº Dias (suporta dígitos e números por extenso como "vinte e um dias")
+    dias_ext = _extrair_dias_solicitados_texto(text)
+    if dias_ext:
+        data['dias_solicitados'] = dias_ext
+        data['dias_concedidos'] = dias_ext
 
     # 13. Data de emissão do atestado
-    m = re.search(r'Data\s+(?:de\s+)?emiss[ãa\ufffd]?o\s+(?:do\s+)?atestado:\s*(\d{2}/\d{2}/\d{4})', text, re.I)
-    if not m:
-        m = re.search(r'(?:Data\s+(?:do\s+)?(?:atestado|documento)|Atestado\s+emitido\s+em):\s*(\d{2}/\d{2}/\d{4})', text, re.I)
-    if m:
-        data['data_documento_br'] = m.group(1).strip()
-        try:
-            d, mo, y = m.group(1).split('/')
-            data['data_documento'] = f"{y}-{mo}-{d}"
-        except Exception:
-            data['data_documento'] = m.group(1).strip()
+    meses_pt = {
+        'janeiro': 1, 'fevereiro': 2, 'marco': 3, 'março': 3,
+        'abril': 4, 'maio': 5, 'junho': 6, 'julho': 7,
+        'agosto': 8, 'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12,
+        'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
+        'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12
+    }
+
+    doc_d_mo_y = None
+    for pat_doc in (
+        r'Data\s+(?:de\s+)?emiss[ãa\ufffd]?o\s+(?:do\s+)?atestado:\s*(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})',
+        r'(?:Data\s+(?:do\s+)?(?:atestado|documento)|Atestado\s+(?:m[ée]dico\s+)?emitido\s+em)\s*[:\-]?\s*(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})',
+        r'\b(?:solicitando|solicita|indicando|indica|concedendo|concede|pedindo|pede|afastamento\s+de|repouso\s+de)[^\.\n\r]{0,65}?dias\s+(?:a\s+partir\s+(?:do\s+dia|de)|em|no\s+dia|datado\s+de)\s*(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})',
+        r'\batestado(?:\s+m[ée]dico)?[^\.\n\r]{0,120}?(?:emitido|datado|assinado|iniciando|a\s+partir)(?:\s+[a-zà-ú0-9\.]+){0,10}?\s+(?:em|no\s+dia|do\s+dia|de)\s*(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})',
+    ):
+        m_doc = re.search(pat_doc, text, re.I)
+        if m_doc:
+            d, mo, y = int(m_doc.group(1)), int(m_doc.group(2)), int(m_doc.group(3))
+            if 1 <= d <= 31 and 1 <= mo <= 12 and 1990 <= y <= 2100:
+                doc_d_mo_y = (d, mo, y)
+                break
+
+    if not doc_d_mo_y:
+        m_doc_ext = re.search(
+            r'\b(?:atestado[^\.\n\r]{0,100}?(?:emitido\s+em|a\s+partir\s+(?:do\s+dia|de))|dias\s+a\s+partir\s+(?:do\s+dia|de))\s*(\d{1,2})\s+(?:de\s+)?([A-Za-zçÇ]+)\s+(?:de\s+)?(\d{4})',
+            text,
+            re.I
+        )
+        if m_doc_ext and m_doc_ext.group(2).lower() in meses_pt:
+            d = int(m_doc_ext.group(1))
+            mo = meses_pt[m_doc_ext.group(2).lower()]
+            y = int(m_doc_ext.group(3))
+            if 1 <= d <= 31 and 1990 <= y <= 2100:
+                doc_d_mo_y = (d, mo, y)
+
+    if doc_d_mo_y:
+        d, mo, y = doc_d_mo_y
+        data['data_documento_br'] = f"{d:02d}/{mo:02d}/{y}"
+        data['data_documento'] = f"{y}-{mo:02d}-{d:02d}"
 
     # 14. Motivo Perícia
     m = re.search(r'Motivo:\s*([^\n\r]+)', text, re.I)
@@ -7286,20 +7709,12 @@ def parse_esisla_text(text: str) -> dict:
     if m: data['finalidade'] = re.sub(r'\s+', ' ', m.group(1)).strip()
 
     # 17. Data Expedição & Local da Expedição (e-SISLA e Texto Bruto)
-    meses_pt = {
-        'janeiro': 1, 'fevereiro': 2, 'marco': 3, 'março': 3,
-        'abril': 4, 'maio': 5, 'junho': 6, 'julho': 7,
-        'agosto': 8, 'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12,
-        'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
-        'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12
-    }
-
     found_exp_br = None
     found_exp_iso = None
 
-    # 17a. Rótulo explícito de Data de Expedição (DD/MM/AAAA ou YYYY-MM-DD)
+    # 17a. Rótulo explícito de Data de Expedição (DD/MM/AAAA, YYYY-MM-DD ou por extenso após "guia expedida...")
     m_exp_lbl = re.search(
-        r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia\s+expedida\s+em)\s*[:\-]?\s*(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})',
+        r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})',
         text,
         re.I
     )
@@ -7310,7 +7725,7 @@ def parse_esisla_text(text: str) -> dict:
             found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
     else:
         m_exp_iso_lbl = re.search(
-            r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia\s+expedida\s+em)\s*[:\-]?\s*(\d{4})-(\d{2})-(\d{2})',
+            r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{4})-(\d{2})-(\d{2})',
             text,
             re.I
         )
@@ -7319,6 +7734,19 @@ def parse_esisla_text(text: str) -> dict:
             if 1 <= d <= 31 and 1 <= mo <= 12 and 1990 <= y <= 2100:
                 found_exp_br = f"{d:02d}/{mo:02d}/{y}"
                 found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
+        else:
+            m_exp_ext_lbl = re.search(
+                r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{1,2})\s+(?:de\s+)?([A-Za-zçÇ]+)\s+(?:de\s+)?(\d{4})',
+                text,
+                re.I
+            )
+            if m_exp_ext_lbl and m_exp_ext_lbl.group(2).lower() in meses_pt:
+                d = int(m_exp_ext_lbl.group(1))
+                mo = meses_pt[m_exp_ext_lbl.group(2).lower()]
+                y = int(m_exp_ext_lbl.group(3))
+                if 1 <= d <= 31 and 1990 <= y <= 2100:
+                    found_exp_br = f"{d:02d}/{mo:02d}/{y}"
+                    found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
 
     # 17b. Seção "Local e Data da Expedição" ou "Data Expedição" do e-SISLA
     if not found_exp_br:
@@ -7360,15 +7788,18 @@ def parse_esisla_text(text: str) -> dict:
                     found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
                     break
 
-    # 17c. Fallback: Data por extenso no padrão "CIDADE, DD de Mês de AAAA" no corpo do texto
+    # 17c. Fallback estrito: Data por extenso precedida OBRIGATORIAMENTE por "CIDADE, DD de Mês de AAAA"
+    # (Exige a vírgula após o nome do município para jamais capturar datas clínicas como "piorou dia 12 de janeiro de 2026")
     if not found_exp_br:
-        m_txt_global = re.search(r'(?:[A-Za-zÀ-ÖØ-öø-ÿ\s]{2,40},\s*)?(\d{1,2})\s+de\s+([A-Za-zçÇ]+)\s+de\s+(\d{4})', text, re.I)
-        if m_txt_global and m_txt_global.group(2).lower() in meses_pt:
-            d = int(m_txt_global.group(1))
-            mo = meses_pt[m_txt_global.group(2).lower()]
-            y = int(m_txt_global.group(3))
-            found_exp_br = f"{d:02d}/{mo:02d}/{y}"
-            found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
+        m_txt_global = re.search(r'(?:^|\n)\s*([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ\s]{1,35}),\s*(\d{1,2})\s+de\s+([A-Za-zçÇ]+)\s+de\s+(\d{4})', text, re.I)
+        if m_txt_global and m_txt_global.group(3).lower() in meses_pt:
+            prefix_city = m_txt_global.group(1).strip().lower()
+            if not re.search(r'\b(?:piorou|iniciou|desde|dor|exame|resson[âa]ncia|cirurgia|atestado|consulta|tratamento)\b', prefix_city):
+                d = int(m_txt_global.group(2))
+                mo = meses_pt[m_txt_global.group(3).lower()]
+                y = int(m_txt_global.group(4))
+                found_exp_br = f"{d:02d}/{mo:02d}/{y}"
+                found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
 
     if found_exp_br:
         data['data_expedicao'] = found_exp_br
@@ -7419,8 +7850,8 @@ def parse_esisla_text(text: str) -> dict:
         # Conforme diretriz oficial DPME / e-SISLA: Para perícia de acompanhante, o primeiro CID SEMPRE é Z763 (Z76.3)
         data['cid'] = 'Z763'
         data['cid_descricao'] = 'Pessoa em boa saúde acompanhando pessoa doente'
-        dep_str = f" do(a) dependente {nome_dep}" if nome_dep else ""
-        data['doenca_motivo'] = f"Acompanhamento e assistência ao tratamento de saúde{dep_str} (CID Z76.3), nos termos do art. 199 da Lei Estadual nº 10.261/68."
+        dep_str = f" do dependente {nome_dep}" if nome_dep else ""
+        data['doenca_motivo'] = f"Acompanhamento e assistência ao tratamento de saúde{dep_str}, sob CID Z76.3, nos termos do art. 199 da Lei Estadual nº 10.261/68."
 
     # 20. Validação de Retroação de Guia e Sugestão de Parecer Conforme Normativo DPME
     # Referência: Data da Expedição da Guia (e não a data atual). Compara com a Data de Emissão do Atestado.
@@ -7456,12 +7887,23 @@ def parse_esisla_text(text: str) -> dict:
             data['retroacao_invalida'] = True
             data['parecer'] = 'CONTRÁRIO'
             data['sugestao_parecer'] = 'CONTRÁRIO'
-            just_retro = 'Guia com mais de 3 dias de retroação, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão da guia.'
+            doc_str = data.get('data_documento_br', data_doc_date.strftime('%d/%m/%Y'))
+            exp_str = data.get('data_expedicao', data_ref_date.strftime('%d/%m/%Y'))
+            just_retro = _construir_justificativa_retroacao(
+                is_fem=str(data.get('sexo') or '').lower().startswith('f'),
+                cargo=str(data.get('cargo') or 'servidor'),
+                doenca_motivo=str(data.get('doenca_motivo') or data.get('cid_descricao') or ''),
+                cid=str(data.get('cid') or ''),
+                sintomas='',
+                doc_date_br=doc_str,
+                exp_date_br=exp_str,
+                retro_dias=diff_days,
+            )
             data['justificativa'] = just_retro
             data['sugestao_justificativa'] = just_retro
             data['retroacao_motivo'] = (
-                f"Guia expedida em {data.get('data_expedicao', data_ref_date.strftime('%d/%m/%Y'))} e atestado emitido em "
-                f"{data.get('data_documento_br', data_doc_date.strftime('%d/%m/%Y'))} ({diff_days} dias de retroação > limite regulamentar de 3 dias)."
+                f"Guia expedida em {exp_str} e atestado emitido em {doc_str}, "
+                f"totalizando {diff_days} dias de retroação, acima do limite regulamentar de 3 dias."
             )
         else:
             data['retroacao_invalida'] = False

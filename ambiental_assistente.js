@@ -1150,7 +1150,7 @@ function isArtifactAttendanceDate(val, atdDate) {
 
 let __isSyncingState = false;
 function syncState(){
-  if (__isSyncingState) return;
+  if (__isSyncingState || window.__isBulkApplyingIA) return;
   __isSyncingState = true;
   try {
     if (typeof currentAttendanceMode !== "undefined" && currentAttendanceMode === "agil") {
@@ -3587,13 +3587,149 @@ function confirmarFinalizacaoIA2MesmoComPendencias() {
 }
 
 // Modal de Decisão Discreta do Médico Perito
+function converterNumeroExtensoDiasJS(expr) {
+  if (!expr) return "";
+  let s = String(expr).trim().toLowerCase().replace(/\s+/g, " ");
+  s = s.replace(/\b(?:dias?)\b/g, "").trim();
+  const mDig = s.match(/\b(\d{1,3})\b/);
+  if (mDig) return mDig[1];
+  const unidades = {
+    um: 1, uma: 1, dois: 2, duas: 2, tres: 3, "três": 3, quatro: 4, cinco: 5,
+    seis: 6, sete: 7, oito: 8, nove: 9, dez: 10, onze: 11, doze: 12, treze: 13,
+    quatorze: 14, catorze: 14, quinze: 15, dezesseis: 16, dezessete: 17, dezoito: 18, dezenove: 19
+  };
+  const dezenas = {
+    vinte: 20, trinta: 30, quarenta: 40, cinquenta: 50, "cinqüenta": 50,
+    sessenta: 60, setenta: 70, oitenta: 80, noventa: 90
+  };
+  const centenas = { cem: 100, cento: 100 };
+  const tokens = s.split(/\s+e\s+|\s+/).filter(Boolean);
+  let total = 0;
+  let matched = false;
+  for (const tk of tokens) {
+    if (centenas[tk] !== undefined) { total += centenas[tk]; matched = true; }
+    else if (dezenas[tk] !== undefined) { total += dezenas[tk]; matched = true; }
+    else if (unidades[tk] !== undefined) { total += unidades[tk]; matched = true; }
+    else return "";
+  }
+  return matched && total > 0 ? String(total) : "";
+}
+
+function extrairDadosAtestadoTextoBrutoJS(texto) {
+  const res = { crmCro: "", nomeMedico: "", diasSolicitados: "", dataDocumentoIso: "", dataExpedicaoIso: "", dataExpedicaoBr: "" };
+  if (!texto) return res;
+  const s = String(texto);
+
+  // 1. CRM/CRO
+  const mCrm = s.match(/\b(?:CRM|CRO)\s*(?:M[ée]dico|Dentista)?[:\s\-]+([0-9]{3,10}(?:\/[A-Za-z]{2})?)\b/i);
+  if (mCrm) res.crmCro = mCrm[1].trim();
+
+  // 2. Nome do Médico Assistente
+  const mNome = s.match(/CRM[^\n\r]*?Nome:\s*([^\n\r]+)/i)
+    || s.match(/Nome do M[ée]dico:\s*([^\n\r]+)/i)
+    || s.match(/\b(?:atestado(?:\s+m[ée]dico)?\s+(?:emitido|assinado)\s+(?:por|pelo|pela)\s+)?(?:dr\.?|dra\.?|doutor|doutora)\s+([A-Za-zÀ-ÖØ-öø-ÿ]{2,}(?:\s+[A-Za-zÀ-ÖØ-öø-ÿ]{2,}){0,4}?)(?=\s+(?:crm|cro|cid|solicitando|indicando|pedindo|concedendo|com|em|no\s+dia|a\s+partir|\d|,|\.)|$)/i);
+  if (mNome) {
+    let nm = mNome[1].replace(/\s+/g, " ").replace(/\s+(?:CID|CRM|CRO)\b.*$/i, "").trim().replace(/^[ ,.;:\-]+|[ ,.;:\-]+$/g, "");
+    if (nm && nm === nm.toLowerCase()) {
+      nm = nm.split(" ").map(w => w.length > 2 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(" ");
+    }
+    res.nomeMedico = nm;
+  }
+
+  // 3. Dias solicitados (dígitos ou extenso)
+  const patsDig = [
+    /(?:N[ºo°\ufffd]?\s*)?Dias:\s*(\d{1,3})\b/i,
+    /\b(\d{1,3})\s*Dias:/i,
+    /\b(?:atestado(?:\s+m[ée]dico)?(?:\s+emitido[^\.\n\r]{0,90}?)?\s*(?:de|por|com|solicitando|indicando|pedindo|concedendo|sugerindo)|afastamento\s+de|repouso\s+de|licen[çc]a\s+de|solicita(?:ndo)?|indica(?:ndo)?|pede|pedindo|concede(?:ndo)?|sugere|sugerindo)\s+(\d{1,3})\s*(?:\([^)]+\)\s*)?dias\b/i,
+    /\b(\d{1,3})\s*(?:\([^)]+\)\s*)?dias\s+(?:de\s+(?:afastamento|repouso|atestado|licen[çc]a)|a\s+partir)\b/i
+  ];
+  for (const rx of patsDig) {
+    const m = s.match(rx);
+    if (m) { res.diasSolicitados = m[1].trim(); break; }
+  }
+  if (!res.diasSolicitados) {
+    const numWords = "(?:cem|cento|vinte|trinta|quarenta|cinquenta|cinqüenta|sessenta|setenta|oitenta|noventa|um|uma|dois|duas|tr[êe]s|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|treze|quatorze|catorze|quinze|dezesseis|dezessete|dezoito|dezenove)";
+    const rxExt1 = new RegExp(`\\b(?:atestado(?:\\s+m[ée]dico)?(?:\\s+emitido[^\\.\\n\\r]{0,90}?)?\\s*(?:de|por|com|solicitando|indicando|pedindo|concedendo|sugerindo)|afastamento\\s+de|repouso\\s+de|licen[çc]a\\s+de|solicita(?:ndo)?|indica(?:ndo)?|pede|pedindo|concede(?:ndo)?|sugere|sugerindo)\\s+(${numWords}(?:\\s+e\\s+${numWords}){0,2})\\s+dias\\b`, "i");
+    const rxExt2 = new RegExp(`\\b(${numWords}(?:\\s+e\\s+${numWords}){0,2})\\s+dias\\s+(?:de\\s+(?:afastamento|repouso|atestado|licen[çc]a)|a\\s+partir)\\b`, "i");
+    const mE = s.match(rxExt1) || s.match(rxExt2);
+    if (mE) {
+      res.diasSolicitados = converterNumeroExtensoDiasJS(mE[1]);
+    }
+  }
+
+  // 4. Data de emissão do atestado
+  const patsDoc = [
+    /Data\s+(?:de\s+)?emiss[ãa\ufffd]?o\s+(?:do\s+)?atestado:\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i,
+    /(?:Data\s+(?:do\s+)?(?:atestado|documento)|Atestado\s+(?:m[ée]dico\s+)?emitido\s+em)\s*[:\-]?\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i,
+    /\b(?:solicitando|solicita|indicando|indica|concedendo|concede|pedindo|pede|afastamento\s+de|repouso\s+de)[^\.\n\r]{0,65}?dias\s+(?:a\s+partir\s+(?:do\s+dia|de)|em|no\s+dia|datado\s+de)\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i,
+    /\batestado(?:\s+m[ée]dico)?[^\.\n\r]{0,120}?(?:emitido|datado|assinado|iniciando|a\s+partir)(?:\s+[a-zà-ú0-9\.]+){0,10}?\s+(?:em|no\s+dia|do\s+dia|de)\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i
+  ];
+  for (const rx of patsDoc) {
+    const m = s.match(rx);
+    if (m) {
+      const d = m[1].padStart(2, "0"), mo = m[2].padStart(2, "0"), y = m[3];
+      res.dataDocumentoIso = `${y}-${mo}-${d}`;
+      break;
+    }
+  }
+
+  // 5. Data de expedição da guia
+  const mExp = s.match(/(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i);
+  if (mExp) {
+    const d = mExp[1].padStart(2, "0"), mo = mExp[2].padStart(2, "0"), y = mExp[3];
+    res.dataExpedicaoIso = `${y}-${mo}-${d}`;
+    res.dataExpedicaoBr = `${d}/${mo}/${y}`;
+  } else {
+    const mExpIso = s.match(/(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{4})-(\d{2})-(\d{2})/i);
+    if (mExpIso) {
+      res.dataExpedicaoIso = `${mExpIso[1]}-${mExpIso[2]}-${mExpIso[3]}`;
+      res.dataExpedicaoBr = `${mExpIso[3]}/${mExpIso[2]}/${mExpIso[1]}`;
+    }
+  }
+
+  return res;
+}
+
 function abrirModalDecisaoMedicoIA2(origem, texto) {
   ia2DecisaoOrigemPendente = origem;
   ia2DecisaoTextoPendente = texto || "";
 
+  // Extrair preventivamente os dados do atestado e prazos do texto bruto antes de abrir o modal
+  const preAtd = extrairDadosAtestadoTextoBrutoJS(ia2DecisaoTextoPendente);
+  if (!state.aux) state.aux = {};
+  if (preAtd.crmCro) {
+    state.crmCro = preAtd.crmCro;
+    state.aux.crmCro = preAtd.crmCro;
+    if ($("agilCrmCro")) $("agilCrmCro").value = preAtd.crmCro;
+    if ($("crmCro")) $("crmCro").value = preAtd.crmCro;
+  }
+  if (preAtd.nomeMedico) {
+    state.aux.nomeMedicoAssistente = preAtd.nomeMedico;
+    state.aux.medicoAssistenteNome = preAtd.nomeMedico;
+  }
+  if (preAtd.diasSolicitados) {
+    state.diasSolicitados = preAtd.diasSolicitados;
+    state.aux.diasSolicitados = preAtd.diasSolicitados;
+    if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = preAtd.diasSolicitados;
+    if ($("diasSolicitados")) $("diasSolicitados").value = preAtd.diasSolicitados;
+  }
+  if (preAtd.dataDocumentoIso) {
+    state.dataDocumento = preAtd.dataDocumentoIso;
+    state.aux.dataDocumento = preAtd.dataDocumentoIso;
+    if ($("agilDataDocumento")) $("agilDataDocumento").value = preAtd.dataDocumentoIso;
+    if ($("dataDocumento")) $("dataDocumento").value = preAtd.dataDocumentoIso;
+  }
+  if (preAtd.dataExpedicaoIso) {
+    state.dataExpedicao = preAtd.dataExpedicaoIso;
+    state.aux.dataExpedicaoIso = preAtd.dataExpedicaoIso;
+    state.aux.dataExpedicao = preAtd.dataExpedicaoBr || preAtd.dataExpedicaoIso;
+    if ($("agilDataExpedicao")) $("agilDataExpedicao").value = preAtd.dataExpedicaoIso;
+    if ($("dataExpedicao")) $("dataExpedicao").value = preAtd.dataExpedicaoIso;
+  }
+
   syncState();
   const v = values();
-  const diasSolStr = state.diasSolicitados || state.aux?.diasSolicitados || v.diasSolicitados || $("agilDiasSolicitados")?.value || $("diasSolicitados")?.value || "0";
+  const diasSolStr = preAtd.diasSolicitados || state.diasSolicitados || state.aux?.diasSolicitados || v.diasSolicitados || $("agilDiasSolicitados")?.value || $("diasSolicitados")?.value || "0";
   const diasNum = parseInt(diasSolStr, 10) || 0;
   ia2DecisaoDiasValorOriginal = diasNum;
 
@@ -3607,6 +3743,9 @@ function abrirModalDecisaoMedicoIA2(origem, texto) {
     inputCustom.value = diasNum > 0 ? String(diasNum) : "";
   }
 
+  if (typeof calcularDatasAtestado === "function") {
+    try { calcularDatasAtestado(); } catch (e) { /* ignore */ }
+  }
   if (typeof recalcularRetroacaoAgil === "function") {
     try { recalcularRetroacaoAgil(); } catch (e) { /* ignore */ }
   }
@@ -3616,24 +3755,35 @@ function abrirModalDecisaoMedicoIA2(origem, texto) {
 
   const alertRetro = $("ia2DecisaoRetroAlerta");
   const alertInfo = $("ia2DecisaoRetroInformativo");
+  const cFavCard = $("ia2DecisaoCardFav");
 
   if (isRetroInvalida) {
     if (alertRetro) {
       alertRetro.style.display = "block";
       alertRetro.innerHTML = `
         <strong style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px">
-          <span>⛔</span> Guia Expedida Fora do Prazo Regulamentar (${retroDias} dias de retroação > 3 dias)
+          <span>⛔</span> Guia Expedida Fora do Prazo Regulamentar (${retroDias} dias de retroação, limite de 3 dias)
         </strong>
-        <span>Parecer <strong>CONTRÁRIO</strong> aplicado automaticamente por retroação inválida, mantendo todo o atendimento clínico, limitações e exame físico como favoráveis e aplicando o motivo na justificativa.</span>
+        <span>Parecer <strong>CONTRÁRIO</strong> obrigatório aplicado automaticamente por retroação inválida, mantendo todo o atendimento clínico, limitações e exame físico como favoráveis e aplicando o motivo na justificativa.</span>
       `;
     }
     if (alertInfo) alertInfo.style.display = "none";
+    if (cFavCard) {
+      cFavCard.style.opacity = "0.42";
+      cFavCard.style.pointerEvents = "none";
+      cFavCard.title = "Parecer Favorável bloqueado devido à retroação inválida da guia (> 3 dias)";
+    }
     selecionarDecisaoParecerIA2("CONTRÁRIO");
     selecionarDecisaoExameIA2("Alterado");
     atualizarDecisaoDiasIA2("original");
   } else {
     if (alertRetro) alertRetro.style.display = "none";
     if (alertInfo) alertInfo.style.display = "block";
+    if (cFavCard) {
+      cFavCard.style.opacity = "1";
+      cFavCard.style.pointerEvents = "auto";
+      cFavCard.title = "";
+    }
     selecionarDecisaoParecerIA2("FAVORÁVEL");
     selecionarDecisaoExameIA2("Alterado");
     atualizarDecisaoDiasIA2("original");
@@ -3652,10 +3802,13 @@ function fecharModalDecisaoMedicoIA2() {
 }
 
 function selecionarDecisaoParecerIA2(parecer) {
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  if (isRetroInv) {
+    parecer = "CONTRÁRIO";
+  }
   ia2DecisaoParecerEscolhido = parecer;
   const cFav = $("ia2DecisaoCardFav");
   const cContr = $("ia2DecisaoCardContr");
-  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
 
   if (parecer === "FAVORÁVEL") {
     if (cFav) cFav.className = "ia2-decision-card selected-fav";
@@ -3710,10 +3863,11 @@ function confirmarDecisaoEEstruturarIA2() {
     parecer: isRetroInv ? "CONTRÁRIO" : ia2DecisaoParecerEscolhido,
     exameFisicoResultado: ia2DecisaoExameEscolhido,
     diasConcedidos: diasFinal,
+    diasModo: ia2DecisaoDiasModo === "custom" ? "reduzir" : ia2DecisaoDiasModo,
     observacoesMedico: ($("ia2DecisaoObsMedico")?.value || "").trim(),
     retroacaoInvalida: isRetroInv,
     retroacaoDias: state.aux?.retroacaoDias || state.retroacaoDias || null,
-    parecerManualOverride: (!isRetroInv && ia2DecisaoParecerEscolhido) ? ia2DecisaoParecerEscolhido : (ia2DecisaoParecerEscolhido === "FAVORÁVEL" && isRetroInv ? "FAVORÁVEL" : "")
+    parecerManualOverride: (!isRetroInv && ia2DecisaoParecerEscolhido) ? ia2DecisaoParecerEscolhido : ""
   };
 
   fecharModalDecisaoMedicoIA2();
@@ -3870,22 +4024,32 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
     // Preenchimento de forma oculta no prontuário
     aplicarPreenchimentoIAResultado(dados);
 
-    // Assegurar aplicação soberana das escolhas do médico perito
+    // Assegurar aplicação soberana das escolhas do médico perito (respeitando bloqueio estrito da retroação inválida)
+    const isRetroFinal = Boolean(dados.retroacao_invalida || state.retroacaoInvalida || state.aux?.retroacaoInvalida || decisaoMedico?.retroacaoInvalida);
     if (decisaoMedico) {
-      if (decisaoMedico.parecer) {
-        state.parecer = decisaoMedico.parecer;
-        if ($("parecer")) $("parecer").value = decisaoMedico.parecer;
-        if ($("agilParecer")) $("agilParecer").value = decisaoMedico.parecer;
+      const parecerEfetivo = isRetroFinal ? "CONTRÁRIO" : (decisaoMedico.parecer || state.parecer);
+      if (parecerEfetivo) {
+        state.parecer = parecerEfetivo;
+        if (!state.aux) state.aux = {};
+        state.aux.parecer = parecerEfetivo;
+        if ($("parecer")) $("parecer").value = parecerEfetivo;
+        if ($("agilParecer")) $("agilParecer").value = parecerEfetivo;
         if (typeof setRadio === "function") {
-          setRadio("parecer", decisaoMedico.parecer);
-          setRadio("agilParecer", decisaoMedico.parecer);
+          setRadio("parecer", parecerEfetivo);
+          setRadio("agilParecer", parecerEfetivo);
         }
       }
       if (typeof decisaoMedico.diasConcedidos !== "undefined" && decisaoMedico.diasConcedidos !== null) {
-        const dStr = String(decisaoMedico.diasConcedidos);
-        state.diasSolicitados = dStr;
-        if ($("diasSolicitados")) $("diasSolicitados").value = dStr;
-        if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = dStr;
+        const dStr = String(decisaoMedico.diasConcedidos).trim();
+        const iaDias = String(dados.dias_solicitados || state.diasSolicitados || "").trim();
+        // Só sobrescreve diasSolicitados se o médico escolheu reduzir manualmente ou se iaDias estiver vazio
+        if (decisaoMedico.diasModo === "reduzir" || (!iaDias && dStr && dStr !== "0")) {
+          state.diasSolicitados = dStr;
+          if (!state.aux) state.aux = {};
+          state.aux.diasSolicitados = dStr;
+          if ($("diasSolicitados")) $("diasSolicitados").value = dStr;
+          if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = dStr;
+        }
       }
     }
 
@@ -3929,7 +4093,7 @@ function abrirModalSucessoIA2(dados) {
     $("ia2SucessoParecer").textContent = parecer;
     $("ia2SucessoParecer").style.color = (String(parecer).toUpperCase().includes("CONT") ? "#DC2626" : "#059669");
   }
-  if ($("ia2SucessoDias")) $("ia2SucessoDias").textContent = `${dias} dia(s) concedido(s)`;
+  if ($("ia2SucessoDias")) $("ia2SucessoDias").textContent = `${dias} dia(s) solicitado(s)`;
   if ($("ia2SucessoExameTipo")) $("ia2SucessoExameTipo").textContent = exame;
   if ($("ia2SucessoSinaisVitais")) $("ia2SucessoSinaisVitais").textContent = `PA: ${sis}/${dia} mmHg`;
 
@@ -3994,10 +4158,15 @@ function abrirVisualizadorFichaEsislaIA2() {
 
   syncState();
   const v = values();
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  const isFavOrRetro = String(state.parecer || "").toUpperCase().includes("FAV") || isRetroInv;
+  const justFinal = isRetroInv && typeof aprimorarJustificativaRetroacaoEsislaJS === "function"
+    ? aprimorarJustificativaRetroacaoEsislaJS(state, v)
+    : (state.justificativa || state.aux?.justificativa || "Quadro clínico documentado em relatório com sintomatologia incapacitante temporária.");
 
   const texto = `FICHA DE AVALIAÇÃO MÉDICA PERICIAL — e-SISLA (DPME)
 ======================================================================
-Servidor(a): ${state.aux?.nomePaciente || state.nomePaciente || v.nomePaciente || "Não informado"}
+Servidor: ${state.aux?.nomePaciente || state.nomePaciente || v.nomePaciente || "Não informado"}
 CPF: ${formatCPF(state.aux?.cpfPaciente || state.cpfPaciente || v.cpfPaciente || "")}
 Cargo: ${state.aux?.cargo || state.cargo || v.cargo || "—"}
 Atendimento Nº: ${state.atendimento || v.atendimento || "—"}
@@ -4018,25 +4187,25 @@ ${state.aux?.relatorioAssistente || "Em anexo."}
 (*) EXAME FÍSICO GERAL / MENTAL:
 ----------------------------------------------------------------------
 [${state.exameFisicoTipo || "Outros"}]
-${state.exameFisicoDescricao || v.exameFisicoDescricao || "Bom estado geral, eupneico(a), orientado(a)."}
+${state.exameFisicoDescricao || v.exameFisicoDescricao || "Bom estado geral, eupneico, orientado."}
 Sinais Vitais: PA ${state.aux?.pressaoSistolica || "—"}/${state.aux?.pressaoDiastolica || "—"} mmHg | Pulso: ${state.aux?.pulso || "—"} bpm
 
-(*) DESCRIÇÃO DA(S) LIMITAÇÃO(ÕES) FUNCIONAL(IS):
+(*) DESCRIÇÃO DAS LIMITAÇÕES FUNCIONAIS:
 ----------------------------------------------------------------------
 ${state.descLimitacao || state.aux?.sintomasLimitacao || v.sintomasLimitacao || "Limitações funcionais compatíveis com a sintomatologia referida."}
 
 (*) QUESITOS OFICIAIS:
 ----------------------------------------------------------------------
-1. Há incapacidade laborativa temporária? Sim
-2. A incapacidade é total para a função? ${state.parecer === 'Favorável' ? 'Sim' : 'Não'}
-3. Há nexo causal ou incapacidade permanente? Não
+1. Há doença ou sequela de doença prévia? Sim
+2. A doença ou sequela gera limitações para o periciando? ${isFavOrRetro ? 'Sim' : 'Não'}
+3. As limitações impedem o periciando de exercer alguma atividade do rol? ${isFavOrRetro ? 'Sim' : 'Não'}
 
 (*) PARECER FINAL E JUSTIFICATIVA:
 ----------------------------------------------------------------------
-Parecer: ${state.parecer || "Favorável"}
+Parecer: ${isRetroInv ? "CONTRÁRIO" : (state.parecer || "FAVORÁVEL")}
 CID Principal: ${state.cid || "—"}
-Dias Sugeridos/Concedidos: ${state.diasSolicitados || state.aux?.diasSolicitados || "0"} dia(s)
-Justificativa: ${state.justificativa || state.aux?.justificativa || "Quadro clínico documentado em relatório com sintomatologia incapacitante temporária."}
+Dias Solicitados no Atestado: ${state.diasSolicitados || state.aux?.diasSolicitados || "0"} dia(s)
+Justificativa: ${justFinal}
 ======================================================================`;
 
   content.textContent = texto;
@@ -5297,6 +5466,7 @@ function aplicarPreenchimentoIAResultado(dados) {
 
   // Travar autoSave temporariamente durante o preenchimento em lote para evitar race conditions / wipes
   const prevAutoSaving = typeof __isAutoSaving !== "undefined" ? __isAutoSaving : false;
+  __isAutoSaving = true;
   window.__isAutoSaving = true;
   window.__isBulkApplyingIA = true;
 
@@ -5372,26 +5542,27 @@ function aplicarPreenchimentoIAResultado(dados) {
     };
 
     const obsTerStr = String(dados.obs_terapias || dados.obsTerapias || "").toLowerCase();
-    const rawTxtStr = String(dados.texto_bruto || dados.texto || $("txtPreenchimentoIABruto")?.value || $("ia2EscritaText")?.value || $("ia2GravacaoTranscricao")?.value || window.__ia2UltimoTextoProcessado || "").toLowerCase();
+    const rawTxtStrOrig = String(dados.texto_bruto || dados.texto || $("txtPreenchimentoIABruto")?.value || $("ia2EscritaText")?.value || $("ia2GravacaoTranscricao")?.value || window.__ia2UltimoTextoProcessado || "").toLowerCase();
+    const rawTxtStr = rawTxtStrOrig
+      .replace(/\d+\.\s*faz\s+psicoterapia\s+ou\s+fisioterapia\??\s*:?/gi, " ")
+      .replace(/faz\s+psicoterapia\s+ou\s+fisioterapia\??\s*:?/gi, " ");
 
-    // 1. Avaliar rawTxtStr (texto original do médico) de forma primária e soberana
-    let afirmFisioRaw = /\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de)\s+(?:de\s+)?(?:tratamento\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia)\b|\b(?:fisioterapia|fisio)\s+(?:motora|respirat[óo]ria|analg[ée]sica|[0-9]x|duas|tr[êe]s|semanal|ambulatorial|di[áa]ria)\b/i.test(rawTxtStr) || /\bfaz\s+fisio\b|\bem\s+fisio\b|\brealiza\s+fisio\b/i.test(rawTxtStr);
-    let negFisioRaw = /\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora)\b/i.test(rawTxtStr);
+    // 1. Avaliar rawTxtStr (texto original do médico) de forma primária e soberana (suporta afirmação/negação antes ou depois do termo)
+    let afirmFisioRaw = /\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia)\b|\b(?:fisioterapia|fisio|cinesioterapia)\s*[,:\-]?\s*(?:em\s+curso|motora|respirat[óo]ria|analg[ée]sica|p[ée]lvica|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|semanal|quinzenal|mensal|ambulatorial|di[áa]ria|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|realiza|realizando|iniciou|sim)\b/i.test(rawTxtStr) || /\bfaz\s+fisio\b|\bem\s+fisio\b|\brealiza\s+fisio\b/i.test(rawTxtStr);
+    let negFisioRaw = /\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora)\b|\b(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora)\s*[,:\-]?\s*(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|sem\s+fazer|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu|n[ãa]o)\b/i.test(rawTxtStr);
 
-    let afirmPsicoRaw = /\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de)\s+(?:de\s+)?(?:tratamento\s+de\s+)?(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico)\b|\b(?:psicoterapia|psico)\s+(?:semanal|quinzenal|mensal|[0-9]x|ambulatorial)\b/i.test(rawTxtStr) || /\bfaz\s+psico\b|\bem\s+psico\b|\brealiza\s+psico\b/i.test(rawTxtStr);
-    let negPsicoRaw = /\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico)\b/i.test(rawTxtStr);
+    let afirmPsicoRaw = /\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico)\b|\b(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico)\s*[,:\-]?\s*(?:em\s+curso|semanal|quinzenal|mensal|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|ambulatorial|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|realiza|realizando|iniciou|sim)\b/i.test(rawTxtStr) || /\bfaz\s+psico\b|\bem\s+psico\b|\brealiza\s+psico\b/i.test(rawTxtStr);
+    let negPsicoRaw = /\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico)\b|\b(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico)\s*[,:\-]?\s*(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|sem\s+fazer|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu|n[ãa]o)\b/i.test(rawTxtStr);
 
-    if (/\b(?:nega|n[ãa]o\s+faz|sem)\s+(?:fazer\s+|realizar\s+)?(?:fisioterapia|fisio)\s+(?:e|ou)\s+(?:psicoterapia|psico)\b|\b(?:nega|n[ãa]o\s+faz|sem)\s+(?:fazer\s+|realizar\s+)?(?:psicoterapia|psico)\s+(?:e|ou)\s+(?:fisioterapia|fisio)\b/i.test(rawTxtStr)) {
+    if (/\b(?:nega|n[ãa]o\s+faz|sem)\s+(?:fazer\s+|realizar\s+)?(?:fisioterapia|fisio)\s+(?:e|ou|nem)\s+(?:psicoterapia|psico)\b|\b(?:nega|n[ãa]o\s+faz|sem)\s+(?:fazer\s+|realizar\s+)?(?:psicoterapia|psico)\s+(?:e|ou|nem)\s+(?:fisioterapia|fisio)\b/i.test(rawTxtStr)) {
       negFisioRaw = true;
       negPsicoRaw = true;
     }
 
     let fisio;
-    if (afirmFisioRaw && !negFisioRaw) {
-      fisio = true;
-    } else if (negFisioRaw) {
+    if (negFisioRaw) {
       fisio = false;
-    } else if (/\bfisio\b|\bfisioterapia\b/i.test(rawTxtStr)) {
+    } else if (afirmFisioRaw) {
       fisio = true;
     } else if (dados.fisioterapia !== undefined && dados.fisioterapia !== null) {
       fisio = parseBool(dados.fisioterapia);
@@ -5400,11 +5571,9 @@ function aplicarPreenchimentoIAResultado(dados) {
     }
 
     let psico;
-    if (afirmPsicoRaw && !negPsicoRaw) {
-      psico = true;
-    } else if (negPsicoRaw) {
+    if (negPsicoRaw) {
       psico = false;
-    } else if (/\bpsico\b|\bpsicoterapia\b|\bpsicólog/i.test(rawTxtStr)) {
+    } else if (afirmPsicoRaw) {
       psico = true;
     } else if (dados.psicoterapia !== undefined && dados.psicoterapia !== null) {
       psico = parseBool(dados.psicoterapia);
@@ -5417,6 +5586,26 @@ function aplicarPreenchimentoIAResultado(dados) {
     if (!state.aux) state.aux = {};
     state.aux.psicoterapia = !!psico;
     state.aux.fisioterapia = !!fisio;
+
+    let obsTerapiasFinal = String(dados.obs_terapias || dados.obsTerapias || "").trim();
+    if (state.fisioterapia && !state.psicoterapia) {
+      if (!obsTerapiasFinal || /realiza\s+psicoterapia/i.test(obsTerapiasFinal) || /n[ãa]o\s+alegou\s+realizar\s+fisioterapia/i.test(obsTerapiasFinal)) {
+        obsTerapiasFinal = "Realiza fisioterapia. Não realiza psicoterapia.";
+      }
+    } else if (state.psicoterapia && !state.fisioterapia) {
+      if (!obsTerapiasFinal || /realiza\s+fisioterapia/i.test(obsTerapiasFinal) || /n[ãa]o\s+alegou\s+realizar\s+psicoterapia/i.test(obsTerapiasFinal)) {
+        obsTerapiasFinal = "Realiza psicoterapia. Não realiza fisioterapia.";
+      }
+    } else if (state.fisioterapia && state.psicoterapia) {
+      if (!obsTerapiasFinal || /n[ãa]o\s+alegou/i.test(obsTerapiasFinal)) {
+        obsTerapiasFinal = "Realiza psicoterapia e fisioterapia em acompanhamento multidisciplinar.";
+      }
+    } else {
+      if (!obsTerapiasFinal || /\brealiza\s+(?:fisioterapia|psicoterapia)\b/i.test(obsTerapiasFinal)) {
+        obsTerapiasFinal = "Não realiza psicoterapia ou fisioterapia no momento.";
+      }
+    }
+    dados.obs_terapias = obsTerapiasFinal;
 
     const doencaParaPreencher = (dados.doenca_motivo || dados.doencaMotivo || state.doencaMotivo || state.aux?.doencaMotivo || "").trim();
     if (doencaParaPreencher) {
@@ -5595,20 +5784,56 @@ function aplicarPreenchimentoIAResultado(dados) {
     if (altVal) state.aux.altura = altVal;
     if (pesoVal) state.aux.peso = pesoVal;
 
-    const isRetroInv = Boolean(dados.retroacao_invalida || state.aux?.retroacaoInvalida || state.retroacaoInvalida);
-    if (dados.retroacao_invalida !== undefined) {
-      state.retroacaoInvalida = Boolean(dados.retroacao_invalida);
-      if (state.aux) state.aux.retroacaoInvalida = Boolean(dados.retroacao_invalida);
-    }
-    if (dados.retroacao_dias !== undefined && dados.retroacao_dias !== null) {
-      state.retroacaoDias = dados.retroacao_dias;
-      if (state.aux) state.aux.retroacaoDias = dados.retroacao_dias;
+    // Extração determinística complementar para Dados do Atestado do Médico Assistente & Prazos
+    const extAtestado = typeof extrairDadosAtestadoTextoBrutoJS === "function" ? extrairDadosAtestadoTextoBrutoJS(rawTxtInput) : {};
+
+    const isoDoc = toIsoDate(dados.data_documento || extAtestado.data_documento || state.dataDocumento || state.aux?.dataDocumento || $("dataDocumento")?.value || $("agilDataDocumento")?.value || "");
+    const rawExpVal = dados.data_expedicao_iso || dados.data_expedicao || dados.dataExpedicaoIso || dados.dataExpedicao || extAtestado.data_expedicao || state.dataExpedicao || state.aux?.dataExpedicaoIso || state.aux?.dataExpedicao || $("dataExpedicao")?.value || $("agilDataExpedicao")?.value || "";
+    const isoExp = toIsoDate(rawExpVal);
+    const brExp = dados.data_expedicao_br || (isoExp && /^\d{4}-\d{2}-\d{2}$/.test(isoExp) ? isoExp.split("-").reverse().join("/") : rawExpVal);
+    const isoNasc = toIsoDate(dados.data_nascimento) || state.aux?.dataNascimento || "";
+    const isoAltMed = toIsoDate(dados.data_alteracao_med) || state.aux?.dataAlteracaoMed || "";
+
+    const crmCroVal = String(dados.crm_cro || extAtestado.crm_cro || state.crmCro || state.aux?.crmCro || $("crmCro")?.value || $("agilCrmCro")?.value || "").trim();
+    const nomeMedAssistVal = String(dados.nome_medico_assistente || extAtestado.nome_medico_assistente || state.aux?.nomeMedicoAssistente || state.aux?.medicoAssistenteNome || "").trim();
+
+    const diasBackend = String(dados.dias_solicitados ?? "").trim().replace(/\D/g, "");
+    const diasExt = String(extAtestado.dias_solicitados ?? "").trim().replace(/\D/g, "");
+    const diasState = String(state.diasSolicitados || state.aux?.diasSolicitados || $("diasSolicitados")?.value || $("agilDiasSolicitados")?.value || "").trim().replace(/\D/g, "");
+    let diasSolVal = "";
+    if (diasExt && parseInt(diasExt, 10) > 0 && (!diasBackend || diasBackend === "1") && parseInt(diasExt, 10) > 1) {
+      diasSolVal = diasExt;
+    } else if (diasBackend && parseInt(diasBackend, 10) > 0) {
+      diasSolVal = diasBackend;
+    } else if (diasExt && parseInt(diasExt, 10) > 0) {
+      diasSolVal = diasExt;
+    } else if (diasState && parseInt(diasState, 10) > 0) {
+      diasSolVal = diasState;
     }
 
-    state.limitacaoFuncional = (isRetroInv && state.parecerManualOverride !== "CONTRÁRIO") ? "Sim" : (dados.limitacao_funcional || state.limitacaoFuncional || "Sim");
-    state.limitacaoRol = (isRetroInv && state.parecerManualOverride !== "CONTRÁRIO") ? "Sim" : (dados.limitacao_rol || state.limitacaoRol || "Sim");
+    let calcRetroDias = (dados.retroacao_dias !== undefined && dados.retroacao_dias !== null) ? Number(dados.retroacao_dias) : null;
+    if (calcRetroDias === null && isoDoc && isoExp && /^\d{4}-\d{2}-\d{2}$/.test(isoDoc) && /^\d{4}-\d{2}-\d{2}$/.test(isoExp)) {
+      const dtD = new Date(isoDoc + "T12:00:00");
+      const dtE = new Date(isoExp + "T12:00:00");
+      if (!isNaN(dtD.getTime()) && !isNaN(dtE.getTime())) {
+        calcRetroDias = Math.round((dtE - dtD) / (1000 * 60 * 60 * 24));
+      }
+    }
+    const isRetroInv = Boolean(dados.retroacao_invalida || (calcRetroDias !== null && calcRetroDias > 3) || state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+    state.retroacaoInvalida = isRetroInv;
+    if (state.aux) state.aux.retroacaoInvalida = isRetroInv;
+    if (calcRetroDias !== null && !isNaN(calcRetroDias)) {
+      state.retroacaoDias = calcRetroDias;
+      if (state.aux) state.aux.retroacaoDias = calcRetroDias;
+    }
+
+    state.limitacaoFuncional = isRetroInv ? "Sim" : (dados.limitacao_funcional || state.limitacaoFuncional || "Sim");
+    state.limitacaoRol = isRetroInv ? "Sim" : (dados.limitacao_rol || state.limitacaoRol || "Sim");
     state.capacidade = dados.capacidade || state.capacidade || "Capacidade parcial e temporariamente prejudicada";
-    state.parecer = (isRetroInv && state.parecerManualOverride !== "FAVORÁVEL") ? "CONTRÁRIO" : (dados.parecer || state.parecer || "FAVORÁVEL");
+    state.parecer = isRetroInv ? "CONTRÁRIO" : (dados.parecer || state.parecer || "FAVORÁVEL");
+    if (isRetroInv) {
+      state.parecerManualOverride = "CONTRÁRIO";
+    }
     state.justificativa = dados.justificativa || state.justificativa || "";
 
     // Subtipo e Resultado do Exame Físico "Outros"
@@ -5637,16 +5862,6 @@ function aplicarPreenchimentoIAResultado(dados) {
       }));
     }
 
-    const isoDoc = toIsoDate(dados.data_documento || state.dataDocumento || state.aux?.dataDocumento || $("dataDocumento")?.value || $("agilDataDocumento")?.value || "");
-    const rawExpVal = dados.data_expedicao_iso || dados.data_expedicao || dados.dataExpedicaoIso || dados.dataExpedicao || state.dataExpedicao || state.aux?.dataExpedicaoIso || state.aux?.dataExpedicao || $("dataExpedicao")?.value || $("agilDataExpedicao")?.value || "";
-    const isoExp = toIsoDate(rawExpVal);
-    const brExp = dados.data_expedicao_br || (isoExp && /^\d{4}-\d{2}-\d{2}$/.test(isoExp) ? isoExp.split("-").reverse().join("/") : rawExpVal);
-    const isoNasc = toIsoDate(dados.data_nascimento) || state.aux?.dataNascimento || "";
-    const isoAltMed = toIsoDate(dados.data_alteracao_med) || state.aux?.dataAlteracaoMed || "";
-
-    const crmCroVal = (dados.crm_cro || state.crmCro || state.aux?.crmCro || $("crmCro")?.value || $("agilCrmCro")?.value || "").trim();
-    const nomeMedAssistVal = (dados.nome_medico_assistente || state.aux?.nomeMedicoAssistente || state.aux?.medicoAssistenteNome || "").trim();
-    const diasSolVal = String(dados.dias_solicitados || state.diasSolicitados || state.aux?.diasSolicitados || $("diasSolicitados")?.value || $("agilDiasSolicitados")?.value || "").trim();
     const obsDocsVal = (dados.obs_documentos || state.aux?.obsDocumentos || $("obsDocumentos")?.value || "").trim();
     const altClinExamesVal = (dados.alteracoes_clinicas_exames || state.alteracoesClinicasExames || state.aux?.alteracoesClinicasExames || "").trim();
 
@@ -5655,6 +5870,7 @@ function aplicarPreenchimentoIAResultado(dados) {
     state.dataExpedicao = isoExp;
     state.diasSolicitados = diasSolVal;
     state.alteracoesClinicasExames = altClinExamesVal;
+    const diasConcedidosVal = state.parecer === "CONTRÁRIO" ? "0" : (diasSolVal || state.aux?.diasConcedidos || "");
 
     // 3. Atualizar state.aux completo
     Object.assign(state.aux, {
@@ -5678,7 +5894,7 @@ function aplicarPreenchimentoIAResultado(dados) {
       obsAlteracaoMed: dados.obs_alteracao_med || state.aux?.obsAlteracaoMed || "",
       psicoterapia: state.psicoterapia,
       fisioterapia: state.fisioterapia,
-      obsTerapias: dados.obs_terapias || state.aux?.obsTerapias || "",
+      obsTerapias: obsTerapiasFinal,
       outrasDoencas: state.outrasDoencas,
       historicoPregresso: state.historicoPregresso,
       cid: state.cid,
@@ -5689,6 +5905,7 @@ function aplicarPreenchimentoIAResultado(dados) {
       dataExpedicao: brExp || isoExp,
       dataExpedicaoIso: isoExp,
       diasSolicitados: diasSolVal,
+      diasConcedidos: diasConcedidosVal,
       obsDocumentos: obsDocsVal,
       alteracoesClinicasExames: altClinExamesVal,
       exameFisicoTipo: state.exameFisicoTipo,
@@ -5711,18 +5928,25 @@ function aplicarPreenchimentoIAResultado(dados) {
       parecer: state.parecer,
       justificativa: state.justificativa
     });
-    if (dados.retroacao_dias !== undefined && dados.retroacao_dias !== null) {
-      state.aux.retroacaoDias = dados.retroacao_dias;
-      state.aux.retroacaoInvalida = !!dados.retroacao_invalida;
+    if (calcRetroDias !== null && !isNaN(calcRetroDias)) {
+      state.aux.retroacaoDias = calcRetroDias;
+      state.aux.retroacaoInvalida = isRetroInv;
       if (dados.retroacao_motivo) state.aux.retroacaoMotivo = dados.retroacao_motivo;
     }
 
-    // 4. Atualizar Quesitos
-    if (typeof QuesitoService !== "undefined" && Array.isArray(dados.quesitos)) {
-      dados.quesitos.forEach((q, idx) => {
-        QuesitoService.set(idx, q.resposta || "Sim");
-      });
-      state.quesitos = QuesitoService.get();
+    // 4. Atualizar Quesitos (se retroação inválida, manter Sim, Sim, Sim)
+    if (typeof QuesitoService !== "undefined") {
+      if (isRetroInv) {
+        QuesitoService.set(0, "Sim");
+        QuesitoService.set(1, "Sim");
+        QuesitoService.set(2, "Sim");
+        state.quesitos = QuesitoService.get();
+      } else if (Array.isArray(dados.quesitos)) {
+        dados.quesitos.forEach((q, idx) => {
+          QuesitoService.set(idx, q.resposta || "Sim");
+        });
+        state.quesitos = QuesitoService.get();
+      }
     }
 
     // 5. Preencher DOM diretamente (sem disparar eventos reativos intermediários)
@@ -5796,8 +6020,8 @@ function aplicarPreenchimentoIAResultado(dados) {
     if ($("agilPsicoterapia")) $("agilPsicoterapia").checked = !!state.psicoterapia;
     if ($("fisioterapia")) $("fisioterapia").checked = !!state.fisioterapia;
     if ($("agilFisioterapia")) $("agilFisioterapia").checked = !!state.fisioterapia;
-    setVal("obsTerapias", dados.obs_terapias);
-    setVal("agilObsTerapias", dados.obs_terapias);
+    setVal("obsTerapias", obsTerapiasFinal);
+    setVal("agilObsTerapias", obsTerapiasFinal);
     setRadioDirect("outrasDoencas", state.outrasDoencas);
     setRadioDirect("agilOutrasDoencas", state.outrasDoencas);
     if ($("doencasPanel")) $("doencasPanel").classList.toggle("hidden", state.outrasDoencas !== "Sim");
@@ -5824,6 +6048,8 @@ function aplicarPreenchimentoIAResultado(dados) {
     setVal("agilDataDocumento", isoDoc);
     setVal("diasSolicitados", diasSolVal);
     setVal("agilDiasSolicitados", diasSolVal);
+    setVal("diasConcedidos", diasConcedidosVal);
+    setVal("agilDiasConcedidos", diasConcedidosVal);
     setVal("obsDocumentos", obsDocsVal);
     if (altClinExamesVal) {
       setVal("alteracoesClinicasExames", altClinExamesVal);
@@ -5835,6 +6061,13 @@ function aplicarPreenchimentoIAResultado(dados) {
     }
     if (typeof calcularDatasAtestado === "function") {
       calcularDatasAtestado();
+    }
+    // Reforçar valores do atestado após calcularDatasAtestado para evitar sobrescrita acidental
+    if (diasSolVal) {
+      state.diasSolicitados = diasSolVal;
+      if (state.aux) state.aux.diasSolicitados = diasSolVal;
+      setVal("diasSolicitados", diasSolVal);
+      setVal("agilDiasSolicitados", diasSolVal);
     }
 
     // Sinais vitais
@@ -5937,6 +6170,7 @@ function aplicarPreenchimentoIAResultado(dados) {
     setVal("atividadesComprometidas", dados.atividades_comprometidas);
     setRadioDirect("capacidade", state.capacidade);
     setRadioDirect("parecer", state.parecer);
+    setRadioDirect("agilParecer", state.parecer);
     setVal("justificativa", state.justificativa);
     setVal("agilJustificativa", state.justificativa);
 
@@ -5948,7 +6182,7 @@ function aplicarPreenchimentoIAResultado(dados) {
     if (typeof togglePanelsOnly === "function") togglePanelsOnly();
     if (typeof syncExtendedToAgil === "function") syncExtendedToAgil();
 
-    // 7. Salvaguarda final para doencaMotivo, inicioTratamento, freqConsultas, sintomasLimitacao e exameFisicoDescricao
+    // 7. Salvaguarda final para doencaMotivo, inicioTratamento, freqConsultas, sintomasLimitacao, terapias, atestado e exameFisicoDescricao
     if (doencaParaPreencher) {
       state.doencaMotivo = doencaParaPreencher;
       if (!state.aux) state.aux = {};
@@ -5988,6 +6222,12 @@ function aplicarPreenchimentoIAResultado(dados) {
       if ($("historicoPregresso")) $("historicoPregresso").value = antParaPreencher;
       if ($("agilHistoricoPregresso")) $("agilHistoricoPregresso").value = antParaPreencher;
     }
+    if ($("fisioterapia")) $("fisioterapia").checked = !!state.fisioterapia;
+    if ($("agilFisioterapia")) $("agilFisioterapia").checked = !!state.fisioterapia;
+    if ($("psicoterapia")) $("psicoterapia").checked = !!state.psicoterapia;
+    if ($("agilPsicoterapia")) $("agilPsicoterapia").checked = !!state.psicoterapia;
+    setVal("obsTerapias", obsTerapiasFinal);
+    setVal("agilObsTerapias", obsTerapiasFinal);
 
     // 8. Se for Outros, reforçar o destaque do chip e resultado selecionado
     if (state.exameFisicoTipo === "Outros" && typeof renderOutrosUI === "function") {
@@ -6007,6 +6247,7 @@ function aplicarPreenchimentoIAResultado(dados) {
     });
 
   } finally {
+    __isAutoSaving = prevAutoSaving;
     window.__isAutoSaving = prevAutoSaving;
     window.__isBulkApplyingIA = false;
   }
@@ -6195,7 +6436,7 @@ async function flushOfflineQueue(){
 }
 let __isAutoSaving = false;
 function autoSave(){
-  if(__isAutoSaving) return;
+  if(__isAutoSaving || window.__isAutoSaving || window.__isBulkApplyingIA) return;
   __isAutoSaving = true;
   try {
     if (typeof ensureDefaultQuesitos === "function") ensureDefaultQuesitos();
@@ -6427,8 +6668,9 @@ function renderAgilQuesitos() {
 }
 
 function ajustarQuesitosPorParecerEReadaptacao() {
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   const p = String(state.parecer || getRadio("parecer") || "FAVORÁVEL").toUpperCase();
-  const isFav = p.includes("FAV");
+  const isFav = p.includes("FAV") || isRetroInv;
   const isReadap = String(state.readaptado || state.aux?.readaptado || (typeof getRadio === 'function' ? (getRadio("readaptado") || getRadio("agilReadaptado")) : "") || "").trim().toLowerCase() === "sim";
 
   QuesitoService.set(0, "Sim");
@@ -6436,7 +6678,7 @@ function ajustarQuesitosPorParecerEReadaptacao() {
     QuesitoService.set(1, "Sim");
     QuesitoService.set(2, "Sim");
   } else {
-    // Parecer CONTRÁRIO:
+    // Parecer CONTRÁRIO (com expedição em dia):
     // Se colaborador for readaptado: 1) Sim, 2) Sim, 3) Não
     // Se NÃO for readaptado: 1) Sim, 2) Não, 3) Não
     QuesitoService.set(1, isReadap ? "Sim" : "Não");
@@ -6447,8 +6689,9 @@ function ajustarQuesitosPorParecerEReadaptacao() {
 }
 
 function ensureDefaultQuesitos(force) {
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   const p = String(state.parecer || getRadio("parecer") || "FAVORÁVEL").toUpperCase();
-  const isFav = p.includes("FAV");
+  const isFav = p.includes("FAV") || isRetroInv;
   const isReadap = String(state.readaptado || state.aux?.readaptado || (typeof getRadio === 'function' ? (getRadio("readaptado") || getRadio("agilReadaptado")) : "") || "").trim().toLowerCase() === "sim";
   const isAgil = !document.body.classList.contains("extended-mode");
   if (isAgil || force || QuesitoService.validate().answered < 3) {
@@ -6537,7 +6780,7 @@ const ValidationEngine={
       if (q2Ans === "Não") {
         warnings.push("🛡️ Incoerência e-SISLA: Parecer FAVORÁVEL com Quesito 2 respondido como 'Não' (a doença não gera limitações).");
       }
-    } else if (pFinal === "CONTRÁRIO") {
+    } else if (pFinal === "CONTRÁRIO" && !Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida)) {
       if (q3Ans === "Sim") {
         warnings.push("🛡️ Incoerência Grave e-SISLA: Parecer CONTRÁRIO com Quesito 3 respondido como 'Sim' (afirma impedimento para o cargo). Contradição manifesta passível de recurso pericial.");
       }
@@ -6608,7 +6851,16 @@ function focusValidationItem(step,label){
 }
 
 function renderParecerHint(){
-  const p = getRadio("parecer");
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  let p = getRadio("parecer");
+  if (isRetroInv && p === "FAVORÁVEL") {
+    p = "CONTRÁRIO";
+    setRadio("parecer", "CONTRÁRIO");
+    setRadio("agilParecer", "CONTRÁRIO");
+    if (typeof toast === "function") {
+      toast("⚠️ Retroação inválida (> 3 dias): o Parecer deve permanecer CONTRÁRIO conforme norma administrativa.");
+    }
+  }
   if (p === "FAVORÁVEL" || p === "CONTRÁRIO") {
     state.parecer = p;
     state.parecerManualOverride = p;
@@ -8802,10 +9054,10 @@ function escolherOutrosResultado(resultado) {
 
   const isRetroInvalida = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   const parecerAtual = String(state.parecerManualOverride || state.parecer || state.aux?.parecer || $("agilParecer")?.value || $("parecer")?.value || "").toUpperCase();
-  const isParecerFav = (parecerAtual === "FAVORÁVEL" || parecerAtual === "FAVORAVEL");
+  const isParecerFav = (parecerAtual === "FAVORÁVEL" || parecerAtual === "FAVORAVEL") && !isRetroInvalida;
 
   if (resultado === "Normal") {
-    if (isRetroInvalida && state.parecerManualOverride !== "FAVORÁVEL") {
+    if (isRetroInvalida) {
       aplicarParecerContrarioRetroacao(true);
       toast(`Avaliação: NORMAL • Parecer CONTRÁRIO mantido por retroação inválida (> 3 dias).`);
     } else if (isParecerFav) {
@@ -8842,7 +9094,7 @@ function escolherOutrosResultado(resultado) {
       toast(`Avaliação (${state.outrosSubtipo || "Outros"}): NORMAL.`);
     }
   } else if (resultado === "Alterado") {
-    if (isRetroInvalida && state.parecerManualOverride !== "FAVORÁVEL") {
+    if (isRetroInvalida) {
       aplicarParecerContrarioRetroacao(true);
       toast(`Avaliação: ALTERADO • Parecer CONTRÁRIO mantido por retroação da guia (> 3 dias).`);
     } else if (state.parecerManualOverride === "CONTRÁRIO") {
@@ -8875,7 +9127,7 @@ function escolherOutrosResultado(resultado) {
     const cargoNome = state.aux?.cargo || state.cargo || $("cargo")?.value || $("agilCargo")?.value || "servidor";
 
     if (!state.descLimitacao && !state.aux?.descLimitacao) {
-      const limitacaoCid = `Limitações funcionais decorrentes do quadro clínico (${cidVal ? cidVal + ' - ' : ''}${cidNome}), com redução temporária do rendimento e necessidade de repouso/adaptação funcional para as atividades do cargo de ${cargoNome}.`;
+      const limitacaoCid = `Limitações funcionais decorrentes do quadro clínico de ${cidVal ? cidVal + " - " : ""}${cidNome}, com redução temporária do rendimento e necessidade de repouso e adaptação funcional para as atividades do cargo de ${cargoNome}.`;
       state.descLimitacao = limitacaoCid;
       if (!state.aux) state.aux = {};
       state.aux.descLimitacao = limitacaoCid;
@@ -9134,7 +9386,7 @@ function aplicarExameMentalNormal() {
   if ($("exameFisicoDescricao")) $("exameFisicoDescricao").value = descMentalNormal;
   
   const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
-  if (isRetroInv && state.parecerManualOverride !== "FAVORÁVEL") {
+  if (isRetroInv) {
     aplicarParecerContrarioRetroacao(true);
     autoSave();
     if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") atualizarEstiloBotoesParecerDataAntiga();
@@ -9240,7 +9492,7 @@ function aplicarExameMentalAlterado() {
   setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
   
   const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
-  if (isRetroInv && state.parecerManualOverride !== "FAVORÁVEL") {
+  if (isRetroInv) {
     aplicarParecerContrarioRetroacao(true);
     autoSave();
     toast("Exame mental ALTERADO: exame e limitações mantidos favoráveis, parecer CONTRÁRIO mantido por retroação inválida.");
@@ -9571,21 +9823,22 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
     if (temRelatoAlt) {
       // Já relatado nos sintomas
     } else {
-      partes.push(`Informa alteração recente na prescrição medicamentosa${dtAlt ? ` em ${formatDate(dtAlt)}` : ""}${obsAlt ? ` (${obsAlt})` : ""}.`);
+      partes.push(`Informa alteração recente na prescrição medicamentosa${dtAlt ? ` em ${formatDate(dtAlt)}` : ""}${obsAlt ? `, ${obsAlt}` : ""}.`);
     }
   } else {
     partes.push("Não relatou troca de alteração de dosagem da medicação.");
   }
   
   // 7. Terapias
+  const obsTerClean = String(obsTerapias || "").replace(/^(?:Realiza\s+(?:fisioterapia|psicoterapia)[\.\,\s]*|N[ãa]o\s+(?:realiza|alegou)[^\.]*\.?\s*)+/gi, "").trim();
   if (fisio && !psico) {
-    const fTxt = obsTerapias ? `Realiza fisioterapia ${obsTerapias}` : "Realiza fisioterapia";
-    partes.push(`${fTxt} (e não realiza psicoterapia).`);
+    const fTxt = obsTerClean ? `Realiza fisioterapia, ${obsTerClean}` : "Realiza fisioterapia";
+    partes.push(`${fTxt.replace(/\.$/, "")}, e não realiza psicoterapia.`);
   } else if (psico && !fisio) {
-    const pTxt = obsTerapias ? `Realiza psicoterapia ${obsTerapias}` : "Realiza psicoterapia";
-    partes.push(`${pTxt} (e não realiza fisioterapia).`);
+    const pTxt = obsTerClean ? `Realiza psicoterapia, ${obsTerClean}` : "Realiza psicoterapia";
+    partes.push(`${pTxt.replace(/\.$/, "")}, e não realiza fisioterapia.`);
   } else if (fisio && psico) {
-    partes.push(`Realiza acompanhamento em fisioterapia e psicoterapia${obsTerapias ? ` (${obsTerapias})` : ""}.`);
+    partes.push(`Realiza acompanhamento em fisioterapia e psicoterapia${obsTerClean ? `, ${obsTerClean.replace(/\.$/, "")}` : ""}.`);
   } else {
     partes.push("Não alegou fazer fisioterapia e psicoterapia.");
   }
@@ -9864,7 +10117,7 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
   const isMentalAlterado = isMental && st.exameMentalResultado === "Alterado";
   const isRetroInv = Boolean(st.aux?.retroacaoInvalida || st.retroacaoInvalida);
   const pVal = String(st.parecer || v.parecer || (typeof getRadio === 'function' ? getRadio("parecer") : "") || "").toUpperCase();
-  const isFav = pVal === "F" || pVal.startsWith("FAV") || isOsteoAlterado || isMentalAlterado || (isRetroInv && st.parecerManualOverride !== "CONTRÁRIO");
+  const isFav = pVal === "F" || pVal.startsWith("FAV") || isOsteoAlterado || isMentalAlterado || isRetroInv;
   
   if (isMental) {
     if (isFav) {
@@ -9935,6 +10188,10 @@ function gerarNarrativaJustificativaMelhoriaContinua(st, v) {
   st = st || state;
   const isMental = st.exameFisicoTipo === "Exame Mental";
   const isOsteo = st.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo";
+  const isRetroInv = Boolean(st.aux?.retroacaoInvalida || st.retroacaoInvalida);
+  if (isRetroInv && typeof construirJustificativaRetroacaoSemParentesesJS === "function") {
+    return construirJustificativaRetroacaoSemParentesesJS(st, v);
+  }
   const isFav = (st.parecer === "FAVORÁVEL" || st.parecer === "Favorável");
   
   const rawJ = (st.aux?.justificativa || st.justificativa || $("agilJustificativa")?.value || "").trim();
@@ -10004,7 +10261,7 @@ function aplicarSintesePericialMelhoriaContinua(force = false) {
   const curDescLim = (state.descLimitacao || state.aux?.descLimitacao || "").trim();
   const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   const pStr = String(state.parecer || v.parecer || (typeof getRadio === 'function' ? getRadio("parecer") : "") || "").toUpperCase();
-  const isPParFav = pStr === "F" || pStr.startsWith("FAV") || (isRetroInv && state.parecerManualOverride !== "CONTRÁRIO");
+  const isPParFav = pStr === "F" || pStr.startsWith("FAV") || isRetroInv;
   const needLimUpdate = force || !curDescLim || curDescLim.length < 20 || (isPParFav && isContraryLimitationText(curDescLim)) || (!isPParFav && !isContraryLimitationText(curDescLim) && curDescLim.includes("Apresenta limitações"));
   if (narrativaLim && needLimUpdate) {
     state.descLimitacao = narrativaLim;
@@ -10017,7 +10274,7 @@ function aplicarSintesePericialMelhoriaContinua(force = false) {
 
   // 5. Justificativa
   const narrativaJustif = gerarNarrativaJustificativaMelhoriaContinua(state, v);
-  if (narrativaJustif && (force || !state.justificativa || state.justificativa.length < 40)) {
+  if (narrativaJustif && (force || isRetroInv || !state.justificativa || state.justificativa.length < 40)) {
     state.justificativa = narrativaJustif;
     state.aux.justificativa = narrativaJustif;
     if ($("justificativa")) $("justificativa").value = narrativaJustif;
@@ -10061,16 +10318,21 @@ function ensureAgileBackgroundDefaults() {
   }
   if ($("obsDocumentos")) $("obsDocumentos").value = state.aux.obsDocumentos;
   if (!state.aux.crmCro) {
+    const crmUI = $("agilCrmCro")?.value || $("crmCro")?.value || "";
     state.aux.crmCro = "Em anexo";
-    if ($("crmCro")) $("crmCro").value = "Em anexo";
+    if (crmUI) state.aux.crmCro = crmUI;
+    if ($("crmCro")) $("crmCro").value = state.aux.crmCro;
   }
   if (!state.aux.dataDocumento) {
-    state.aux.dataDocumento = state.aux.dataAtd || today();
-    if ($("dataDocumento")) $("dataDocumento").value = state.aux.dataDocumento;
+    const dtDocUI = $("agilDataDocumento")?.value || $("dataDocumento")?.value || "";
+    state.aux.dataDocumento = dtDocUI || state.aux.dataAtd || today();
+    if ($("dataDocumento") && !$("dataDocumento").value) $("dataDocumento").value = state.aux.dataDocumento;
   }
   if (!state.aux.diasSolicitados) {
+    const diasUI = $("agilDiasSolicitados")?.value || $("diasSolicitados")?.value || "";
     state.aux.diasSolicitados = "Conforme atestado";
-    if ($("diasSolicitados")) $("diasSolicitados").value = "Conforme atestado";
+    if (diasUI) state.aux.diasSolicitados = diasUI;
+    if ($("diasSolicitados") && !$("diasSolicitados").value) $("diasSolicitados").value = state.aux.diasSolicitados;
   }
   
   // CID sincronizado
@@ -10093,7 +10355,7 @@ function ensureAgileBackgroundDefaults() {
   const manualOverride = state.parecerManualOverride || "";
 
   const isFavGeneral = String(state.parecer || getRadio("parecer") || "").toUpperCase().startsWith("FAV")
-    || (isRetroInv && manualOverride !== "CONTRÁRIO")
+    || isRetroInv
     || (state.exameFisicoTipo === "Exame Mental" && state.exameMentalResultado === "Alterado")
     || (state.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo" && Object.values(state.osteomuscularRegioes || {}).some(v => v === "Alterado"));
 
@@ -10116,8 +10378,9 @@ function ensureAgileBackgroundDefaults() {
   }
 
   // 06, 07, 08 — Limitações, Quesitos, Capacidade, Parecer, Justificativa
-  if (isRetroInv && manualOverride !== "FAVORÁVEL") {
-    // Caso de retroação inválida (> 3 dias): Parecer CONTRÁRIO automático, mantendo limitações e exame como favorável
+  if (isRetroInv) {
+    // Caso de retroação inválida (> 3 dias): Parecer CONTRÁRIO obrigatório, mantendo limitações e exame como favorável
+    state.parecerManualOverride = "CONTRÁRIO";
     state.parecer = "CONTRÁRIO";
     state.aux.parecer = "CONTRÁRIO";
     state.limitacaoFuncional = "Sim";
@@ -10128,7 +10391,7 @@ function ensureAgileBackgroundDefaults() {
       state.aux.descLimitacao = state.descLimitacao;
     }
     const curJ = ($("agilJustificativa")?.value || state.justificativa || state.aux.justificativa || "").trim();
-    if (!curJ || !curJ.toLowerCase().includes("retroação")) {
+    if (!curJ || !curJ.toLowerCase().includes("retroação") || /[()]/.test(curJ)) {
       aplicarParecerContrarioRetroacao(true);
     } else {
       state.aux.justificativa = curJ;
@@ -10223,7 +10486,7 @@ function ensureAgileBackgroundDefaults() {
   setRadio("parecer", state.parecer);
   setRadio("agilParecer", state.parecer);
   if ($("justificativa")) $("justificativa").value = state.aux.justificativa || "";
-  if (isRetroInv && manualOverride !== "FAVORÁVEL") {
+  if (isRetroInv) {
     if (typeof QuesitoService !== "undefined") {
       QuesitoService.set(0, "Sim");
       QuesitoService.set(1, "Sim");
@@ -10321,8 +10584,9 @@ function toggleAtestadoAssistente(aberto) {
 }
 
 function atualizarDiasConcedidosAutomatico() {
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   const p = String(state.parecer || $("parecer")?.value || "").toUpperCase();
-  const isContrario = p.includes("CONTRÁR") || p.includes("CONTRAR");
+  const isContrario = isRetroInv || p.includes("CONTRÁR") || p.includes("CONTRAR");
   const diasInput = $("agilDiasSolicitados");
   const diasNormInput = $("diasSolicitados");
 
@@ -10332,16 +10596,14 @@ function atualizarDiasConcedidosAutomatico() {
     state.aux.diasConcedidos = "0";
     state.diasConcedidos = "0";
   } else {
-    let currentDias = state.aux.diasConcedidos || state.aux.diasSolicitados || diasInput?.value || diasNormInput?.value || "";
-    currentDias = String(currentDias).replace(/\D/g, "");
-    if (!currentDias || currentDias === "0") {
-      currentDias = "1";
+    let solicitados = String(diasInput?.value || diasNormInput?.value || state.aux.diasSolicitados || state.diasSolicitados || "").replace(/\D/g, "");
+    if (solicitados && solicitados !== "0") {
+      state.aux.diasConcedidos = solicitados;
+      state.diasConcedidos = solicitados;
+    } else if (!state.aux.diasConcedidos) {
+      state.aux.diasConcedidos = "1";
+      state.diasConcedidos = "1";
     }
-    state.aux.diasConcedidos = currentDias;
-    state.diasConcedidos = currentDias;
-    if (!state.aux.diasSolicitados) state.aux.diasSolicitados = currentDias;
-    if (diasInput && !diasInput.value) diasInput.value = currentDias;
-    if (diasNormInput && !diasNormInput.value) diasNormInput.value = currentDias;
   }
 }
 
@@ -10482,10 +10744,8 @@ function calcularDatasAtestado() {
     const avisoIA2E = $("ia2RetroacaoAvisoEscrita");
     if (avisoIA2E) avisoIA2E.style.display = "inline-flex";
 
-    // Aplicação automática de Parecer Contrário por retroação inválida (mesmo sem o médico clicar em aplicar)
-    if (state.parecerManualOverride !== "FAVORÁVEL") {
-      aplicarParecerContrarioRetroacao(true);
-    }
+    // Aplicação automática de Parecer Contrário por retroação inválida (sempre mandatário DPME)
+    aplicarParecerContrarioRetroacao(true);
   } else {
     if (!state.aux) state.aux = {};
     state.aux.retroacaoInvalida = false;
@@ -10512,7 +10772,7 @@ function calcularDatasAtestado() {
     if (avisoIA2E) avisoIA2E.style.display = "none";
   }
 
-  // Atualizar opção de Parecer abaixo da Justificativa quando identificar data antiga do atestado
+  // Atualizar opção de Parecer abaixo da Justificativa quando identificar data antiga do atestado (oculta se retroação)
   atualizarOpcaoParecerDataAntigaUI(diffDays, diffHoje, fmtDoc);
 
   if (!isNaN(dias) && dias > 0) {
@@ -10529,25 +10789,94 @@ function calcularDatasAtestado() {
   }
 }
 
-function aplicarParecerContrarioRetroacao(silent = false) {
-  const cargo = state.aux?.cargo || state.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor";
-  const cidVal = state.cid || state.aux?.cid || $("agilCid")?.value || $("cid")?.value || "";
-  const cidInfo = typeof findCID === "function" ? findCID(cidVal) : null;
-  const cidNome = cidInfo?.n || state.aux?.doencaMotivo || "patologia em tratamento";
-  const sintomasExistentes = ($("agilSintomasLimitacao")?.value || state.aux?.sintomasLimitacao || state.sintomasLimitacao || state.descLimitacao || "").trim();
-  const retroDias = state.aux?.retroacaoDias || state.retroacaoDias || "";
-  const diasClause = retroDias ? ` (${retroDias} dias)` : "";
+function removerParentesesTextoJS(texto) {
+  if (!texto) return "";
+  let s = String(texto);
+  s = s.replace(/\bo\(a\)\s+periciado\(a\)\b/gi, "o periciado");
+  s = s.replace(/\ba\(o\)\s+periciada\(o\)\b/gi, "a periciada");
+  s = s.replace(/\bo\(a\)\s+servidor\(a\)\b/gi, "o servidor");
+  s = s.replace(/\ba\(o\)\s+servidora\(o\)\b/gi, "a servidora");
+  s = s.replace(/\bpericiado\(a\)\b/gi, "periciado");
+  s = s.replace(/\bservidor\(a\)\b/gi, "servidor");
+  s = s.replace(/\bDr\(a\)\.?\b/gi, "Dr.");
+  s = s.replace(/\s*\(([^\(\)]*)\)/g, " - $1 - ");
+  s = s.replace(/[()]/g, "");
+  s = s.replace(/\s{2,}/g, " ").replace(/\s+([.,;:])/g, "$1").trim();
+  return s;
+}
+window.removerParentesesTextoJS = removerParentesesTextoJS;
 
-  // Justificativa com o motivo do contrário por retroação inválida (> 3 dias)
-  let justTexto = "";
-  if (sintomasExistentes && sintomasExistentes.length > 5 && !isContraryLimitationText(sintomasExistentes)) {
-    const sintClean = sintomasExistentes.replace(/\s*(?:Todavia|Contudo|Entretanto|Porém),?\s+a\s+guia\s+pericial.*$/i, "").replace(/\.$/, "");
-    justTexto = `Embora o(a) periciado(a) tenha apresentado atestado e histórico com relato de ${sintClean}, e limitações para as atividades do cargo de ${cargo}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação${diasClause} em relação à data de emissão do atestado médico, não havendo comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo-normativo do DPME/SP, o parecer CONTRÁRIO.`;
-  } else {
-    justTexto = `Embora o(a) servidor(a) tenha apresentado histórico compatível com ${cidVal ? cidVal + " (" + cidNome + ")" : cidNome}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação${diasClause} em relação à emissão do atestado médico, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando parecer CONTRÁRIO nos termos da diretriz regulamentar oficial do DPME/SP.`;
+function limparFragmentoClinicoRetroacaoJS(texto) {
+  if (!texto) return "";
+  let s = String(texto).trim();
+  s = s.replace(/^(?:o\s+periciado\s+relata|o\(a\)\s+periciado\(a\)\s+relata|relata\s+que|relata|com\s+relato\s+de\s+relata|com\s+relato\s+de)\s+/i, "");
+  s = s.replace(/\s*(?:todavia|contudo|entretanto|porém),?\s+a\s+guia\s+pericial.*$/i, "");
+  s = s.replace(/[.;,]+$/, "");
+  return s.trim();
+}
+window.limparFragmentoClinicoRetroacaoJS = limparFragmentoClinicoRetroacaoJS;
+
+function construirJustificativaRetroacaoSemParentesesJS(st, v) {
+  st = st || state || {};
+  v = v || {};
+  const cargo = String(st.aux?.cargo || st.cargo || v.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor").trim();
+  const cidVal = String(st.cid || st.aux?.cid || v.cid || $("agilCid")?.value || $("cid")?.value || "").trim().toUpperCase();
+  const cidInfo = typeof findCID === "function" ? findCID(cidVal) : null;
+  const cidNome = (cidInfo?.n || st.aux?.doencaMotivo || v.doencaMotivo || "patologia em tratamento").trim();
+  
+  const sintomasBruto = ($("agilSintomasLimitacao")?.value || st.aux?.sintomasLimitacao || st.sintomasLimitacao || st.descLimitacao || "").trim();
+  const retroDias = st.aux?.retroacaoDias || st.retroacaoDias || "";
+  const retroNum = parseInt(String(retroDias).replace(/\D/g, ""), 10) || 0;
+  const clausulaDias = retroNum > 0 ? `, totalizando ${retroNum} dias de retroação,` : "";
+
+  let fragSintomas = limparFragmentoClinicoRetroacaoJS(sintomasBruto);
+  if (fragSintomas && fragSintomas.toLowerCase().startsWith("relato de ")) {
+    fragSintomas = fragSintomas.slice(10).trim();
   }
 
+  let justTexto = "";
+  if (fragSintomas && fragSintomas.length > 5 && !isContraryLimitationText(fragSintomas)) {
+    justTexto = `Embora o periciado apresente histórico e atestado médico com relato de ${fragSintomas}, caracterizando limitações funcionais temporárias para as atribuições habituais do cargo de ${cargo}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação em relação à data de emissão do atestado médico${clausulaDias} sem comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo e normativo do DPME SP, o parecer CONTRÁRIO.`;
+  } else {
+    const doencaIdent = cidVal ? `${cidVal} - ${cidNome}` : cidNome;
+    justTexto = `Embora o periciado apresente histórico clínico e atestado médico compatíveis com ${doencaIdent}, com limitações funcionais temporárias para as atribuições habituais do cargo de ${cargo}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação em relação à data de emissão do atestado médico${clausulaDias} sem comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo e normativo do DPME SP, o parecer CONTRÁRIO.`;
+  }
+  return removerParentesesTextoJS(justTexto);
+}
+window.construirJustificativaRetroacaoSemParentesesJS = construirJustificativaRetroacaoSemParentesesJS;
+
+function aprimorarJustificativaRetroacaoEsislaJS(st, v, baseJust) {
+  st = st || state || {};
+  v = v || {};
+  let just = String(baseJust || "").trim();
+  if (!just || just.length < 30 || just.toLowerCase().includes("capacidade laborativa preservada") || just.includes("não se identificam limitações")) {
+    just = construirJustificativaRetroacaoSemParentesesJS(st, v);
+  } else {
+    just = removerParentesesTextoJS(just);
+  }
+  
+  const cargo = String(st.aux?.cargo || st.cargo || v.cargo || "servidor").trim();
+  const cidVal = String(st.cid || st.aux?.cid || v.cid || "").trim().toUpperCase();
+  const cidInfo = typeof findCID === "function" ? findCID(cidVal) : null;
+  const cidNome = (cidInfo?.n || st.aux?.doencaMotivo || v.doencaMotivo || "").trim();
+
+  if (cidVal && !just.includes(cidVal)) {
+    const ident = cidNome ? `${cidVal} - ${cidNome}` : cidVal;
+    just = just.replace(/compatíveis com/i, `compatíveis com ${ident}, com`);
+  }
+  if (!just.toLowerCase().includes("critério administrativo e normativo do dpme sp")) {
+    just = just.replace(/critério administrativo[^\.]*/i, "estrito critério administrativo e normativo do DPME SP, o parecer CONTRÁRIO");
+  }
+  return removerParentesesTextoJS(just);
+}
+window.aprimorarJustificativaRetroacaoEsislaJS = aprimorarJustificativaRetroacaoEsislaJS;
+
+function aplicarParecerContrarioRetroacao(silent = false) {
+  const cargo = state.aux?.cargo || state.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor";
+  const justTexto = construirJustificativaRetroacaoSemParentesesJS(state, typeof values === "function" ? values() : {});
+
   state.parecer = "CONTRÁRIO";
+  state.parecerManualOverride = "CONTRÁRIO";
   state.justificativa = justTexto;
   state.retroacaoInvalida = true;
   if (!state.aux) state.aux = {};
@@ -10597,6 +10926,12 @@ function aplicarParecerContrarioRetroacao(silent = false) {
     if (typeof renderQuesitos === "function") renderQuesitos();
   }
 
+  // Se retroação inválida, a caixa "Atestado com Data Antiga" não deve ser exibida
+  const boxAgil = $("agilOpcaoParecerDataAntigaBox");
+  const boxSec8 = $("sec8OpcaoParecerDataAntigaBox");
+  if (boxAgil) boxAgil.style.display = "none";
+  if (boxSec8) boxSec8.style.display = "none";
+
   if (typeof atualizarEstiloBotoesParecerDataAntiga === "function") {
     atualizarEstiloBotoesParecerDataAntiga();
   }
@@ -10612,21 +10947,18 @@ function atualizarOpcaoParecerDataAntigaUI(diffDays, diffHoje, fmtDoc) {
   const boxAgil = $("agilOpcaoParecerDataAntigaBox");
   const boxSec8 = $("sec8OpcaoParecerDataAntigaBox");
   const isDataAntiga = (typeof diffDays === "number" && diffDays > 0) || (typeof diffHoje === "number" && diffHoje > 0);
+  const isRetroInv = (typeof diffDays === "number" && diffDays > 3) || Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
 
-  if (!isDataAntiga) {
+  // Se for retroação inválida (> 3 dias) ou não for data antiga, NÃO exibir a caixa de opção de parecer de data antiga
+  if (!isDataAntiga || isRetroInv) {
     if (boxAgil) boxAgil.style.display = "none";
     if (boxSec8) boxSec8.style.display = "none";
     return;
   }
 
-  const isRetroInv = typeof diffDays === "number" && diffDays > 3;
   const diasRef = (typeof diffDays === "number" && diffDays > 0) ? diffDays : diffHoje;
-  const tituloTxt = isRetroInv
-    ? `Atestado com Data Antiga (${fmtDoc} • ${diffDays} dias de retroação > 3 dias)`
-    : `Atestado com Data Antiga Identificada (${fmtDoc} • ${diasRef} dia${diasRef > 1 ? "s" : ""} atrás)`;
-  const subTxt = isRetroInv
-    ? `Parecer CONTRÁRIO aplicado automaticamente mantendo exame físico e limitações favoráveis. Caso deseje, escolha abaixo o parecer independente do exame físico:`
-    : `Data anterior identificada no atestado. Você pode definir o parecer Contrário ou Favorável abaixo, independente do exame físico:`;
+  const tituloTxt = `Atestado com Data Antiga Identificada (${fmtDoc} • ${diasRef} dia${diasRef > 1 ? "s" : ""} atrás)`;
+  const subTxt = `Data anterior identificada no atestado. Você pode definir o parecer Contrário ou Favorável abaixo, independente do exame físico:`;
 
   if (boxAgil) {
     boxAgil.style.display = "block";
@@ -10682,6 +11014,12 @@ function atualizarEstiloBotoesParecerDataAntiga() {
 }
 
 function selecionarParecerDataAntigaManual(parecerEscolhido) {
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  if (isRetroInv) {
+    aplicarParecerContrarioRetroacao(false);
+    return;
+  }
+
   const par = String(parecerEscolhido || "").toUpperCase().includes("FAV") ? "FAVORÁVEL" : "CONTRÁRIO";
   state.parecerManualOverride = par;
   state.parecer = par;
@@ -10693,31 +11031,26 @@ function selecionarParecerDataAntigaManual(parecerEscolhido) {
   setRadio("parecer", par);
   setRadio("agilParecer", par);
 
-  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   const cargo = state.aux?.cargo || state.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor";
   const cidVal = state.cid || state.aux?.cid || $("agilCid")?.value || $("cid")?.value || "";
   const cidInfo = typeof findCID === "function" ? findCID(cidVal) : null;
   const cidNome = cidInfo?.n || state.aux?.doencaMotivo || "patologia avaliada";
 
   if (par === "CONTRÁRIO") {
-    if (isRetroInv) {
-      aplicarParecerContrarioRetroacao(true);
-    } else {
-      state.limitacaoFuncional = "Não";
-      state.limitacaoRol = "Não";
-      setRadio("limitacaoFuncional", "Não");
-      setRadio("agilLimitacaoFuncional", "Não");
-      setRadio("limitacaoRol", "Não");
-      setRadio("agilLimitacaoRol", "Não");
-      state.capacidade = "Capacidade laborativa preservada";
-      setRadio("capacidade", "Capacidade laborativa preservada");
-      const justContr = `Constato a capacidade laborativa preservada no presente ato pericial, não se observando elementos incapacitantes atuais para as atribuições do cargo de ${cargo}, ensejando parecer CONTRÁRIO.`;
-      state.justificativa = justContr;
-      state.aux.justificativa = justContr;
-      if ($("justificativa")) $("justificativa").value = justContr;
-      if ($("agilJustificativa")) $("agilJustificativa").value = justContr;
-      ajustarQuesitosPorParecerEReadaptacao();
-    }
+    state.limitacaoFuncional = "Não";
+    state.limitacaoRol = "Não";
+    setRadio("limitacaoFuncional", "Não");
+    setRadio("agilLimitacaoFuncional", "Não");
+    setRadio("limitacaoRol", "Não");
+    setRadio("agilLimitacaoRol", "Não");
+    state.capacidade = "Capacidade laborativa preservada";
+    setRadio("capacidade", "Capacidade laborativa preservada");
+    const justContr = `Constato a capacidade laborativa preservada no presente ato pericial, não se observando elementos incapacitantes atuais para as atribuições do cargo de ${cargo}, ensejando parecer CONTRÁRIO.`;
+    state.justificativa = justContr;
+    state.aux.justificativa = justContr;
+    if ($("justificativa")) $("justificativa").value = justContr;
+    if ($("agilJustificativa")) $("agilJustificativa").value = justContr;
+    ajustarQuesitosPorParecerEReadaptacao();
     toast("🔴 Parecer CONTRÁRIO aplicado (mantendo o exame físico registrado pelo médico).");
   } else {
     state.limitacaoFuncional = "Sim";
@@ -10741,7 +11074,7 @@ function selecionarParecerDataAntigaManual(parecerEscolhido) {
       if ($("descLimitacao")) $("descLimitacao").value = limFav;
       if ($("agilDescLimitacao")) $("agilDescLimitacao").value = limFav;
     }
-    const justFav = `Considerando o histórico clínico, a documentação médica apresentada e a sintomatologia compatível com ${cidVal ? cidVal + " (" + cidNome + ")" : cidNome}, considero a capacidade laborativa parcial e temporariamente prejudicada para as atribuições do rol do cargo de ${cargo}, referente ao período pleiteado no atestado médico.`;
+    const justFav = `Considerando o histórico clínico, a documentação médica apresentada e a sintomatologia compatível com ${cidVal ? cidVal + " - " + cidNome : cidNome}, considero a capacidade laborativa parcial e temporariamente prejudicada para as atribuições do rol do cargo de ${cargo}, referente ao período pleiteado no atestado médico.`;
     state.justificativa = justFav;
     state.aux.justificativa = justFav;
     if ($("justificativa")) $("justificativa").value = justFav;
@@ -12896,11 +13229,12 @@ function copiarLaudoEsislaAtendimento() {
   const v = values();
 
   // Mapear quesitos e parecer
-  const parecerCode = (state.parecer === 'FAVORÁVEL' || state.parecer === 'Favorável') ? 'F' : 'C';
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  const parecerCode = ((state.parecer === 'FAVORÁVEL' || state.parecer === 'Favorável') && !isRetroInv) ? 'F' : 'C';
   const isReadap = String(state.readaptado || state.aux?.readaptado || v.readaptado || '').trim().toLowerCase() === 'sim';
   let q1 = 'S';
-  let q2 = parecerCode === 'C' ? (isReadap ? 'S' : 'N') : 'S';
-  let q3 = parecerCode === 'C' ? 'N' : 'S';
+  let q2 = isRetroInv ? 'S' : (parecerCode === 'C' ? (isReadap ? 'S' : 'N') : 'S');
+  let q3 = isRetroInv ? 'S' : (parecerCode === 'C' ? 'N' : 'S');
 
   // 1. Queixa e Duração (max 2000)
   let queixaTexto = state.aux?.queixaDuracao || v.queixaDuracao || '';
@@ -12967,7 +13301,7 @@ function copiarLaudoEsislaAtendimento() {
     reqExComp = limList.join(' | ') || state.aux?.descLimitacao || v.descLimitacao || state.aux?.sintomasLimitacao || v.sintomasLimitacao || '';
   }
   const parecerVal = String(state.parecer || v.parecer || (typeof getRadio === 'function' ? getRadio('parecer') : '') || '').toUpperCase();
-  const isFav = parecerVal === 'F' || parecerVal.startsWith('FAV');
+  const isFav = parecerVal === 'F' || parecerVal.startsWith('FAV') || isRetroInv;
   if (isFav && isContraryLimitationText(reqExComp)) {
     reqExComp = (typeof gerarNarrativaLimitacoesMelhoriaContinua === "function") ? gerarNarrativaLimitacoesMelhoriaContinua(state, v) : '';
   } else if (!reqExComp || reqExComp.length < 15) {
@@ -12985,11 +13319,17 @@ function copiarLaudoEsislaAtendimento() {
   if (!justif || justif.length < 25) {
     justif = (typeof gerarNarrativaJustificativaMelhoriaContinua === "function") ? gerarNarrativaJustificativaMelhoriaContinua(state, v) : justif;
   }
+  if (isRetroInv) {
+    justif = aprimorarJustificativaRetroacaoEsislaJS(state, v, justif);
+  } else {
+    justif = removerParentesesTextoJS(justif);
+  }
   justif = sanitizeText(justif, 2000);
 
   // 7. CRM e Nome Médico Assistente
   const crmDigits = String(state.aux?.crmCro || v.crmCro || '').replace(/\D/g, '').slice(0, 9);
-  const nomeMed = sanitizeText(state.aux?.nomeMedicoAssistente || v.nomeMedicoAssistente || (crmDigits ? `Dr(a). CRM ${crmDigits}` : ''), 60);
+  const nomeAssist = state.aux?.nomeMedicoAssistente || v.nomeMedicoAssistente || '';
+  const nomeMed = sanitizeText(nomeAssist ? removerParentesesTextoJS(nomeAssist) : (crmDigits ? `Dr. CRM ${crmDigits}` : ''), 60);
 
   // 8. Pressão Arterial e Pulso
   const paSis = String(state.aux?.pressaoSistolica || v.pressaoSistolica || '').replace(/\D/g, '').slice(0, 3);
