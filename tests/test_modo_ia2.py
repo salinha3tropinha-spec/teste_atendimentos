@@ -362,4 +362,345 @@ def test_modo_ia2_screenshot_scenario_dialogue_and_colinha():
     assert re.search(r"\bde\s+(\d+|dez)\s+em\s+\d+\s+dias\b", user_screenshot_text, re.I) is not None
 
 
+def test_retroacao_invalida_keeps_favorable_limitations_and_exam_and_manual_old_date_option(monkeypatch):
+    """Valida que na retroação inválida (> 3 dias) aplica CONTRÁRIO automaticamente mantendo limitações e exame como favoráveis e motivo na justificativa, e valida a opção abaixo da justificativa para data antiga."""
+    import app as app_module
+    from app import PreenchimentoCompletoResult
+
+    attendance_content = ATTENDANCE_HTML
+    assert 'id="agilOpcaoParecerDataAntigaBox"' in attendance_content
+    assert 'id="sec8OpcaoParecerDataAntigaBox"' in attendance_content
+    assert "function selecionarParecerDataAntigaManual" in attendance_content
+    assert "function atualizarOpcaoParecerDataAntigaUI" in attendance_content
+
+    def fake_generate_structured(instruction, schema):
+        defaults = {}
+        for fname in PreenchimentoCompletoResult.model_fields:
+            if fname in ("medications", "conditions", "documents", "quesitos", "cids_secundarios"):
+                defaults[fname] = []
+            elif fname in ("fisioterapia", "psicoterapia"):
+                defaults[fname] = False
+            else:
+                defaults[fname] = ""
+        defaults.update({
+            "nome_paciente": "Maria Teste",
+            "cargo": "Professor de Educação Básica II",
+            "idade": "52",
+            "readaptado": "Não",
+            "cid": "M54.4",
+            "cid_descricao": "Lumbago com ciática",
+            "doenca_motivo": "Lombociatalgia aguda",
+            "sintomas_limitacao": "Dor lombar intensa irradiada para membro inferior direito",
+            "exame_fisico_tipo": "Aparelho Osteomuscular e Tecido Conjutivo",
+            "exame_fisico_descricao": "Coluna lombar: dor à palpação e limitação de flexo-extensão, Lasègue positivo à direita.",
+            "data_documento": "10/10/2026",
+            "data_expedicao": "20/10/2026",
+            "dias_solicitados": "15",
+            "parecer": "FAVORÁVEL",
+            "limitacao_funcional": "Sim",
+            "limitacao_rol": "Sim",
+            "desc_limitacao": "Apresenta limitações físicas para permanecer em pé por períodos prolongados e carregar peso",
+            "justificativa": "Justificativa clínica inicial."
+        })
+        return PreenchimentoCompletoResult.model_construct(**defaults)
+
+    monkeypatch.setattr(app_module, "_generate_structured", fake_generate_structured)
+    monkeypatch.setattr(app_module, "AUTH_REQUIRED", False)
+
+    client = app_module.app.test_client()
+    resp = client.post(
+        "/api/ai/preencher-ficha",
+        json={
+            "atendimento": "ATD-TESTE-001",
+            "texto_bruto": "Periciada 52 anos, PEB II, dor lombar irradiada, atestado de 10/10/2026 para 15 dias.",
+            "modo_ia2": True,
+            "contexto_atual": {
+                "dataDocumento": "2026-10-10",
+                "dataExpedicao": "20/10/2026",
+                "dataExpedicaoIso": "2026-10-20"
+            }
+        }
+    )
+    assert resp.status_code == 200, resp.get_json()
+    dados = resp.get_json()["dados"]
+    assert dados["retroacao_invalida"] is True
+    assert dados["parecer"] == "CONTRÁRIO"
+    assert dados["limitacao_funcional"] == "Sim"
+    assert dados["limitacao_rol"] == "Sim"
+    assert "Rol de Atividades" in dados["desc_limitacao"]
+    assert "emissão extemporânea" not in dados["desc_limitacao"]
+    assert "Lasègue positivo" in dados["exame_fisico_descricao"]
+    assert "retroação" in dados["justificativa"].lower()
+    assert "CONTRÁRIO" in dados["justificativa"]
+
+
+def test_user_scenario_complex_raw_attendance(monkeypatch):
+    """Valida o cenário exato trazido pelo usuário:
+    - Fisioterapia Sim e Psicoterapia Não
+    - Dados do Atestado & Prazos: vinte e um dias -> 21, crm 142890, 15/01/2026, guia 29/01/2026
+    - Retroação inválida (14 dias > 3 dias): Parecer estritamente CONTRÁRIO
+    - Justificativa sem nenhum parêntese () e de alta qualidade técnica
+    - Refinamento da justificativa no e-SISLA preservando limitações favoráveis e quesitos Sim, Sim, Sim
+    - Opção 'Atestado com Data Antiga' não deve ser exibida quando for retroação inválida
+    """
+    import app as app_module
+    from app import (
+        _detectar_terapias_texto,
+        _converter_numero_extenso_dias,
+        _extrair_dias_solicitados_texto,
+        _extrair_datas_documento_texto,
+        _remover_parenteses_texto,
+        _construir_justificativa_retroacao,
+        _aprimorar_justificativa_retroacao_esisla,
+        _build_deterministic_esisla,
+        PreenchimentoCompletoResult
+    )
+
+    texto_usuario = (
+        "servidor público estadual comparece hoje para avaliação pericial trazendo atestado médico "
+        "com diagnóstico de lombociatalgia intensa cid m54.4. refere que a dor lombar começou em "
+        "dezembro de 2025 e piorou muito mesmo dia 12 de janeiro de 2026 com irradiação até o pé direito "
+        "e dormência. fisioterapia faz duas vezes por semana na clínica do convênio psicoterapia não faz. "
+        "ao exame físico apresenta marcha claudicante lasègue positivo a 45 graus à direita e limitação funcional "
+        "severa para flexão do tronco e permanência em pé. atestado emitido pelo dr marcos vinicius crm 142890 "
+        "solicitando vinte e um dias a partir do dia 15/01/2026. guia expedida pelo setor em 29/01/2026."
+    )
+
+    # 1. Fisioterapia e Psicoterapia
+    fisio, psico = _detectar_terapias_texto(texto_usuario, "")
+    assert fisio is True
+    assert psico is False
+
+    # 2. Conversão de número por extenso e extração de dados do atestado
+    assert _converter_numero_extenso_dias("vinte e um dias") == "21"
+    dias_ext = _extrair_dias_solicitados_texto(texto_usuario)
+    assert dias_ext == "21"
+
+    dt_doc, dt_exp, crm_ext = _extrair_datas_documento_texto(texto_usuario)
+    assert dt_doc == "15/01/2026"
+    assert dt_exp == "29/01/2026"
+    assert crm_ext == "142890"
+
+    # 3. Justificativa sem parênteses
+    just = _construir_justificativa_retroacao(
+        cargo="Professor de Educação Básica II",
+        cid="M54.4",
+        doenca_motivo="Lumbago com ciática",
+        sintomas="marcha claudicante, Lasègue positivo e limitação funcional severa para permanência em pé",
+        retro_dias=14
+    )
+    assert "(" not in just
+    assert ")" not in just
+    assert "o(a)" not in just
+    assert "periciado(a)" not in just
+    assert "14 dias de retroação" in just
+    assert "CONTRÁRIO" in just
+
+    # 4. Geração e refinamento no e-SISLA
+    esisla_just = _aprimorar_justificativa_retroacao_esisla(
+        {
+            "cargo": "Professor de Educação Básica II",
+            "cid": "M54.4",
+            "cid_descricao": "Lumbago com ciática",
+            "retroacao_invalida": True,
+            "retroacao_dias": 14,
+            "data_documento": "15/01/2026",
+            "data_expedicao": "29/01/2026"
+        },
+        just
+    )
+    assert "(" not in esisla_just
+    assert ")" not in esisla_just
+    assert "M54.4" in esisla_just
+    assert "DPME SP" in esisla_just
+
+    # 5. Endpoint preencher-ficha com texto do usuário
+    def fake_generate(instruction, schema):
+        defaults = {}
+        for fname in PreenchimentoCompletoResult.model_fields:
+            if fname in ("medications", "conditions", "documents", "quesitos", "cids_secundarios"):
+                defaults[fname] = []
+            elif fname in ("fisioterapia", "psicoterapia"):
+                defaults[fname] = False
+            else:
+                defaults[fname] = ""
+        defaults.update({
+            "nome_paciente": "Carlos Servidor",
+            "cargo": "Professor de Educação Básica II",
+            "cid": "M54.4",
+            "cid_descricao": "Lumbago com ciática",
+            "data_documento": "15/01/2026",
+            "data_expedicao": "29/01/2026",
+            "dias_solicitados": "vinte e um",
+            "crm_cro": "142890",
+            "parecer": "FAVORÁVEL", # mesmo que o LLM inicial sugerisse favorável, a retroação deve forçar CONTRÁRIO
+            "limitacao_funcional": "Sim",
+            "limitacao_rol": "Sim",
+            "desc_limitacao": "Apresenta limitações físicas temporárias para flexão de coluna e ortostase",
+            "exame_fisico_descricao": "Marcha claudicante, Lasègue positivo a 45 graus à direita",
+            "justificativa": "Justificativa de teste."
+        })
+        return PreenchimentoCompletoResult.model_construct(**defaults)
+
+    monkeypatch.setattr(app_module, "_generate_structured", fake_generate)
+    monkeypatch.setattr(app_module, "AUTH_REQUIRED", False)
+
+    client = app_module.app.test_client()
+    resp = client.post(
+        "/api/ai/preencher-ficha",
+        json={
+            "atendimento": "ATD-RETRO-002",
+            "texto_bruto": texto_usuario,
+            "modo_ia2": True,
+            "contexto_atual": {}
+        }
+    )
+    assert resp.status_code == 200
+    dados = resp.get_json()["dados"]
+    assert dados["fisioterapia"] is True
+    assert dados["psicoterapia"] is False
+    assert dados["dias_solicitados"] == "21"
+    assert dados["data_documento"] in ("2026-01-15", "15/01/2026")
+    assert dados.get("data_documento_br", "15/01/2026") == "15/01/2026"
+    assert dados["data_expedicao"] in ("2026-01-29", "29/01/2026")
+    assert dados.get("data_expedicao_br", "29/01/2026") == "29/01/2026"
+    assert dados["crm_cro"] == "142890"
+    assert dados["retroacao_invalida"] is True
+    assert dados["parecer"] == "CONTRÁRIO"
+    assert dados["limitacao_funcional"] == "Sim"
+    assert dados["limitacao_rol"] == "Sim"
+    assert "(" not in dados["justificativa"]
+    assert ")" not in dados["justificativa"]
+
+    # 6. Validação do laudo determinístico e-SISLA para retroação
+    laudo_esisla = _build_deterministic_esisla(dados)
+    assert "Parecer: CONTRÁRIO" in laudo_esisla
+    just_lines = [line for line in laudo_esisla.splitlines() if "critério administrativo" in line or "DPME" in line]
+    assert len(just_lines) > 0
+    assert "(" not in just_lines[0]
+    assert ")" not in just_lines[0]
+
+    # 7. Frontend: ocultação da caixa "Atestado com Data Antiga" na retroação
+    js_content = (ROOT / "ambiental_assistente.js").read_text(encoding="utf-8")
+    assert "const isRetroInv = (typeof diffDays === \"number\" && diffDays > 3) || Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);" in js_content
+    assert "if (!isDataAntiga || isRetroInv) {" in js_content
+    assert "if (boxAgil) boxAgil.style.display = \"none\";" in js_content
+    assert "if (boxSec8) boxSec8.style.display = \"none\";" in js_content
+
+
+def test_caso_1_retroacao_quesitos_sim_and_no_double_e_and_no_dedup_meds():
+    """Valida Caso 1:
+    - Quesitos e-SISLA em retroação inválida devem ser Sim, Sim, Sim
+    - Sem duplicidade 'e e' na justificativa de retroação
+    - Deduplicação de 'Não relatou uso de medicações... Negou uso de medicações.'
+    """
+    from app import (
+        _clean_queixa_duracao_text,
+        _construir_justificativa_retroacao,
+        _build_deterministic_esisla,
+        _gatekeeper_anti_glosa_esisla
+    )
+
+    # 1. Deduplicação em Queixa e Duração
+    raw_queixa_caso1 = (
+        "Servidor de 30 anos, relatou não ser readaptado, é Servidor Público Estadual, com queixa de lombociatalgia intensa, desde 2025, realizando consultas conforme acompanhamento clínico. "
+        "O periciado refere dor em região lombar com piora recente e irradiação para o membro inferior direito acompanhada de dormência, apresentando marcha claudicante e limitação para flexão do tronco e permanência na posição ortostática. "
+        "Não relatou uso de medicações. Realiza fisioterapia motora duas vezes por semana e não realiza psicoterapia. Negou uso de medicações."
+    )
+    cleaned_queixa = _clean_queixa_duracao_text(raw_queixa_caso1)
+    assert "Não relatou uso de medicações" in cleaned_queixa
+    assert "Negou uso de medicações" not in cleaned_queixa
+
+    # 2. Sem duplo 'e e' na justificativa
+    just = _construir_justificativa_retroacao(
+        cargo="Servidor Público Estadual",
+        cid="M54.4",
+        doenca_motivo="Lombociatalgia intensa",
+        sintomas="dor em região lombar com piora recente e irradiação para o membro inferior direito acompanhada de dormência, apresentando marcha claudicante e limitação para flexão do tronco e permanência na posição ortostática",
+        retro_dias=14,
+        doc_date_br="15/01/2026",
+        exp_date_br="29/01/2026"
+    )
+    assert " e e " not in just
+    assert "tronco e limitações" in just or "flexão do tronco e e" not in just
+    assert "(" not in just and ")" not in just
+
+    # 3. Quesitos e-SISLA Sim, Sim, Sim
+    payload_caso1 = {
+        "cargo": "Servidor Público Estadual",
+        "cid": "M54.4",
+        "cid_descricao": "Lombociatalgia intensa",
+        "parecer": "CONTRÁRIO",
+        "retroacao_invalida": True,
+        "retroacao_dias": 14,
+        "data_documento": "15/01/2026",
+        "data_expedicao": "29/01/2026",
+        "dias_solicitados": "0",
+        "justificativa": just,
+        "sintomas_limitacoes": "Permanência prolongada em pé, locomoção e flexão de tronco",
+        "queixa_duracao": cleaned_queixa,
+        "fisioterapia": True,
+        "psicoterapia": False
+    }
+    laudo = _build_deterministic_esisla(payload_caso1)
+    assert "1) Há doença(s) ou sequela(s) de doença(s) prévia(s)? Sim" in laudo
+    assert "2) A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)? Sim" in laudo
+    assert "3) A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol? Sim" in laudo
+
+    # Pós-processamento também deve manter Sim, Sim, Sim mesmo com CONTRÁRIO
+    laudo_pos = _gatekeeper_anti_glosa_esisla(laudo, payload_caso1)
+    assert "1) Há doença(s) ou sequela(s) de doença(s) prévia(s)? Sim" in laudo_pos
+    assert "2) A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)? Sim" in laudo_pos
+    assert "3) A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol? Sim" in laudo_pos
+
+
+def test_caso_2_psiquiatria_ajuste_dose_suppresses_contradiction():
+    """Valida Caso 2:
+    - Quando há relato explícito de ajuste recente de dose, deve suprimir a frase padrão:
+      'Não relatou troca de medicação ou alteração de dosagem.'
+    """
+    from app import _clean_queixa_duracao_text, _build_deterministic_esisla
+
+    raw_queixa_caso2 = (
+        "Servidora de 46 anos, relatou não ser readaptada, é Professora de Educação Básica II há 18 anos, com queixa de episódio depressivo grave com choro fácil, insônia terminal, ideação de ruína e anedonia, desde 2025, realizando consultas quinzenalmente. "
+        "A periciada refere humor deprimido, choro fácil, insônia terminal, ideação de ruína e anedonia, associados a lentificação psicomotora e dificuldade de concentração. "
+        "Em uso de Venlafaxina 150 mg/dia pela manhã e Quetiapina 50 mg/dia ao deitar, com ajuste recente de dose realizado pelo psiquiatra assistente em 05/02/2026. "
+        "Realiza psicoterapia semanal e não realiza fisioterapia. Não relatou troca de medicação ou alteração de dosagem."
+    )
+    cleaned = _clean_queixa_duracao_text(raw_queixa_caso2)
+    assert "ajuste recente de dose realizado pelo psiquiatra assistente em 05/02/2026" in cleaned
+    assert "Não relatou troca de medicação ou alteração de dosagem" not in cleaned
+
+
+def test_caso_3_lombalgia_sem_incapacidade_contrario_quesitos_sim_nao_nao():
+    """Valida Caso 3:
+    - Caso com exame normal e remissão dos sintomas
+    - Parecer CONTRÁRIO, 0 dias
+    - Quesitos Sim, Não, Não
+    - Justificativa clara de capacidade preservada
+    """
+    from app import _build_deterministic_esisla, _gatekeeper_anti_glosa_esisla
+
+    payload_caso3 = {
+        "cargo": "Oficial Administrativo",
+        "cid": "M54.5",
+        "cid_descricao": "Lombalgia aguda",
+        "parecer": "CONTRÁRIO",
+        "dias_solicitados": "0",
+        "justificativa": "Capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações de ordem osteomuscular incapacitantes para as atribuições rotineiras do cargo atual.",
+        "exame_fisico_geral": "Estado geral bom, consciente, orientado. Aparelho osteomuscular normal, Lasègue negativo.",
+        "desc_limitacao": "Do ponto de vista médico não se observam limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de Oficial Administrativo, constantes no rol de atividades."
+    }
+
+    laudo = _build_deterministic_esisla(payload_caso3)
+    assert "Parecer: CONTRÁRIO" in laudo
+    assert "Nº Dias: 0" in laudo
+    assert "1) Há doença(s) ou sequela(s) de doença(s) prévia(s)? Sim" in laudo
+    assert "2) A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)? Não" in laudo
+    assert "3) A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol? Não" in laudo
+
+    laudo_pos = _gatekeeper_anti_glosa_esisla(laudo, payload_caso3)
+    assert "2) A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)? Não" in laudo_pos
+    assert "3) A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol? Não" in laudo_pos
+
 

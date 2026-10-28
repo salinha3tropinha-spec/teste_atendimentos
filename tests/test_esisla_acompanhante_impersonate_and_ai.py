@@ -255,3 +255,77 @@ def test_esisla_vincular_agenda_batch_contract():
     assert 'Ficha Vinculada' in GESTAO_MEDICOS
 
 
+def test_acompanhante_favoravel_feminino_peb1_chemotherapy_isolation():
+    """Valida o caso exato de acompanhante relatado:
+    - Servidora Professora PEB I, 41 anos, filho menor em isolamento para quimioterapia.
+    - Perito define FAVORÁVEL.
+    - Parecer FAVORÁVEL preservado, dias preservados, quesitos Sim, Sim, Sim.
+    - Justificativa do Artigo 199 com concordância 'A servidora'.
+    - Queixa e Duração sem 'O(A) servidor(a)' e sem redundância '(familiar dependente)'.
+    """
+    from app import _build_deterministic_esisla, _gatekeeper_anti_glosa_esisla, _sanitizar_texto_portugues_esisla
+
+    payload = {
+        "nome": "ANA PAULA DA SILVA",
+        "sexo": "Feminino",
+        "idade": "41",
+        "cargo": "Professor de Educação Básica I",
+        "tempo_funcao": "14",
+        "unidade_tempo": "anos",
+        "readaptado": "Não",
+        "tipo_atendimento_pericia": "ACOMPANHANTE",
+        "is_acompanhante": True,
+        "cid": "Z76.3",
+        "cid_descricao": "Perícia médica para acompanhamento de dependente enfermo com fundamento no Artigo 199 da Lei Estadual nº 10.261/1968, relativo à neoplasia hematológica em filho menor de 6 anos com internação hospitalar em regime de isolamento para tratamento quimioterápico",
+        "doenca_motivo": "Acompanhamento de dependente enfermo",
+        "parecer": "FAVORÁVEL",
+        "dias_solicitados": "15",
+        "data_documento": "05/02/2026",
+        "medico_perito": "Dr. Maykon Moraes",
+        "crm": "123456",
+        "pressao_sistolica": "120",
+        "pressao_diastolica": "80",
+        "pulso": "72",
+        "altura": "1.65",
+        "peso": "62",
+        "exame_fisico_descricao": "Bom estado geral, lúcida e orientada no tempo e no espaço, afebril, acianótica e anictérica, eupneica. Exame físico e mental sem alterações clínicas próprias.",
+        "alteracoes_clinicas_exames": "Apresentou relatório médico do oncopediatra comprovando internação hospitalar do dependente em regime de isolamento para tratamento quimioterápico.",
+        "queixa_duracao": (
+            "Servidora de 41 anos, relatou não ser readaptada, é Professora de Educação Básica I há 14 anos, "
+            "comparece a perícia médica oficial para fins de acompanhamento de familiar/dependente enfermo (familiar dependente), "
+            "com fundamento jurídico no Artigo 199 da Lei Estadual nº 10.261/1968 (CID Z76.3 — Pessoa em boa saúde acompanhando pessoa doente). "
+            "Informa prestar assistência direta, contínua e indispensável aos cuidados e acompanhamento em saúde de familiar dependente, "
+            "impossibilitando a conciliação com as atribuições funcionais habituais durante o período. "
+            "O(A) servidor(a) encontra-se em plenas condições de higidez física e mental, sem incapacidade laborativa própria. "
+            "A servidora negou uso de medicações próprias de uso contínuo."
+        )
+    }
+
+    doc = _build_deterministic_esisla(payload)
+    doc = _gatekeeper_anti_glosa_esisla(doc, payload)
+
+    # 1. Parecer FAVORÁVEL preservado com dias concedidos
+    assert "Parecer: FAVORÁVEL" in doc
+    assert "Nº Dias: 15" in doc
+    assert "Z76.3" in doc
+
+    # 2. Quesitos protegidos e em Sim, Sim, Sim
+    assert "1) Há doença(s) ou sequela(s) de doença(s) prévia(s)? Sim" in doc
+    assert "2) A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)? Sim" in doc
+    assert "3) A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol? Sim" in doc
+
+    # 3. Justificativa com Artigo 199 e concordância feminina
+    assert "Artigo 199 da Lei Estadual nº 10.261/1968" in doc
+    assert "A servidora encontra-se em plenas condições de higidez física e mental" in doc
+    assert "Artigos 191 e 193" not in doc
+
+    # 4. Queixa e Duração sem barras O(A) e sem redundância (familiar dependente)
+    queixa_part = doc.split("(*) Queixa e Duração:")[1].split("Antecedentes Mórbidos:")[0]
+    assert "O(A) servidor(a)" not in queixa_part
+    assert "O(A)" not in queixa_part
+    assert "servidor(a)" not in queixa_part
+    assert "(familiar dependente)" not in queixa_part
+    assert "A servidora encontra-se em plenas condições" in queixa_part
+
+
+
