@@ -10857,32 +10857,36 @@ function calcularDatasAtestado() {
     if (avisoIA2E) avisoIA2E.style.display = "none";
   }
 
-  // Atualizar opção de Parecer abaixo da Justificativa quando identificar data antiga do atestado (oculta se retroação)
-  atualizarOpcaoParecerDataAntigaUI(diffDays, diffHoje, fmtDoc);
-
+  let endDate = null;
+  let fmtTermino = "";
   if (!isNaN(dias) && dias > 0) {
     if (diasTxt) diasTxt.textContent = `${dias} dia${dias > 1 ? "s" : ""}`;
-    const endDate = new Date(docDate.getTime());
+    endDate = new Date(docDate.getTime());
     endDate.setDate(endDate.getDate() + (dias - 1));
     const endDay = String(endDate.getDate()).padStart(2, "0");
     const endMonth = String(endDate.getMonth() + 1).padStart(2, "0");
     const endYear = endDate.getFullYear();
-    if (terminoTxt) terminoTxt.textContent = `${endDay}/${endMonth}/${endYear}`;
+    fmtTermino = `${endDay}/${endMonth}/${endYear}`;
+    if (terminoTxt) terminoTxt.textContent = fmtTermino;
   } else {
     if (diasTxt) diasTxt.textContent = "--";
     if (terminoTxt) terminoTxt.textContent = "--/--/----";
   }
+
+  // Atualizar opção de Parecer abaixo da Justificativa quando identificar data antiga do atestado (oculta se retroação)
+  // Regra DPME: só deve ativar se JÁ PASSOU o prazo do atestado (a partir da data de término do afastamento)
+  atualizarOpcaoParecerDataAntigaUI(diffDays, diffHoje, fmtDoc, docDate, dias, endDate, todayZero, fmtTermino);
 }
 
 function removerParentesesTextoJS(texto) {
   if (!texto) return "";
   let s = String(texto);
-  s = s.replace(/\bo\(a\)\s+periciado\(a\)\b/gi, "o periciado");
-  s = s.replace(/\ba\(o\)\s+periciada\(o\)\b/gi, "a periciada");
-  s = s.replace(/\bo\(a\)\s+servidor\(a\)\b/gi, "o servidor");
-  s = s.replace(/\ba\(o\)\s+servidora\(o\)\b/gi, "a servidora");
-  s = s.replace(/\bpericiado\(a\)\b/gi, "periciado");
-  s = s.replace(/\bservidor\(a\)\b/gi, "servidor");
+  s = s.replace(/\bo\(a\)\s+periciado\(a\)(?!\w)/gi, "o periciado");
+  s = s.replace(/\ba\(o\)\s+periciada\(o\)(?!\w)/gi, "a periciada");
+  s = s.replace(/\bo\(a\)\s+servidor\(a\)(?!\w)/gi, "o servidor");
+  s = s.replace(/\ba\(o\)\s+servidora\(o\)(?!\w)/gi, "a servidora");
+  s = s.replace(/\bpericiado\(a\)(?!\w)/gi, "periciado");
+  s = s.replace(/\bservidor\(a\)(?!\w)/gi, "servidor");
   s = s.replace(/\bDr\(a\)\.?\b/gi, "Dr.");
   s = s.replace(/\s*\(([^\(\)]*)\)/g, " - $1 - ");
   s = s.replace(/[()]/g, "");
@@ -11031,22 +11035,47 @@ function aplicarParecerContrarioRetroacao(silent = false) {
 }
 window.aplicarParecerContrarioRetroacao = aplicarParecerContrarioRetroacao;
 
-function atualizarOpcaoParecerDataAntigaUI(diffDays, diffHoje, fmtDoc) {
+function atualizarOpcaoParecerDataAntigaUI(diffDays, diffHoje, fmtDoc, docDate, dias, endDate, todayZero, fmtTermino) {
   const boxAgil = $("agilOpcaoParecerDataAntigaBox");
   const boxSec8 = $("sec8OpcaoParecerDataAntigaBox");
-  const isDataAntiga = (typeof diffDays === "number" && diffDays > 0) || (typeof diffHoje === "number" && diffHoje > 0);
+
+  // Se for retroação inválida (> 3 dias), a regra mandatária de retroação tem precedência e oculta este bloco
   const isRetroInv = (typeof diffDays === "number" && diffDays > 3) || Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
 
-  // Se for retroação inválida (> 3 dias) ou não for data antiga, NÃO exibir a caixa de opção de parecer de data antiga
+  // Fallbacks caso chamadores passem argumentos incompletos
+  if (!todayZero) {
+    const now = new Date();
+    todayZero = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  if (!endDate && docDate && !isNaN(dias) && dias > 0) {
+    endDate = new Date(docDate.getTime());
+    endDate.setDate(endDate.getDate() + (dias - 1));
+  }
+
+  // Regra oficial DPME: "Atestado com Data Antiga" (homologação pretérita) só deve ativar se JÁ PASSOU o prazo do atestado.
+  // Exemplo: atestado de 14 dias com início em 26/10 termina em 08/11. Enquanto hoje < 08/11, o servidor ainda está
+  // usufruindo o período de afastamento (atestado vigente), não devendo ativar a opção de atestado antigo.
+  // Apenas a partir do término do prazo (no exemplo, a partir de 08/11) é que se aplica.
+  let isPrazoPassado = false;
+  if (endDate && todayZero) {
+    isPrazoPassado = todayZero.getTime() >= endDate.getTime();
+  } else if (docDate && todayZero && (!dias || isNaN(dias) || dias <= 0)) {
+    isPrazoPassado = todayZero.getTime() > docDate.getTime();
+  }
+
+  const isDataAntiga = isPrazoPassado;
+
+  // Se for retroação inválida (> 3 dias) ou NÃO tiver passado o prazo do atestado, NÃO exibir a caixa de data antiga
   if (!isDataAntiga || isRetroInv) {
     if (boxAgil) boxAgil.style.display = "none";
     if (boxSec8) boxSec8.style.display = "none";
     return;
   }
 
-  const diasRef = (typeof diffDays === "number" && diffDays > 0) ? diffDays : diffHoje;
-  const tituloTxt = `Atestado com Data Antiga Identificada (${fmtDoc} • ${diasRef} dia${diasRef > 1 ? "s" : ""} atrás)`;
-  const subTxt = `Data anterior identificada no atestado. Você pode definir o parecer Contrário ou Favorável abaixo, independente do exame físico:`;
+  const diasRef = (typeof diffHoje === "number" && diffHoje > 0) ? diffHoje : (typeof diffDays === "number" && diffDays > 0 ? diffDays : 1);
+  const infoTermino = fmtTermino ? ` • Término em ${fmtTermino}` : "";
+  const tituloTxt = `Atestado com Data Antiga Identificada (${fmtDoc}${infoTermino} • ${diasRef} dia${diasRef > 1 ? "s" : ""} atrás)`;
+  const subTxt = `Prazo do atestado já decorrido. Você pode definir o parecer Contrário ou Favorável abaixo, independente do exame físico:`;
 
   if (boxAgil) {
     boxAgil.style.display = "block";
