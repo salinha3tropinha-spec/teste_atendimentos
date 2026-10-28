@@ -5173,10 +5173,19 @@ function atualizarBannerAcompanhante() {
 }
 
 function aplicarModeloTextoAcompanhante() {
-  const depNome = state.nomeDependente || state.aux?.nomeDependente || state.pessoa || "familiar dependente";
+  const rawDep = (state.nomeDependente || state.aux?.nomeDependente || state.pessoa || "").trim();
+  const isGenericDep = !rawDep || /^(?:familiar(?:\s+dependente)?|dependente|o\s+próprio|próprio|a\s+pedido)$/i.test(rawDep);
+  const depNome = isGenericDep ? "" : rawDep;
+  const sexo = String(state.sexo || state.aux?.sexo || "").toLowerCase();
+  const isFem = sexo === "f" || sexo === "feminino" || /servidora|periciada|professora/i.test(state.cargo || state.aux?.cargo || "");
+  const termoServ = isFem ? "Servidora" : "Servidor";
+  const higidoTerm = isFem ? "hígida" : "hígido";
+  const cargoNome = state.cargo || state.aux?.cargo || "servidor";
   
   // 1. Exame físico geral padrão para servidor hígido acompanhante
-  const efTexto = "Servidor(a) em bom estado geral, lúcido(a), orientado(a) no tempo e espaço, eupneico(a), corado(a), hidratado(a), acianótico(a), sem sinais de descompensação clínica ou alterações psicomotoras. Exame físico geral sem anormalidades incapacitantes, encontrando-se apto(a) física e psiquicamente para exercer os cuidados e assistência necessária ao familiar.";
+  const efTexto = isFem
+    ? "Servidora em bom estado geral, lúcida, orientada no tempo e espaço, eupneica, corada, hidratada, acianótica, sem sinais de descompensação clínica ou alterações psicomotoras. Exame físico geral sem anormalidades incapacitantes, encontrando-se apta física e psiquicamente para exercer os cuidados e assistência necessária ao familiar."
+    : "Servidor em bom estado geral, lúcido, orientado no tempo e espaço, eupneico, corado, hidratado, acianótico, sem sinais de descompensação clínica ou alterações psicomotoras. Exame físico geral sem anormalidades incapacitantes, encontrando-se apto físico e psiquicamente para exercer os cuidados e assistência necessária ao familiar.";
   
   state.exameFisicoTipo = "Outros";
   state.outrosSubtipo = "Exame Físico Geral";
@@ -5195,10 +5204,12 @@ function aplicarModeloTextoAcompanhante() {
   
   if (typeof renderOutrosUI === "function") renderOutrosUI();
 
-  // 2. Parecer e Justificativa DPME
-  const justTexto = `Perícia médica oficial para acompanhamento de familiar/dependente enfermo, com fundamento jurídico no Artigo 199 da Lei Estadual nº 10.261/1968. Comprovada a necessidade de assistência direta e indispensável ao(à) dependente ${depNome}, que se encontra sob cuidados médicos documentados em relatório assistencial anexado aos autos. O(A) servidor(a) encontra-se em plenas condições de saúde (CID Z76.3). Parecer favorável à concessão de licença por motivo de doença em pessoa da família pelo período solicitado.`;
+  // 2. Parecer e Justificativa DPME (Art. 199 Lei 10.261/68)
+  const depClause = depNome ? `ao dependente ${depNome}` : "ao familiar dependente";
+  const justTexto = `Capacidade laborativa própria preservada, sendo o parecer FAVORÁVEL à concessão de licença por motivo de doença em pessoa da família nos termos do Artigo 199 da Lei Estadual nº 10.261/1968, comprovada a necessidade de assistência direta e contínua ${depClause} pelo período concedido.`;
   
   state.parecer = "FAVORÁVEL";
+  state.parecerManualOverride = "FAVORÁVEL";
   state.justificativa = justTexto;
   state.aux.parecer = "FAVORÁVEL";
   state.aux.justificativa = justTexto;
@@ -5206,20 +5217,23 @@ function aplicarModeloTextoAcompanhante() {
   if ($("parecer")) $("parecer").value = "FAVORÁVEL";
   if ($("agilParecer")) $("agilParecer").value = "FAVORÁVEL";
   setRadio("parecer", "FAVORÁVEL");
+  setRadio("agilParecer", "FAVORÁVEL");
   if ($("justificativa")) $("justificativa").value = justTexto;
   if ($("agilJustificativa")) $("agilJustificativa").value = justTexto;
 
-  // 3. Respostas aos quesitos e limitações (Lei 10.261/68 - Acompanhante)
+  // 3. Respostas aos quesitos e limitações (Lei 10.261/68 - Acompanhante Favorable)
   state.quesitos = [
     { numero: 1, pergunta: "1) Há doença(s) ou seqüela(s) decorrente(s) de acidente de trabalho?", resposta: "Sim" },
-    { numero: 2, pergunta: "2) A(s) doença(s) ou seqüela(s) determina(m) limitação funcional?", resposta: "Não" },
+    { numero: 2, pergunta: "2) A(s) doença(s) ou seqüela(s) determina(m) limitação funcional?", resposta: "Sim" },
     { numero: 3, pergunta: "3) A(s) limitação(ões) impede(m) o exercício das funções habituais do cargo?", resposta: "Sim" }
   ];
-  state.limitacaoFuncional = "Não";
-  state.limitacaoRol = "Não";
-  setRadio("limitacaoFuncional", "Não");
-  setRadio("limitacaoRol", "Não");
-  const limTexto = `Servidor(a) hígido(a), sem limitação funcional própria. Necessidade de afastamento temporário decorrente da assistência imprescindível ao(à) dependente ${depNome} sob tratamento (art. 199 da Lei Estadual nº 10.261/68).`;
+  state.limitacaoFuncional = "Sim";
+  state.limitacaoRol = "Sim";
+  state.capacidade = "Capacidade laborativa própria preservada";
+  setRadio("limitacaoFuncional", "Sim");
+  setRadio("limitacaoRol", "Sim");
+  setRadio("capacidade", state.capacidade);
+  const limTexto = `${termoServ} ${higidoTerm}, sem limitação funcional própria. Necessidade de afastamento temporário decorrente da assistência imprescindível ao familiar dependente sob tratamento, impossibilitando a conciliação com as atribuições constantes no Rol de Atividades do cargo de ${cargoNome} (artigo 199 da Lei Estadual nº 10.261/1968).`;
   state.descLimitacao = limTexto;
   state.aux.descLimitacao = limTexto;
   if ($("descLimitacao")) $("descLimitacao").value = limTexto;
@@ -9661,9 +9675,11 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
   }
 
   if (isAcomp) {
-    const depNome = aux.nomeDependente || st.nomeDependente || st.pessoa || "familiar dependente";
+    const rawDep = (aux.nomeDependente || st.nomeDependente || st.pessoa || "").trim();
+    const isGenericDep = !rawDep || /^(?:familiar(?:\s+dependente|\/dependente)?(?:\s+enfermo)?|dependente(?:\s+enfermo)?|o\s+próprio|próprio|a\s+pedido)$/i.test(rawDep);
+    const depNome = isGenericDep ? "" : rawDep;
     const sexo = (st.sexo || v.sexo || "").toLowerCase();
-    const isFem = sexo === "f" || sexo === "feminino";
+    const isFem = sexo === "f" || sexo === "feminino" || /servidora|periciada|professora/i.test(st.cargo || v.cargo || "");
     let ident = isFem ? "Servidora" : "Servidor";
     if (idade) ident += ` de ${idade} anos`;
     if (readap) {
@@ -9680,11 +9696,19 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
         ident += `, é ${cargoFormatado}`;
       }
     }
-    ident += `, comparece a perícia médica oficial para fins de acompanhamento de familiar/dependente enfermo (${depNome}), com fundamento jurídico no Artigo 199 da Lei Estadual nº 10.261/1968 (CID Z76.3 — Pessoa em boa saúde acompanhando pessoa doente).`;
+    if (depNome) {
+      ident += `, comparece a perícia médica oficial para fins de acompanhamento de seu dependente (${depNome}), com fundamento jurídico no Artigo 199 da Lei Estadual nº 10.261/1968 (CID Z76.3 — Pessoa em boa saúde acompanhando pessoa doente).`;
+    } else {
+      ident += `, comparece a perícia médica oficial para fins de acompanhamento de familiar dependente, com fundamento jurídico no Artigo 199 da Lei Estadual nº 10.261/1968 (CID Z76.3 — Pessoa em boa saúde acompanhando pessoa doente).`;
+    }
     
     let acompPartes = [ident];
-    acompPartes.push(`Informa prestar assistência direta, contínua e indispensável aos cuidados e acompanhamento em saúde de ${depNome}, impossibilitando a conciliação com as atribuições funcionais habituais durante o período.`);
-    acompPartes.push("O(A) servidor(a) encontra-se em plenas condições de higidez física e mental, sem incapacidade laborativa própria.");
+    if (depNome) {
+      acompPartes.push(`Informa prestar assistência direta, contínua e indispensável aos cuidados e acompanhamento em saúde de ${depNome}, impossibilitando a conciliação com as atribuições funcionais habituais durante o período.`);
+    } else {
+      acompPartes.push(`Informa prestar assistência direta, contínua e indispensável aos cuidados e acompanhamento em saúde do familiar dependente, impossibilitando a conciliação com as atribuições funcionais habituais durante o período.`);
+    }
+    acompPartes.push(`${isFem ? "A servidora" : "O servidor"} encontra-se em plenas condições de higidez física e mental, sem incapacidade laborativa própria.`);
     if (medsStr) {
       acompPartes.push(`Em uso de medicação de rotina: ${medsStr}.`);
     } else {
@@ -9830,7 +9854,7 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
       partes.push(`Informa alteração recente na prescrição medicamentosa${dtAlt ? ` em ${formatDate(dtAlt)}` : ""}${obsAlt ? `, ${obsAlt}` : ""}.`);
     }
   } else {
-    partes.push("Não relatou troca de alteração de dosagem da medicação.");
+    partes.push("Não relatou troca de medicação ou alteração de dosagem.");
   }
   
   // 7. Terapias
@@ -10122,6 +10146,30 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
   const isRetroInv = Boolean(st.aux?.retroacaoInvalida || st.retroacaoInvalida);
   const pVal = String(st.parecer || v.parecer || (typeof getRadio === 'function' ? getRadio("parecer") : "") || "").toUpperCase();
   const isFav = pVal === "F" || pVal.startsWith("FAV") || isOsteoAlterado || isMentalAlterado || isRetroInv;
+
+  const isAcomp = !!(
+    st.isAcompanhante ||
+    st.aux?.isAcompanhante ||
+    st.cid === "Z763" ||
+    st.cid === "Z76.3" ||
+    st.aux?.cid === "Z763" ||
+    st.aux?.cid === "Z76.3" ||
+    /acompanha/i.test(st.doencaMotivo || st.aux?.doencaMotivo || "") ||
+    /artigo\s*199/i.test(st.doencaMotivo || st.aux?.doencaMotivo || "")
+  );
+
+  const sexo = String(st.sexo || v.sexo || "").toLowerCase();
+  const isFem = sexo === "f" || sexo === "feminino" || /servidora|periciada|professora/i.test(cargo);
+  const termoServ = isFem ? "Servidora" : "Servidor";
+  const higidoTerm = isFem ? "hígida" : "hígido";
+
+  if (isAcomp) {
+    if (isFav) {
+      return `${termoServ} ${higidoTerm}, sem limitação funcional própria. Necessidade de afastamento temporário decorrente da assistência imprescindível ao familiar dependente sob tratamento, impossibilitando a conciliação com as atribuições constantes no Rol de Atividades do cargo de ${cargo} (artigo 199 da Lei Estadual nº 10.261/1968).`;
+    } else {
+      return `Do ponto de vista médico não se observam limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de ${cargo}, constantes no rol de atividades.`;
+    }
+  }
   
   if (isMental) {
     if (isFav) {
@@ -10196,10 +10244,29 @@ function gerarNarrativaJustificativaMelhoriaContinua(st, v) {
   if (isRetroInv && typeof construirJustificativaRetroacaoSemParentesesJS === "function") {
     return construirJustificativaRetroacaoSemParentesesJS(st, v);
   }
-  const isFav = (st.parecer === "FAVORÁVEL" || st.parecer === "Favorável");
+  const isFav = String(st.parecer || v.parecer || (typeof getRadio === 'function' ? getRadio("parecer") : "") || "").toUpperCase().startsWith("FAV");
+
+  const isAcomp = !!(
+    st.isAcompanhante ||
+    st.aux?.isAcompanhante ||
+    st.cid === "Z763" ||
+    st.cid === "Z76.3" ||
+    st.aux?.cid === "Z763" ||
+    st.aux?.cid === "Z76.3" ||
+    /acompanha/i.test(st.doencaMotivo || st.aux?.doencaMotivo || "") ||
+    /artigo\s*199/i.test(st.doencaMotivo || st.aux?.doencaMotivo || "")
+  );
+
+  if (isAcomp) {
+    if (isFav) {
+      return "Capacidade laborativa própria preservada, sendo o parecer FAVORÁVEL à concessão de licença por motivo de doença em pessoa da família nos termos do Artigo 199 da Lei Estadual nº 10.261/1968, comprovada a necessidade de assistência direta e contínua ao familiar dependente pelo período concedido.";
+    } else {
+      return "Capacidade laborativa própria preservada. O pleito refere-se a acompanhamento de dependente enfermo, situação que não preenche os requisitos para concessão de licença nos termos do Artigo 199 da Lei Estadual nº 10.261/1968, referente ao período pleiteado.";
+    }
+  }
   
   const rawJ = (st.aux?.justificativa || st.justificativa || $("agilJustificativa")?.value || "").trim();
-  if (rawJ && rawJ.length > 70 && !rawJ.includes("não se identificam limitações funcionais em níveis")) {
+  if (rawJ && rawJ.length > 70 && !rawJ.includes("não se identificam limitações funcionais em níveis") && !rawJ.includes("Artigos 191 e 193")) {
     return rawJ;
   }
   
@@ -10356,12 +10423,26 @@ function ensureAgileBackgroundDefaults() {
   }
   
   const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
-  const manualOverride = state.parecerManualOverride || "";
+  const curParecerStr = String(state.parecer || state.aux?.parecer || (typeof getRadio === 'function' ? getRadio("parecer") : "") || "").toUpperCase();
+  const manualOverride = state.parecerManualOverride || (curParecerStr.startsWith("FAV") ? "FAVORÁVEL" : (curParecerStr.startsWith("CONT") ? "CONTRÁRIO" : ""));
 
-  const isFavGeneral = String(state.parecer || getRadio("parecer") || "").toUpperCase().startsWith("FAV")
+  const isAcomp = !!(
+    state.isAcompanhante ||
+    state.aux?.isAcompanhante ||
+    state.cid === "Z763" ||
+    state.cid === "Z76.3" ||
+    state.aux?.cid === "Z763" ||
+    state.aux?.cid === "Z76.3" ||
+    /acompanha/i.test(state.doencaMotivo || state.aux?.doencaMotivo || "") ||
+    /artigo\s*199/i.test(state.doencaMotivo || state.aux?.doencaMotivo || "")
+  );
+
+  const isFavGeneral = curParecerStr.startsWith("FAV")
+    || manualOverride === "FAVORÁVEL"
     || isRetroInv
     || (state.exameFisicoTipo === "Exame Mental" && state.exameMentalResultado === "Alterado")
-    || (state.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo" && Object.values(state.osteomuscularRegioes || {}).some(v => v === "Alterado"));
+    || (state.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo" && Object.values(state.osteomuscularRegioes || {}).some(v => v === "Alterado"))
+    || (state.exameFisicoTipo === "Outros" && state.outrosResultado === "Alterado");
 
   if (!state.aux.sintomasLimitacao || (isFavGeneral && isContraryLimitationText(state.aux.sintomasLimitacao))) {
     if (isFavGeneral) {
@@ -10407,7 +10488,7 @@ function ensureAgileBackgroundDefaults() {
     if (manualOverride === "FAVORÁVEL") {
       state.limitacaoFuncional = "Sim";
       state.limitacaoRol = "Sim";
-      state.capacidade = "Capacidade parcial e temporariamente prejudicada";
+      state.capacidade = isAcomp ? "Capacidade laborativa própria preservada" : "Capacidade parcial e temporariamente prejudicada";
       if (!state.descLimitacao || isContraryLimitationText(state.descLimitacao)) {
         state.descLimitacao = gerarNarrativaLimitacoesMelhoriaContinua(state, values());
         state.aux.descLimitacao = state.descLimitacao;
@@ -10461,12 +10542,12 @@ function ensureAgileBackgroundDefaults() {
       state.justificativa = state.aux.justificativa;
     }
   } else if (state.exameFisicoTipo === "Outros") {
-    if (state.outrosResultado === "Alterado") {
+    if (state.outrosResultado === "Alterado" || isFavGeneral || curParecerStr.startsWith("FAV")) {
       state.limitacaoFuncional = "Sim";
       state.limitacaoRol = "Sim";
-      state.capacidade = "Capacidade parcial e temporariamente prejudicada";
+      state.capacidade = isAcomp ? "Capacidade laborativa própria preservada" : "Capacidade parcial e temporariamente prejudicada";
       state.parecer = "FAVORÁVEL";
-      state.aux.justificativa = state.aux.justificativa || $("agilJustificativa")?.value || "";
+      state.aux.justificativa = state.aux.justificativa || $("agilJustificativa")?.value || (isAcomp ? gerarNarrativaJustificativaMelhoriaContinua(state, values()) : "");
       state.justificativa = state.aux.justificativa;
     } else {
       state.limitacaoFuncional = "Não";
@@ -10477,11 +10558,11 @@ function ensureAgileBackgroundDefaults() {
       state.justificativa = state.aux.justificativa;
     }
   } else {
-    state.limitacaoFuncional = state.limitacaoFuncional || "Não";
-    state.limitacaoRol = state.limitacaoRol || "Não";
-    state.capacidade = state.capacidade || "Capacidade laborativa preservada";
-    state.parecer = state.parecer || "CONTRÁRIO";
-    state.aux.justificativa = state.aux.justificativa || $("agilJustificativa")?.value || "Avaliação pericial clínica sem evidências de incapacidade laborativa no momento do exame pericial.";
+    state.parecer = state.parecer || (isFavGeneral ? "FAVORÁVEL" : "CONTRÁRIO");
+    state.limitacaoFuncional = state.limitacaoFuncional || (state.parecer === "FAVORÁVEL" ? "Sim" : "Não");
+    state.limitacaoRol = state.limitacaoRol || (state.parecer === "FAVORÁVEL" ? "Sim" : "Não");
+    state.capacidade = state.capacidade || (state.parecer === "FAVORÁVEL" ? (isAcomp ? "Capacidade laborativa própria preservada" : "Capacidade parcial e temporariamente prejudicada") : "Capacidade laborativa preservada");
+    state.aux.justificativa = state.aux.justificativa || $("agilJustificativa")?.value || (isAcomp ? gerarNarrativaJustificativaMelhoriaContinua(state, values()) : "Avaliação pericial clínica sem evidências de incapacidade laborativa no momento do exame pericial.");
     state.justificativa = state.aux.justificativa;
   }
   setRadio("limitacaoFuncional", state.limitacaoFuncional);
@@ -10490,7 +10571,7 @@ function ensureAgileBackgroundDefaults() {
   setRadio("parecer", state.parecer);
   setRadio("agilParecer", state.parecer);
   if ($("justificativa")) $("justificativa").value = state.aux.justificativa || "";
-  if (isRetroInv) {
+  if (isRetroInv || (isAcomp && state.parecer === "FAVORÁVEL")) {
     if (typeof QuesitoService !== "undefined") {
       QuesitoService.set(0, "Sim");
       QuesitoService.set(1, "Sim");

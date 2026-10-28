@@ -2306,6 +2306,18 @@ def _resolve_favorable_limitation(payload: dict[str, Any], cargo: str = "servido
     cid = str(payload.get("cid") or a.get("cid") or "").upper().strip()
     ef_tipo = str(payload.get("exame_fisico_tipo") or payload.get("exameFisicoTipo") or a.get("exameFisicoTipo") or "").lower()
 
+    is_acomp = (
+        cid.startswith("Z76")
+        or bool(payload.get("is_acompanhante"))
+        or bool(a.get("isAcompanhante"))
+        or "acompanha" in str(payload.get("doenca_motivo") or a.get("doencaMotivo") or "").lower()
+        or "artigo 199" in str(payload.get("doenca_motivo") or a.get("doencaMotivo") or "").lower()
+    )
+    if is_acomp:
+        is_fem = bool(re.search(r"\b(?:feminino|mulher|f|servidora|professora)\b", str(payload.get("sexo") or a.get("sexo") or "").strip(), re.I)) or "professora" in cargo.lower() or "servidora" in cargo.lower()
+        termo_serv_hig = "Servidora hígida" if is_fem else "Servidor hígido"
+        return f"{termo_serv_hig}, sem limitação funcional própria. Necessidade de afastamento temporário decorrente da assistência imprescindível ao familiar dependente sob tratamento, impossibilitando a conciliação com as atribuições constantes no Rol de Atividades do cargo de {cargo} (artigo 199 da Lei Estadual nº 10.261/1968)."
+
     if "mental" in ef_tipo or cid.startswith("F"):
         return f"{LIMITACAO_MENTAL} Atividades estas constantes no Rol de Atividades do cargo de {cargo}."
 
@@ -2326,7 +2338,7 @@ def _resolve_favorable_limitation(payload: dict[str, Any], cargo: str = "servido
 
 EXAME_FISICO_SEMIOLOGIA_PADRAO = {
     "lombar": (
-        "Aparelho Osteomuscular: Periciado(a) deambula com postura antiálgica. Inspeção estática sem desvios escolióticos agudos. "
+        "Aparelho Osteomuscular: Periciado deambula com postura antiálgica. Inspeção estática sem desvios escolióticos agudos. "
         "À palpação, contratura da musculatura paravertebral lombar bilateral com dor à digitopressão em L4-L5 e L5-S1. "
         "Amplitude de Movimento (ADM): flexão de tronco limitada a 45° por dor, extensão e inclinações laterais com arco doloroso no final do movimento. "
         "Teste de Lasègue negativo bilateralmente. Reflexos patelar e aquileu presentes e simétricos bilateralmente, sem déficits sensitivo-motores focais agudos."
@@ -2796,6 +2808,37 @@ def _gatekeeper_anti_glosa_esisla(ficha_text: str, payload: dict[str, Any]) -> s
             elif not b_just or any(w in b_just.lower() for w in ("concedo", "afastamento", "prejudicada")):
                 nova_just = f"Capacidade laborativa própria preservada, não restando comprovada incapacidade laborativa temporária para as atribuições do cargo de {cargo}, referente ao período pleiteado."
                 t = t[:m_just.start(2)] + nova_just + "\n\n" + t[m_just.end(2):].lstrip("\n")
+    else:
+        # Quando FAVORÁVEL:
+        is_acomp = ("z76" in cid_code.lower()) or ("acompanha" in cid_desc.lower()) or (payload.get("tipo_atendimento_pericia") == "ACOMPANHANTE") or bool(payload.get("is_acompanhante"))
+        if is_acomp:
+            # 4.1. Limitação favorável para acompanhante
+            m_lim = re.search(r"(\(\*\)\s*Descrição da\(s\)\s*Limitação(?:[^\n\r:]*)?:?\s*\n)(.*?)(\n\s*\(\*\)\s*Parecer Médico)", t, re.DOTALL | re.IGNORECASE)
+            if m_lim:
+                b_lim = m_lim.group(2).strip()
+                if not b_lim or "não se observa" in b_lim.lower() or "sem limitações" in b_lim.lower():
+                    novo_lim = _resolve_favorable_limitation(payload, cargo)
+                    t = t[:m_lim.start(2)] + novo_lim + "\n\n" + t[m_lim.end(2):].lstrip("\n")
+
+            # 4.2. Justificativa favorável para acompanhante (Artigo 199)
+            m_just = re.search(r"(\(\*\)\s*Justificativa Parecer Médico:?\s*\n)(.*?)(\n\s*\(\*\)\s*Parecer Final)", t, re.DOTALL | re.IGNORECASE)
+            if m_just:
+                b_just = m_just.group(2).strip()
+                if not b_just or "191 e 193" in b_just or "não preenche" in b_just or "não restando" in b_just:
+                    termo_serv_acomp = "A servidora" if is_fem else "O servidor"
+                    nova_just = f"Comprovada a necessidade imprescindível de assistência direta e contínua ao familiar enfermo, com fundamento no Artigo 199 da Lei Estadual nº 10.261/1968. {termo_serv_acomp} encontra-se em plenas condições de higidez física e mental, justificando-se a concessão do afastamento para os indispensáveis cuidados e acompanhamento em saúde do dependente."
+                    t = t[:m_just.start(2)] + nova_just + "\n\n" + t[m_just.end(2):].lstrip("\n")
+
+        # 4.3. Restaurar dias concedidos caso Parecer Final tenha permanecido com 0
+        dias_concedidos_fav = str(payload.get("dias_solicitados") or payload.get("dias") or payload.get("atestado_dias") or "1").strip()
+        if dias_concedidos_fav == "0":
+            dias_concedidos_fav = "1"
+        m_pf = re.search(r"(\(\*\)\s*Parecer Final:?\s*\n)(.*)", t, re.DOTALL | re.IGNORECASE)
+        if m_pf:
+            pf_body = m_pf.group(2)
+            if re.search(r"^N[ºo°\.]*[ \t]*Dias:[ \t]*0\b", pf_body, flags=re.MULTILINE):
+                pf_body = re.sub(r"^(N[ºo°\.]*[ \t]*Dias:[ \t]*)0\b", rf"\g<1>{dias_concedidos_fav}", pf_body, flags=re.MULTILINE)
+                t = t[:m_pf.start(2)] + pf_body
 
     # 5. Garantir Queixa e Duração com terapias, medicações e trocas
     m_q_final = re.search(r"(\(\*\)\s*Queixa e Duração:?\s*\n)(.*?)(\n\s*Antecedentes Mórbidos)", t, re.DOTALL | re.IGNORECASE)
@@ -4473,6 +4516,14 @@ def _sanitizar_texto_portugues_esisla(texto: str) -> str:
         return ""
     t = str(texto)
 
+    # Protege bloco oficial de quesitos para não desfigurar as perguntas oficiais da DPME
+    quesitos_placeholder = None
+    m_quesitos = re.search(r"(\(\*\)\s*Resposta aos quesitos:?.*?)(\n\s*\(\*\)\s*Justificativa|\Z)", t, re.DOTALL | re.IGNORECASE)
+    if m_quesitos:
+        quesitos_bloco = m_quesitos.group(1)
+        quesitos_placeholder = "___DPME_OFFICIAL_QUESITOS_BLOCK___"
+        t = t[:m_quesitos.start(1)] + quesitos_placeholder + t[m_quesitos.end(1):]
+
     # 1. Mapeamento sistemático de mácrons para acentos oficiais brasileiros
     substituicoes_especificas = [
         (r"\bsist[ēe]mico\b", "sistêmico"),
@@ -4732,6 +4783,42 @@ def _sanitizar_texto_portugues_esisla(texto: str) -> str:
     t = re.sub(r"^CRM:[ \t]*-[ \t]*$", "CRM:", t, flags=re.MULTILINE | re.IGNORECASE)
     t = re.sub(r"^M[ée]dico\s*Perito:[ \t]*-[ \t]*$", "Médico Perito:", t, flags=re.MULTILINE | re.IGNORECASE)
 
+    # 16. Eliminação rigorosa de barras/parênteses de gênero (ex.: O(A) servidor(a), periciado(a), lúcido(a))
+    is_fem_context = bool(re.search(r"\b(?:servidora|periciada|professora|diretora|mulher|feminino|ela|m[ãa]e|filha)\b", t, re.IGNORECASE))
+    t = re.sub(r"\bO\(A\)\s+servidor\(a\)(?!\w)", "A servidora" if is_fem_context else "O servidor", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bo\(a\)\s+servidor\(a\)(?!\w)", "a servidora" if is_fem_context else "o servidor", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bO\(A\)\s+periciado\(a\)(?!\w)", "A periciada" if is_fem_context else "O periciado", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bo\(a\)\s+periciado\(a\)(?!\w)", "a periciada" if is_fem_context else "o periciado", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bO\(A\)\s+periciando\(a\)(?!\w)", "A pericianda" if is_fem_context else "O periciando", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bo\(a\)\s+periciando\(a\)(?!\w)", "a pericianda" if is_fem_context else "o periciando", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bServidor\(a\)(?!\w)", "Servidora" if is_fem_context else "Servidor", t)
+    t = re.sub(r"\bservidor\(a\)(?!\w)", "servidora" if is_fem_context else "servidor", t)
+    t = re.sub(r"\bPericiado\(a\)(?!\w)", "Periciada" if is_fem_context else "Periciado", t)
+    t = re.sub(r"\bpericiado\(a\)(?!\w)", "periciada" if is_fem_context else "periciado", t)
+    t = re.sub(r"\bPericiando\(a\)(?!\w)", "Pericianda" if is_fem_context else "Periciando", t)
+    t = re.sub(r"\bpericiando\(a\)(?!\w)", "pericianda" if is_fem_context else "periciando", t)
+    t = re.sub(r"\breadaptado\(a\)(?!\w)", "readaptada" if is_fem_context else "readaptado", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bh[íi]gido\(a\)(?!\w)", "hígida" if is_fem_context else "hígido", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bl[úu]cido\(a\)(?!\w)", "lúcida" if is_fem_context else "lúcido", t, flags=re.IGNORECASE)
+    t = re.sub(r"\borientado\(a\)(?!\w)", "orientada" if is_fem_context else "orientado", t, flags=re.IGNORECASE)
+    t = re.sub(r"\beupneico\(a\)(?!\w)", "eupneica" if is_fem_context else "eupneico", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bcorado\(a\)(?!\w)", "corada" if is_fem_context else "corado", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bhidratado\(a\)(?!\w)", "hidratada" if is_fem_context else "hidratado", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bacian[óo]tico\(a\)(?!\w)", "acianótica" if is_fem_context else "acianótico", t, flags=re.IGNORECASE)
+    t = re.sub(r"\banict[ée]rico\(a\)(?!\w)", "anictérica" if is_fem_context else "anictérico", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bapto\(a\)(?!\w)", "apta" if is_fem_context else "apto", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bao\(à\)(?!\w)", "à" if is_fem_context else "ao", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bdo\(a\)(?!\w)", "da" if is_fem_context else "do", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bno\(a\)(?!\w)", "na" if is_fem_context else "no", t, flags=re.IGNORECASE)
+
+    # 17. Limpeza de redundância de acompanhante (familiar dependente)
+    t = re.sub(r"acompanhamento\s+de\s+familiar(?:\/dependente)?\s+enfermo\s*\(\s*familiar(?:\s+dependente)?\s*\)", "acompanhamento de familiar dependente", t, flags=re.IGNORECASE)
+    t = re.sub(r"familiar(?:\/dependente)?\s+enfermo\s*\(\s*familiar(?:\s+dependente)?\s*\)", "familiar dependente", t, flags=re.IGNORECASE)
+    t = re.sub(r"familiar\/dependente\s+enfermo", "familiar dependente", t, flags=re.IGNORECASE)
+
+    if quesitos_placeholder and quesitos_placeholder in t:
+        t = t.replace(quesitos_placeholder, quesitos_bloco)
+
     return t
 
 
@@ -4740,6 +4827,8 @@ def _expandir_abreviacoes_medicas_texto(texto: str) -> str:
     if not texto:
         return ""
     t = str(texto)
+    is_fem_context = bool(re.search(r"\b(?:fem|feminino|mulher|servidora|professora|periciada)\b", t, re.IGNORECASE))
+
     # Abreviações de membros e lateralidade
     t = re.sub(r"\bMID\b", "membro inferior direito", t, flags=re.IGNORECASE)
     t = re.sub(r"\bMIE\b", "membro inferior esquerdo", t, flags=re.IGNORECASE)
@@ -4770,19 +4859,42 @@ def _expandir_abreviacoes_medicas_texto(texto: str) -> str:
     t = re.sub(r"\bFST\b|\bfst\b", "fisioterapia", t)
     t = re.sub(r"\bPST\b|\bpst\b", "psicoterapia", t)
     # Siglas administrativas e cargos
-    t = re.sub(r"\bpeb\s*2\b|\bpeb\s*ii\b", "Professor de Educação Básica II", t, flags=re.IGNORECASE)
-    t = re.sub(r"\bpeb\s*1\b|\bpeb\s*i\b", "Professor de Educação Básica I", t, flags=re.IGNORECASE)
-    t = re.sub(r"\bsvd\b|\bsrv\b", "servidor", t, flags=re.IGNORECASE)
+    cargo_peb_ii = "Professora de Educação Básica II" if is_fem_context else "Professor de Educação Básica II"
+    cargo_peb_i = "Professora de Educação Básica I" if is_fem_context else "Professor de Educação Básica I"
+    t = re.sub(r"\bpeb\s*2\b|\bpeb\s*ii\b", cargo_peb_ii, t, flags=re.IGNORECASE)
+    t = re.sub(r"\bpeb\s*1\b|\bpeb\s*i\b", cargo_peb_i, t, flags=re.IGNORECASE)
+    t = re.sub(r"\bsvd\b|\bsrv\b", "servidora" if is_fem_context else "servidor", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bfem\b", "feminino", t, flags=re.IGNORECASE)
     t = re.sub(r"\bha\s+(\d+)\s*a\b", r"há \1 anos", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bha\s+(\d+)\s*m\b", r"há \1 meses", t, flags=re.IGNORECASE)
     t = re.sub(r"\b(\d+)\s*a\b(?=\s+(?:no\s+estado|de\s+serviço|de\s+estado|no\s+cargo))", r"\1 anos", t, flags=re.IGNORECASE)
     t = re.sub(r"\btto\b", "tratamento", t, flags=re.IGNORECASE)
     t = re.sub(r"\bcons\b", "consultas", t, flags=re.IGNORECASE)
     t = re.sub(r"\bef:\b|\bef\b", "Ao exame físico:", t, flags=re.IGNORECASE)
-    t = re.sub(r"\bqx\b", "com queixa de", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bqx:\b|\bqx\b", "com queixa de", t, flags=re.IGNORECASE)
     t = re.sub(r"\bp/\s*|\bp\s+(?=[a-z])", "para ", t, flags=re.IGNORECASE)
     t = re.sub(r"\bc/\s*|\bc\s+(?=[a-z])", "com ", t, flags=re.IGNORECASE)
     t = re.sub(r"\bLTS\b", "Licença para Tratamento de Saúde", t, flags=re.IGNORECASE)
     t = re.sub(r"\bHD\b", "hipótese diagnóstica", t, flags=re.IGNORECASE)
+    # Exames de imagem
+    t = re.sub(r"\bRNM\b", "Ressonância Magnética", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bTC\b", "Tomografia Computadorizada", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bRX\b", "Radiografia", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bUSG\b", "Ultrassonografia", t, flags=re.IGNORECASE)
+    # Manobras e termos ortopédicos / neurológicos comuns
+    t = re.sub(r"\b(?:lasergue|lasegue)\b", "Lasègue", t, flags=re.IGNORECASE)
+    t = re.sub(r"\b(?:pe|pé)\s+d\b", "pé direito", t, flags=re.IGNORECASE)
+    t = re.sub(r"\b(?:pe|pé)\s+e\b", "pé esquerdo", t, flags=re.IGNORECASE)
+    t = re.sub(r"\b(?:halux|hálux)\s+d\b", "hálux direito", t, flags=re.IGNORECASE)
+    t = re.sub(r"\b(?:halux|hálux)\s+e\b", "hálux esquerdo", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bà\s+d\b|\ba\s+d\b", "à direita", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bà\s+e\b|\ba\s+e\b", "à esquerda", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bn\s+readap\b|\bnao\s+readap\b", "não readaptada" if is_fem_context else "não readaptado", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bqueimacao\b", "queimação", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bdorsiflexao\b", "dorsiflexão", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bextrusao\b", "extrusão", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bprotrusao\b", "protrusão", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bpalpacao\b", "palpação", t, flags=re.IGNORECASE)
     return t
 
 
@@ -5596,10 +5708,15 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
             just_text = f"Capacidade laborativa própria preservada, não restando comprovada incapacidade laborativa temporária para as atribuições do cargo de {cargo}, referente ao período pleiteado."
             q1, q2, q3 = "Sim", "Não", "Não"
     else:
+        is_acomp = ("z76" in cid_code.lower()) or ("acompanha" in cid_desc.lower()) or (payload.get("tipo_atendimento_pericia") == "ACOMPANHANTE") or bool(payload.get("is_acompanhante"))
         lim_text = _resolve_favorable_limitation(payload, cargo)
-        just_text = just_raw
-        if not just_text:
-            just_text = f"Capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo}, em razão dos sintomas e limitações registradas no ato pericial."
+        if is_acomp:
+            termo_serv_acomp = "A servidora" if is_fem else "O servidor"
+            just_text = f"Comprovada a necessidade imprescindível de assistência direta e contínua ao familiar enfermo, com fundamento no Artigo 199 da Lei Estadual nº 10.261/1968. {termo_serv_acomp} encontra-se em plenas condições de higidez física e mental, justificando-se a concessão do afastamento para os indispensáveis cuidados e acompanhamento em saúde do dependente."
+        else:
+            just_text = just_raw
+            if not just_text or "191 e 193" in just_text or "não preenche" in just_text:
+                just_text = f"Capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo}, em razão dos sintomas e limitações registradas no ato pericial."
         q1, q2, q3 = "Sim", "Sim", "Sim"
 
     medico = str(payload.get("medico") or payload.get("medico_perito") or payload.get("medicoResponsavel") or "").strip().rstrip("-").strip()
@@ -6898,6 +7015,36 @@ def _extrair_dias_solicitados_texto(text: str) -> str:
     return ""
 
 
+def _extrair_parecer_texto(text: str) -> str:
+    if not text:
+        return ""
+    # 1. Rótulos explícitos de Parecer Médico / Parecer Final
+    m_exp = re.search(r'(?:\(\*\)\s*)?Parecer(?:\s+M[ée]dico|\s+Final)?\s*[:\-]?\s*(FAVOR[ÁA]VEL|CONTR[ÁA]RIO|DEFERIDO|INDEFERIDO)\b', text, re.I)
+    if m_exp:
+        val = m_exp.group(1).upper()
+        if "FAVOR" in val or "DEFERIDO" in val:
+            return "FAVORÁVEL"
+        if "CONTR" in val or "INDEF" in val:
+            return "CONTRÁRIO"
+
+    # 2. Rótulos gerais no texto
+    m_gen = re.search(r'\b(?:parecer|conclus[ãa]o|decis[ãa]o)(?:\s+m[ée]dica|\s+pericial)?\s*[:\-]?\s*(FAVOR[ÁA]VEL|CONTR[ÁA]RIO|DEFERID[OA]|INDEFERID[OA]|APROVAD[OA]|RECUSAD[OA])\b', text, re.I)
+    if m_gen:
+        val = m_gen.group(1).upper()
+        if any(k in val for k in ("FAVOR", "DEFER", "APROV")):
+            return "FAVORÁVEL"
+        if any(k in val for k in ("CONTR", "INDEF", "RECUS")):
+            return "CONTRÁRIO"
+
+    # 3. Expressões livres no texto
+    if re.search(r'\b(?:parecer\s+(?:[ée]\s+)?favor[áa]vel|conced(?:o|e|er)\s+favor[áa]vel|deferid[oa]|favor[áa]vel\s+ao\s+afastamento)\b', text, re.I):
+        return "FAVORÁVEL"
+    if re.search(r'\b(?:parecer\s+(?:[ée]\s+)?contr[áa]rio|indeferid[oa]|indeferimento|contr[áa]rio\s+ao\s+afastamento)\b', text, re.I):
+        return "CONTRÁRIO"
+
+    return ""
+
+
 def _extrair_datas_documento_texto(text: str) -> tuple[str, str, str]:
     if not text:
         return ("", "", "")
@@ -7338,6 +7485,8 @@ def api_ai_preencher_ficha():
             result.data_expedicao = exp_date_iso or exp_date_br
 
             # Cálculo determinístico de Retroação da Guia (Expedição vs Emissão do Atestado)
+            decisao_fav = (override_parecer_manual == "FAVORÁVEL") or (decisao_medico and "FAV" in str(decisao_medico.get("parecer") or "").upper())
+            is_acomp_caso = bool(esisla_pre.get("is_acompanhante")) or (result.cid or "").upper().startswith("Z76") or "acompanha" in str(result.doenca_motivo or "").lower() or (getattr(result, "tipo_atendimento_pericia", "") == "ACOMPANHANTE")
             retro_dias = None
             retro_invalida = False
             retro_motivo = ""
@@ -7346,7 +7495,7 @@ def api_ai_preencher_ficha():
                     dt_exp_obj = datetime.strptime(exp_date_iso, "%Y-%m-%d").date()
                     dt_doc_obj = datetime.strptime(result.data_documento, "%Y-%m-%d").date()
                     retro_dias = (dt_exp_obj - dt_doc_obj).days
-                    if retro_dias > 3:
+                    if retro_dias > 3 and not decisao_fav and not is_acomp_caso:
                         retro_invalida = True
                         retro_motivo = (
                             f"Guia expedida em {exp_date_br} e atestado emitido em {doc_date_br or _format_date_br(result.data_documento)}, "
@@ -7354,7 +7503,7 @@ def api_ai_preencher_ficha():
                         )
                 except Exception:
                     pass
-            if not retro_invalida and pre_retro_invalida:
+            if not retro_invalida and pre_retro_invalida and not decisao_fav and not is_acomp_caso:
                 retro_invalida = True
                 if retro_dias is None:
                     try:
@@ -7498,7 +7647,7 @@ def api_ai_preencher_ficha():
             # Aplicar escolhas explícitas e soberanas do médico perito (Modo IA 2.0)
             if decisao_medico:
                 user_parecer = str(decisao_medico.get("parecer") or "").strip().upper()
-                if user_parecer and not retro_invalida:
+                if user_parecer and (not retro_invalida or decisao_fav):
                     if "FAV" in user_parecer:
                         result.parecer = "FAVORÁVEL"
                     elif "CONT" in user_parecer:
@@ -7572,45 +7721,63 @@ def api_ai_preencher_ficha():
                     retro_dias=retro_dias,
                 )
             else:
-                if override_parecer_manual == "FAVORÁVEL":
+                par_bruto = _extrair_parecer_texto(texto_bruto)
+                if override_parecer_manual == "FAVORÁVEL" or par_bruto == "FAVORÁVEL" or (decisao_medico and "FAV" in str(decisao_medico.get("parecer") or "").upper()):
                     par_upper = "FAVORÁVEL"
-                elif override_parecer_manual == "CONTRÁRIO":
+                elif override_parecer_manual == "CONTRÁRIO" or par_bruto == "CONTRÁRIO" or (decisao_medico and "CONT" in str(decisao_medico.get("parecer") or "").upper()):
                     par_upper = "CONTRÁRIO"
                 is_fav = "FAV" in par_upper or par_upper == "FAVORÁVEL"
                 if is_fav:
                     result.parecer = "FAVORÁVEL"
-                    if not (result.limitacao_funcional or "").strip():
+                    is_acomp_fav = bool(esisla_pre.get("is_acompanhante")) or (result.cid or "").upper().startswith("Z76") or "acompanha" in str(result.doenca_motivo or "").lower() or (getattr(result, "tipo_atendimento_pericia", "") == "ACOMPANHANTE")
+                    if is_acomp_fav:
                         result.limitacao_funcional = "Sim"
-                    if not (result.limitacao_rol or "").strip():
                         result.limitacao_rol = "Sim"
-                    if not (result.capacidade or "").strip():
-                        result.capacidade = "Capacidade parcial e temporariamente prejudicada"
-                    if not (result.desc_limitacao or "").strip():
+                        result.capacidade = "Capacidade laborativa própria preservada"
                         result.desc_limitacao = _resolve_favorable_limitation(
-                            {"cid": result.cid, "exame_fisico_tipo": result.exame_fisico_tipo, "desc_limitacao": result.sintomas_limitacao},
+                            {"cid": result.cid, "is_acompanhante": True, "sexo": result.sexo},
                             cargo_label
                         )
-                    elif "rol de atividades" not in result.desc_limitacao.lower():
-                        result.desc_limitacao = f"{result.desc_limitacao.rstrip('.,; ')}, atividades estas constantes no Rol de Atividades do cargo de {cargo_label}."
-
-                    # Verificação de Perícia Retrospectiva (Exame Físico Normal no ato pericial com atestado e guia no prazo)
-                    is_exame_normal = (
-                        str(result.outros_resultado or "").strip().lower() == "normal"
-                        or "normal" in str(result.exame_fisico_descricao or "").lower()
-                        or "sem alterações" in str(result.exame_fisico_descricao or "").lower()
-                    )
-                    if is_exame_normal:
-                        cid_clause = f" (CID {result.cid})" if result.cid else ""
-                        mot_clause = result.doenca_motivo or "patologia clínica avaliada"
+                        termo_serv_acomp = "A servidora" if is_fem else "O servidor"
                         result.justificativa = (
-                            f"Considerando o histórico clínico, a documentação médica comprobatória acostada e a sintomatologia referida à época compatível com {mot_clause}{cid_clause}, "
-                            f"embora no presente ato pericial o exame físico já se apresente sem alterações agudas em razão da convalescença clínica e do tempo decorrido, "
-                            f"considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}, referente ao período pleiteado."
+                            f"Comprovada a necessidade imprescindível de assistência direta e contínua ao familiar enfermo, "
+                            f"com fundamento no Artigo 199 da Lei Estadual nº 10.261/1968. "
+                            f"{termo_serv_acomp} encontra-se em plenas condições de higidez física e mental, "
+                            f"justificando-se a concessão do afastamento para os indispensáveis cuidados e acompanhamento em saúde do dependente."
                         )
-                    elif not (result.justificativa or "").strip():
-                        cid_clause = f" (CID {result.cid})" if result.cid else ""
-                        mot_clause = result.doenca_motivo or "patologia clínica avaliada"
-                        result.justificativa = f"Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}, em razão de limitações funcionais decorrentes de {mot_clause}{cid_clause}, referente ao período pleiteado."
+                    else:
+                        if not (result.limitacao_funcional or "").strip():
+                            result.limitacao_funcional = "Sim"
+                        if not (result.limitacao_rol or "").strip():
+                            result.limitacao_rol = "Sim"
+                        if not (result.capacidade or "").strip():
+                            result.capacidade = "Capacidade parcial e temporariamente prejudicada"
+                        if not (result.desc_limitacao or "").strip():
+                            result.desc_limitacao = _resolve_favorable_limitation(
+                                {"cid": result.cid, "exame_fisico_tipo": result.exame_fisico_tipo, "desc_limitacao": result.sintomas_limitacao},
+                                cargo_label
+                            )
+                        elif "rol de atividades" not in result.desc_limitacao.lower():
+                            result.desc_limitacao = f"{result.desc_limitacao.rstrip('.,; ')}, atividades estas constantes no Rol de Atividades do cargo de {cargo_label}."
+
+                        # Verificação de Perícia Retrospectiva (Exame Físico Normal no ato pericial com atestado e guia no prazo)
+                        is_exame_normal = (
+                            str(result.outros_resultado or "").strip().lower() == "normal"
+                            or "normal" in str(result.exame_fisico_descricao or "").lower()
+                            or "sem alterações" in str(result.exame_fisico_descricao or "").lower()
+                        )
+                        if is_exame_normal:
+                            cid_clause = f" (CID {result.cid})" if result.cid else ""
+                            mot_clause = result.doenca_motivo or "patologia clínica avaliada"
+                            result.justificativa = (
+                                f"Considerando o histórico clínico, a documentação médica comprobatória acostada e a sintomatologia referida à época compatível com {mot_clause}{cid_clause}, "
+                                f"embora no presente ato pericial o exame físico já se apresente sem alterações agudas em razão da convalescença clínica e do tempo decorrido, "
+                                f"considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}, referente ao período pleiteado."
+                            )
+                        elif not (result.justificativa or "").strip():
+                            cid_clause = f" (CID {result.cid})" if result.cid else ""
+                            mot_clause = result.doenca_motivo or "patologia clínica avaliada"
+                            result.justificativa = f"Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}, em razão de limitações funcionais decorrentes de {mot_clause}{cid_clause}, referente ao período pleiteado."
                 else:
                     result.parecer = "CONTRÁRIO"
                     result.limitacao_funcional = "Não"
@@ -7625,20 +7792,20 @@ def api_ai_preencher_ficha():
                 result.justificativa = _clean_justificativa_text(result.justificativa)
 
             # Garantir conformidade de quesitos oficiais
-            if not result.quesitos:
-                if (result.parecer or "").strip().upper() == "FAVORÁVEL" or (retro_invalida and override_parecer_manual != "FAVORÁVEL"):
-                    result.quesitos = [
-                        QuesitoPreenchimentoItem(id=1, pergunta="Há doença(s) ou sequela(s) de doença(s) prévia(s)?", resposta="Sim"),
-                        QuesitoPreenchimentoItem(id=2, pergunta="A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)?", resposta="Sim"),
-                        QuesitoPreenchimentoItem(id=3, pergunta="A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol?", resposta="Sim"),
-                    ]
-                else:
-                    q2 = "Sim" if (result.readaptado or "").strip().lower() == "sim" else "Não"
-                    result.quesitos = [
-                        QuesitoPreenchimentoItem(id=1, pergunta="Há doença(s) ou sequela(s) de doença(s) prévia(s)?", resposta="Sim"),
-                        QuesitoPreenchimentoItem(id=2, pergunta="A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)?", resposta=q2),
-                        QuesitoPreenchimentoItem(id=3, pergunta="A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol?", resposta="Não"),
-                    ]
+            par_is_fav = (result.parecer or "").strip().upper() == "FAVORÁVEL" or (retro_invalida and override_parecer_manual != "FAVORÁVEL")
+            if par_is_fav:
+                result.quesitos = [
+                    QuesitoPreenchimentoItem(id=1, pergunta="Há doença(s) ou sequela(s) de doença(s) prévia(s)?", resposta="Sim"),
+                    QuesitoPreenchimentoItem(id=2, pergunta="A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)?", resposta="Sim"),
+                    QuesitoPreenchimentoItem(id=3, pergunta="A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol?", resposta="Sim"),
+                ]
+            else:
+                q2 = "Sim" if (result.readaptado or "").strip().lower() == "sim" else "Não"
+                result.quesitos = [
+                    QuesitoPreenchimentoItem(id=1, pergunta="Há doença(s) ou sequela(s) de doença(s) prévia(s)?", resposta="Sim"),
+                    QuesitoPreenchimentoItem(id=2, pergunta="A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)?", resposta=q2),
+                    QuesitoPreenchimentoItem(id=3, pergunta="A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol?", resposta="Não"),
+                ]
 
             body = result.model_dump()
             body["cids_secundarios"] = all_secondary
@@ -7765,7 +7932,7 @@ def parse_esisla_text(text: str) -> dict:
                 data['sexo'] = 'Feminino'
             else:
                 data['sexo'] = 'Masculino'
-        elif re.search(r'Sexo:\s*Feminino\b|\bServidora\b|\bPericiada\b', text, re.I):
+        elif re.search(r'Sexo:\s*Feminino\b|\b(?:feminino|fem|mulher|servidora|periciada|professora)\b', text, re.I):
             data['sexo'] = 'Feminino'
         else:
             data['sexo'] = 'Masculino'
@@ -8081,7 +8248,7 @@ def parse_esisla_text(text: str) -> dict:
     upper_p = raw_pessoa.upper()
     if upper_p and not upper_p.startswith("O PROP") and upper_p not in ("PROPRIO", "PRÓPRIO"):
         is_acompanhante = True
-    elif re.search(r'atestado\s+acompanhante\b', text, re.I):
+    elif re.search(r'\b(?:atestado\s+acompanhante|acompanhamento\s+de\s+(?:familiar|dependente|filho|filha|m[ãa]e|pai|c[ôo]njuge)|artigo\s*199|Z76\.?3?)\b', text, re.I):
         is_acompanhante = True
 
     data['is_acompanhante'] = is_acompanhante
@@ -8092,6 +8259,8 @@ def parse_esisla_text(text: str) -> dict:
             nome_dep = dep_m.group(1).strip()
         else:
             nome_dep = re.sub(r'^(?:FILHOS|FILHO|CONJUGE|CÔNJUGE|PAIS|PAI|MÃE|MAE|OUTROS)\s*[:\-]?\s*', '', raw_pessoa, flags=re.I).strip()
+        if re.match(r'^(?:familiar(?:\s+dependente|\/dependente)?(?:\s+enfermo)?|dependente(?:\s+enfermo)?|o\s+próprio|próprio|a\s+pedido)$', nome_dep, re.I):
+            nome_dep = ""
         data['nome_dependente'] = nome_dep
 
         # Se havia um CID do atestado do dependente no PDF diferente de Z763, armazena como secundário
@@ -8136,7 +8305,7 @@ def parse_esisla_text(text: str) -> dict:
     if data_ref_date and data_doc_date:
         diff_days = (data_ref_date - data_doc_date).days
         data['retroacao_dias'] = diff_days
-        if diff_days > 3:
+        if diff_days > 3 and not is_acompanhante:
             data['retroacao_invalida'] = True
             data['parecer'] = 'CONTRÁRIO'
             data['sugestao_parecer'] = 'CONTRÁRIO'
@@ -8159,6 +8328,14 @@ def parse_esisla_text(text: str) -> dict:
                 f"totalizando {diff_days} dias de retroação, acima do limite regulamentar de 3 dias."
             )
         else:
+            data['retroacao_invalida'] = False
+
+    # 20b. Extração Soberana de Parecer Declarado no Texto
+    par_decl = _extrair_parecer_texto(text)
+    if par_decl:
+        data['parecer'] = par_decl
+        data['sugestao_parecer'] = par_decl
+        if par_decl == 'FAVORÁVEL':
             data['retroacao_invalida'] = False
 
     # 21. Antecedentes Mórbidos / Histórico Pregresso (de fichas periciais, anotações clínicas ou e-SISLA)

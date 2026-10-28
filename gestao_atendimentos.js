@@ -1653,6 +1653,18 @@ function cleanQueixaDuracao(text) {
         t = t.replace(/\bNegou\s+uso\s+de\s+medica[çc][õo]es\./gi, /servidora/i.test(t) ? "A servidora negou uso de medicações próprias de uso contínuo." : "O servidor negou uso de medicações próprias de uso contínuo.");
     }
 
+    // 8b. Eliminação de barras de gênero, O(A) servidor(a) e redundância (familiar dependente)
+    const isFemQueixa = /\b(?:Servidora|Professora|mulher|feminino)\b/i.test(t);
+    t = t.replace(/\bfamiliar\/dependente(?:\s+enfermo)?\s*\((?:familiar\s+dependente|dependente)\)/gi, "familiar dependente");
+    t = t.replace(/\bfamiliar\/dependente\b/gi, "familiar dependente");
+    t = t.replace(/\bO\(A\)\s+servidor\(a\)(?!\w)/gi, isFemQueixa ? "A servidora" : "O servidor");
+    t = t.replace(/\bo\(a\)\s+servidor\(a\)(?!\w)/gi, isFemQueixa ? "a servidora" : "o servidor");
+    t = t.replace(/\bpericiad[oa]\(a\)(?!\w)/gi, isFemQueixa ? "periciada" : "periciado");
+    t = t.replace(/\bpericiado\(a\)(?!\w)/gi, isFemQueixa ? "periciada" : "periciado");
+    t = t.replace(/\bpericiando\(a\)(?!\w)/gi, isFemQueixa ? "periciada" : "periciado");
+    t = t.replace(/\bservidor\(a\)(?!\w)/gi, isFemQueixa ? "servidora" : "servidor");
+    t = t.replace(/\bao\(à\)(?!\w)/gi, isFemQueixa ? "à" : "ao");
+
     // 9. Concordância de gênero do cargo quando a periciada for mulher ("Servidora")
     if (/\bServidora\b/i.test(t)) {
         t = t.replace(/\bé\s+(?:PEB|Peb)\s+([IVXLCDM]+)\b/gi, "é Professora de Educação Básica $1");
@@ -2077,6 +2089,14 @@ function resolverLimitacaoFavoravelGestao(st, aux, cargo, cid) {
         }
     }
     const cUpper = String(cid || '').toUpperCase();
+    const isAcomp = cUpper.startsWith("Z76") || Boolean(st.isAcompanhante || aux.isAcompanhante) || /acompanha/i.test(st.doencaMotivo || aux.doencaMotivo || '');
+    if (isAcomp) {
+        const isFem = (st.sexo && (st.sexo.toLowerCase() === 'f' || st.sexo.toLowerCase() === 'feminino'))
+            || (aux.sexo && (aux.sexo.toLowerCase() === 'f' || aux.sexo.toLowerCase() === 'feminino'))
+            || /professora|servidora|diretora/i.test(cargo);
+        const termoServ = isFem ? "Servidora hígida" : "Servidor hígido";
+        return `${termoServ}, sem limitação funcional própria. Necessidade de afastamento temporário decorrente da assistência imprescindível ao familiar dependente sob tratamento, impossibilitando a conciliação com as atribuições constantes no Rol de Atividades do cargo de ${cargo} (artigo 199 da Lei Estadual nº 10.261/1968).`;
+    }
     if (cUpper.startsWith("F") || (st.exameFisicoTipo || aux.exameFisicoTipo) === "Exame Mental") {
         return `Apresenta limitações psicossociais e psicoemocionais que repercutem nas habilidades necessárias para interatividade social, planejamentos, manter concentração e ter autodomínio, atividades estas constantes no Rol de Atividades do cargo de ${cargo}.`;
     }
@@ -2299,7 +2319,13 @@ function renderEsislaBlocos(textoFicha) {
     const parecerFinalBloco = ext(str, '(*) Parecer Final', 'FIM_INEXISTENTE') || ext(str, '(*)Parecer Final', 'FIM_INEXISTENTE');
 
     let parecerTipo = (parecerBloco.match(/Parecer:\s*([^\n\r]+)/i) || [])[1]?.trim() || '';
-    if (!parecerTipo) {
+    const stFavOverride = st.parecerManualOverride === 'FAVORÁVEL' || aux.parecerManualOverride === 'FAVORÁVEL' || st.parecer === 'FAVORÁVEL' || aux.parecer === 'FAVORÁVEL';
+    const stContraOverride = st.parecerManualOverride === 'CONTRÁRIO' || aux.parecerManualOverride === 'CONTRÁRIO' || st.parecer === 'CONTRÁRIO' || aux.parecer === 'CONTRÁRIO';
+    if (stFavOverride) {
+        parecerTipo = 'FAVORÁVEL';
+    } else if (stContraOverride) {
+        parecerTipo = 'CONTRÁRIO';
+    } else if (!parecerTipo) {
         if (parecerBloco.toUpperCase().includes('CONTRÁRIO') || str.toUpperCase().includes('PARECER: CONTRÁRIO')) parecerTipo = 'CONTRÁRIO';
         else if (parecerBloco.toUpperCase().includes('FAVORÁVEL') || str.toUpperCase().includes('PARECER: FAVORÁVEL')) parecerTipo = 'FAVORÁVEL';
         else if (st.parecer || aux.parecer) parecerTipo = String(st.parecer || aux.parecer).toUpperCase();
@@ -2319,7 +2345,8 @@ function renderEsislaBlocos(textoFicha) {
     if (parecerTipo.toUpperCase().includes('CONTR')) {
         dias = '0';
     } else if (parecerTipo.toUpperCase().includes('FAVOR') && (!dias || dias === '0')) {
-        dias = '1';
+        dias = st.diasSolicitados || aux.diasSolicitados || st.diasConcedidos || aux.diasConcedidos || '1';
+        dias = String(dias).replace(/[^0-9]/g, '') || '1';
     }
     dias = dias ? String(dias).replace(/[^0-9]/g, '') : '';
 
@@ -2418,6 +2445,14 @@ function renderEsislaBlocos(textoFicha) {
     if (!justif) justif = ext(str, '(*) Justificativa Parecer Final', 'FIM_INEXISTENTE');
     if (!justif) {
         justif = st.justificativa || aux.justificativa || st.agilJustificativa || aux.agilJustificativa || '';
+    }
+
+    const isFavCard = parecerTipo.toUpperCase().includes('FAVOR') || parecerTipo.toUpperCase() === 'F';
+    const isAcompCard = (cid && cid.toUpperCase().startsWith('Z76')) || Boolean(st.isAcompanhante || aux.isAcompanhante) || /acompanha/i.test(st.doencaMotivo || aux.doencaMotivo || str);
+    if (isFavCard && isAcompCard) {
+        if (!justif || justif.includes('Artigos 191 e 193') || justif.includes('não preenche os requisitos') || justif.includes('Capacidade laborativa própria preservada. O pleito')) {
+            justif = 'Capacidade laborativa própria preservada, sendo o parecer FAVORÁVEL à concessão de licença por motivo de doença em pessoa da família nos termos do Artigo 199 da Lei Estadual nº 10.261/1968, comprovada a necessidade de assistência direta e contínua ao familiar dependente pelo período concedido.';
+        }
     }
 
     function removerCapslockExcessivoJs(texto) {
@@ -2566,6 +2601,41 @@ function renderEsislaBlocos(textoFicha) {
         s = s.replace(/\bpericias\b/gi, m => m[0] === 'P' ? 'Perícias' : 'perícias');
         s = s.replace(/\binicio\b/gi, m => m[0] === 'I' ? 'Início' : 'início');
         s = s.replace(/\bhistorico\b/gi, m => m[0] === 'H' ? 'Histórico' : 'histórico');
+
+        // Flexão de gênero e eliminação de barras/parênteses (a)/(o)
+        const isFemContext = /\b(?:servidora|periciada|professora|diretora|mulher|feminino|ela|m[ãa]e|filha)\b/i.test(s)
+            || (st.sexo && (st.sexo.toLowerCase() === 'f' || st.sexo.toLowerCase() === 'feminino'))
+            || (aux.sexo && (aux.sexo.toLowerCase() === 'f' || aux.sexo.toLowerCase() === 'feminino'));
+
+        s = s.replace(/\bO\(A\)\s+servidor\(a\)(?!\w)/gi, isFemContext ? 'A servidora' : 'O servidor');
+        s = s.replace(/\bo\(a\)\s+servidor\(a\)(?!\w)/gi, isFemContext ? 'a servidora' : 'o servidor');
+        s = s.replace(/\bO\(A\)\s+periciado\(a\)(?!\w)/gi, isFemContext ? 'A periciada' : 'O periciado');
+        s = s.replace(/\bo\(a\)\s+periciado\(a\)(?!\w)/gi, isFemContext ? 'a periciada' : 'o periciado');
+        s = s.replace(/\bServidor\(a\)(?!\w)/g, isFemContext ? 'Servidora' : 'Servidor');
+        s = s.replace(/\bservidor\(a\)(?!\w)/g, isFemContext ? 'servidora' : 'servidor');
+        s = s.replace(/\bPericiado\(a\)(?!\w)/g, isFemContext ? 'Periciada' : 'Periciado');
+        s = s.replace(/\bpericiado\(a\)(?!\w)/g, isFemContext ? 'periciada' : 'periciado');
+        s = s.replace(/\bPericiando\(a\)(?!\w)/g, isFemContext ? 'Pericianda' : 'Periciando');
+        s = s.replace(/\bpericiando\(a\)(?!\w)/g, isFemContext ? 'pericianda' : 'periciado');
+        s = s.replace(/\breadaptado\(a\)(?!\w)/gi, isFemContext ? 'readaptada' : 'readaptado');
+        s = s.replace(/\bh[íi]gido\(a\)(?!\w)/gi, isFemContext ? 'hígida' : 'hígido');
+        s = s.replace(/\bl[úu]cido\(a\)(?!\w)/gi, isFemContext ? 'lúcida' : 'lúcido');
+        s = s.replace(/\borientado\(a\)(?!\w)/gi, isFemContext ? 'orientada' : 'orientado');
+        s = s.replace(/\beupneico\(a\)(?!\w)/gi, isFemContext ? 'eupneica' : 'eupneico');
+        s = s.replace(/\bcorado\(a\)(?!\w)/gi, isFemContext ? 'corada' : 'corado');
+        s = s.replace(/\bhidratado\(a\)(?!\w)/gi, isFemContext ? 'hidratada' : 'hidratado');
+        s = s.replace(/\bacian[óo]tico\(a\)(?!\w)/gi, isFemContext ? 'acianótica' : 'acianótico');
+        s = s.replace(/\banict[ée]rico\(a\)(?!\w)/gi, isFemContext ? 'anictérica' : 'anictérico');
+        s = s.replace(/\bapto\(a\)(?!\w)/gi, isFemContext ? 'apta' : 'apto');
+        s = s.replace(/\bao\(à\)(?!\w)/gi, isFemContext ? 'à' : 'ao');
+        s = s.replace(/\bdo\(a\)(?!\w)/gi, isFemContext ? 'da' : 'do');
+        s = s.replace(/\bno\(a\)(?!\w)/gi, isFemContext ? 'na' : 'no');
+
+        // Limpeza de redundância de acompanhante (familiar dependente)
+        s = s.replace(/acompanhamento\s+de\s+familiar(?:\/dependente)?\s+enfermo\s*\(\s*familiar(?:\s+dependente)?\s*\)/gi, 'acompanhamento de familiar dependente');
+        s = s.replace(/familiar(?:\/dependente)?\s+enfermo\s*\(\s*familiar(?:\s+dependente)?\s*\)/gi, 'familiar dependente');
+        s = s.replace(/familiar\/dependente\s+enfermo/gi, 'familiar dependente');
+
         return s;
     }
 
