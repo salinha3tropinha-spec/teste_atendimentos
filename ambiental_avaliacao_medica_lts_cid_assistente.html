@@ -115,26 +115,61 @@
 
     <!-- CONTAINER MODO IA 2.0 -->
     <div id="containerModoIA2">
-      <!-- Barra de Identificação do Paciente -->
+      <!-- Barra de Identificação do Paciente (Upgrade Visual em Chips Modernos) -->
       <div class="ia2-patient-bar">
-        <div class="ia2-patient-info" style="flex-wrap:wrap;gap:6px 12px">
-          <span style="font-size:22px">🩺</span>
-          <div class="ia2-patient-item">Servidor(a): <strong id="ia2PatientNome">—</strong></div>
-          <span style="color:#CBD5E1">•</span>
-          <div class="ia2-patient-item">CPF: <strong id="ia2PatientCpf">—</strong></div>
-          <span style="color:#CBD5E1">•</span>
-          <div class="ia2-patient-item">Cargo: <strong id="ia2PatientCargo">—</strong></div>
-          <span style="color:#CBD5E1">•</span>
-          <div class="ia2-patient-item">Atendimento: <strong id="ia2PatientAtd">—</strong></div>
-          <span style="color:#CBD5E1">•</span>
-          <div class="ia2-patient-item">Atestado: <strong id="ia2PatientDataAtestado">—</strong> (<strong id="ia2PatientDias">—</strong>)</div>
-          <span style="color:#CBD5E1">•</span>
-          <div class="ia2-patient-item">Expedição: <strong id="ia2PatientExpedicao">—</strong></div>
+        <div class="ia2-patient-info-group">
+          <div class="ia2-patient-avatar" title="Identificação do Servidor Avaliado">
+            <span style="font-size:18px">🩺</span>
+          </div>
+          <div class="ia2-patient-chip primary">
+            <span class="ia2-chip-tag">Servidor(a)</span>
+            <strong id="ia2PatientNome" class="ia2-chip-value">—</strong>
+          </div>
+          <div class="ia2-chip-sep"></div>
+          <div class="ia2-patient-chip">
+            <span class="ia2-chip-tag">CPF</span>
+            <strong id="ia2PatientCpf" class="ia2-chip-value">—</strong>
+          </div>
+          <div class="ia2-chip-sep"></div>
+          <div class="ia2-patient-chip">
+            <span class="ia2-chip-tag">Cargo</span>
+            <strong id="ia2PatientCargo" class="ia2-chip-value">—</strong>
+          </div>
+          <div class="ia2-chip-sep"></div>
+          <div class="ia2-patient-chip highlight">
+            <span class="ia2-chip-tag">Atendimento</span>
+            <strong id="ia2PatientAtd" class="ia2-chip-value">—</strong>
+          </div>
+          <div class="ia2-chip-sep"></div>
+          <div class="ia2-patient-chip">
+            <span class="ia2-chip-tag">Atestado</span>
+            <span class="ia2-chip-value-group">
+              <strong id="ia2PatientDataAtestado">—</strong>
+              <span class="ia2-chip-subval">(<strong id="ia2PatientDias">—</strong>)</span>
+            </span>
+          </div>
+          <div class="ia2-chip-sep"></div>
+          <div class="ia2-patient-chip">
+            <span class="ia2-chip-tag">Expedição</span>
+            <strong id="ia2PatientExpedicao" class="ia2-chip-value">—</strong>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span id="ia2BadgeRetroacaoBarra" class="badge" style="display:none;background:#FEE2E2;color:#991B1B;font-weight:800;border:1px solid #FCA5A5;padding:5px 10px;border-radius:8px">⛔ Guia Fora do Prazo (&gt; 3d)</span>
-          <span class="badge" style="background:linear-gradient(135deg, #4F46E5, #7C3AED);color:#fff;font-weight:800;padding:6px 12px;border-radius:8px">🚀 Modo IA 2.0</span>
-          <button type="button" class="btn btn-outline btn-sm" onclick="sairModoIA2()" style="font-weight:700" title="Alternar para visualização tradicional do prontuário médico">👁️ Ver Prontuário Padrão</button>
+
+        <div class="ia2-patient-actions">
+          <span id="ia2BadgeRetroacaoBarra" class="badge ia2-badge-retroacao" style="display:none">
+            ⛔ Guia Fora do Prazo (&gt; 3d)
+          </span>
+          <div class="ia2-top-mode-switcher">
+            <button type="button" id="ia2TopBtnGravacao" class="ia2-mode-tab-btn" onclick="trocarSubViewIA2('gravacao')" title="Alternar para Modo Gravação da Consulta">
+              🎙️ Gravação
+            </button>
+            <button type="button" id="ia2TopBtnEscrita" class="ia2-mode-tab-btn" onclick="trocarSubViewIA2('escrita')" title="Alternar para Modo Escrita / Ditado">
+              ✍️ Escrita
+            </button>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm ia2-btn-prontuario-padrao" onclick="sairModoIA2()" title="Alternar para visualização tradicional do prontuário médico">
+            👁️ Ver Prontuário Padrão
+          </button>
         </div>
       </div>
 
@@ -419,69 +454,81 @@
         </div>
       </div>
 
-      <!-- VIEW 3: MODO DE ESCRITA / DITADO -->
+      <!-- VIEW 3: MODO DE ESCRITA / DITADO (Upgrade Visual Completo) -->
       <div id="ia2ViewEscrita" style="display:none">
         <div class="ia2-escrita-panel">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:12px">
-            <div>
-              <strong style="font-size:16px;color:#0F172A;display:flex;align-items:center;gap:8px">
-                <span>✍️</span> Escrita / Ditado do Atendimento
-              </strong>
-              <span style="font-size:12.5px;color:#64748B;display:block;margin-top:2px">
-                Responda na frente das perguntas abaixo, apague o que não precisar ou digite/dite livremente.
-              </span>
+          <div class="ia2-escrita-header">
+            <div class="ia2-escrita-title-wrap">
+              <div class="ia2-escrita-icon-badge">✍️</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <h3 style="font-size:17px;color:#0F172A;font-weight:900;margin:0">Escrita e Ditado da Consulta Pericial</h3>
+                  <span class="badge" style="background:#EEF2FF;color:#4338CA;font-weight:800;font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #C7D2FE">Modo Ágil • Tela Única</span>
+                </div>
+                <p style="font-size:12.5px;color:#64748B;margin:3px 0 0;line-height:1.4">
+                  Digite ou dite suas considerações clínicas. Use o botão <strong>+ Perguntas auxiliares</strong> para carregar o roteiro ou escreva com suas próprias palavras.
+                </p>
+              </div>
             </div>
 
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-              <button type="button" id="ia2BtnDitadoEscrita" class="btn btn-outline btn-sm" onclick="alternarDitadoVozEscritaIA2()" style="font-weight:800;color:#047857;border-color:#A7F3D0;background:#ECFDF5;display:flex;align-items:center;gap:6px;padding:8px 14px">
+            <div class="ia2-escrita-toolbar">
+              <button type="button" id="ia2BtnDitadoEscrita" class="btn btn-outline btn-sm ia2-btn-ditado" onclick="alternarDitadoVozEscritaIA2()" title="Ativar microfone para ditar suas anotações">
                 <span>🎤</span> <span id="ia2DitadoEscritaText">Ditar por Voz</span>
               </button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="colarTextoClipboardIA2()" style="font-weight:700;padding:8px 12px" title="Colar texto copiado">
+              <button type="button" id="ia2BtnPerguntasAuxiliares" class="btn btn-outline btn-sm ia2-btn-perguntas-auxiliares" onclick="inserirPerguntasAuxiliaresEscritaIA2()" title="Inserir as 11 perguntas periciais estruturadas">
+                <span style="font-size:14px;font-weight:900">➕</span>
+                <span>+ Perguntas auxiliares</span>
+              </button>
+              <button type="button" class="btn btn-outline btn-sm ia2-toolbar-btn" onclick="colarTextoClipboardIA2()" title="Colar anotações da área de transferência (Ctrl+V)">
                 <span>📋</span> Colar
               </button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="inserirRoteiroPerguntasEscritaIA2()" style="font-weight:700;padding:8px 12px;color:#1D4ED8;border-color:#BFDBFE;background:#EFF6FF" title="Restaurar as 11 perguntas na caixa de texto">
-                <span>🔄</span> Restaurar Perguntas
-              </button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="limparTextoEscritaIA2()" style="font-weight:700;padding:8px 12px;color:#EF4444" title="Deixar a caixa em branco para digitar livremente">
+              <button type="button" class="btn btn-outline btn-sm ia2-toolbar-btn btn-limpar" onclick="limparTextoEscritaIA2()" title="Limpar todo o texto digitado">
                 <span>🗑️</span> Limpar
               </button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="trocarSubViewIA2('gravacao')" style="font-weight:700;padding:8px 12px">
-                🎙️ Modo Gravação
+              <button type="button" class="btn btn-outline btn-sm ia2-toolbar-btn btn-switch" onclick="trocarSubViewIA2('gravacao')" title="Alternar para gravação de áudio contínua">
+                <span>🎙️</span> Modo Gravação
               </button>
             </div>
           </div>
 
           <!-- Bubble de fala interina ao vivo para o Modo Escrita -->
-          <div id="ia2EscritaInterimBubble" class="ia2-live-bubble" style="display:none;margin-bottom:10px">
+          <div id="ia2EscritaInterimBubble" class="ia2-live-bubble" style="display:none;margin-bottom:12px">
             <span>🗣️</span>
-            <span id="ia2EscritaInterimText" style="font-style:italic">...</span>
+            <span id="ia2EscritaInterimText" style="font-style:italic">Ouvindo sua fala...</span>
           </div>
 
-          <textarea id="ia2EscritaText" class="ia2-escrita-textarea" style="height:400px;font-size:15px;line-height:1.7" placeholder="Digite ou dite aqui as anotações do atendimento...">01. Qual é a sua idade ?: 
-02. Qual é o seu cargo.: 
-03. Quanto tempo está no cargo ?: 
-04. É readaptado? Se sim, quais atividades exerce atualmente?: 
-05. Qual foi a data do diagnóstico da doença ?: 
-06. Qual doença está tratando que motivou o afastamento?: 
-07. Com que frequência comparece às consultas?: 
-08. Quais sintomas causam limitações para o trabalho?: 
-09. Faz o uso de quais medicações?: 
-10. Qual a dosagem (anotar mg/dia)?: 
-11. Faz psicoterapia ou fisioterapia?: 
-
-Observações / Exame Físico: </textarea>
-
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;flex-wrap:wrap;gap:12px">
-            <span id="ia2EscritaContador" style="font-size:12.5px;color:#64748B;font-weight:600">0 palavras preenchidas</span>
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-              <div id="ia2RetroacaoAvisoEscrita" style="display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:#FEE2E2;border:1.5px solid #F87171;color:#991B1B;font-size:12px;font-weight:800">
-                <span>⛔</span>
-                <span>Guia fora do prazo (&gt; 3 dias) • Parecer CONTRÁRIO</span>
+          <!-- CONTAINER DO EDITOR DE TEXTO (Visual Upgrade) -->
+          <div class="ia2-editor-container">
+            <div class="ia2-editor-topbar">
+              <div class="ia2-editor-status">
+                <span class="ia2-editor-dot"></span>
+                <span>Anotações Clínicas &amp; Periciais</span>
               </div>
-              <button type="button" id="ia2BtnFinalizarEscrita" class="btn btn-green" onclick="finalizarAtendimentoIA2('escrita')" style="padding:13px 28px;font-size:15px;font-weight:900;border-radius:12px;box-shadow:0 4px 14px rgba(16,185,129,0.3)">
-                ✨ Finalizar Atendimento
-              </button>
+              <div class="ia2-editor-hints">
+                <span class="ia2-hint-badge">💡 A IA estrutura CIDs, exame físico e histórico pericial automaticamente ao finalizar</span>
+              </div>
             </div>
+
+            <textarea id="ia2EscritaText" class="ia2-escrita-textarea ia2-escrita-textarea-v2" placeholder="Digite ou dite aqui suas impressões clínicas livremente...&#10;&#10;Para utilizar o roteiro guiado, clique no botão &quot;+ Perguntas auxiliares&quot; na barra acima."></textarea>
+
+            <div class="ia2-editor-statusbar">
+              <div class="ia2-editor-counts">
+                <span id="ia2EscritaContador" class="ia2-count-badge">0 palavra(s) preenchida(s) • 0 caractere(s)</span>
+              </div>
+              <div class="ia2-editor-guide-pill">
+                <span>⚡ Pronto para o e-SISLA</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ia2-escrita-footer">
+            <div id="ia2RetroacaoAvisoEscrita" style="display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:#FEE2E2;border:1.5px solid #F87171;color:#991B1B;font-size:12px;font-weight:800">
+              <span>⛔</span>
+              <span>Guia fora do prazo (&gt; 3 dias) • Parecer CONTRÁRIO</span>
+            </div>
+            <button type="button" id="ia2BtnFinalizarEscrita" class="btn btn-green ia2-btn-finalizar" onclick="finalizarAtendimentoIA2('escrita')">
+              <span>✨</span> Finalizar Atendimento
+            </button>
           </div>
         </div>
       </div>

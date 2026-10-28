@@ -922,18 +922,163 @@ body.modo-ia2-active #containerModoIA2 {
 }
 
 .ia2-patient-bar {
-  background: #ffffff;
+  background: #FFFFFF;
   border: 1px solid #E2E8F0;
-  border-radius: 14px;
-  padding: 12px 18px;
+  border-radius: 16px;
+  padding: 10px 18px;
   margin-bottom: 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  gap: 12px 16px;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05);
+  transition: all 0.2s ease;
 }
+
+.ia2-patient-info-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ia2-patient-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+  border: 1px solid #C7D2FE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(99, 102, 241, 0.1);
+}
+
+.ia2-patient-chip {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.ia2-chip-tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #64748B;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 1px;
+}
+
+.ia2-chip-value {
+  font-size: 13px;
+  color: #0F172A;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.ia2-chip-value-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.ia2-chip-subval {
+  font-size: 12px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.ia2-patient-chip.highlight .ia2-chip-value {
+  color: #2563EB;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.ia2-chip-sep {
+  width: 1px;
+  height: 24px;
+  background: #E2E8F0;
+  flex-shrink: 0;
+}
+
+.ia2-patient-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ia2-top-mode-switcher {
+  display: inline-flex;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.ia2-mode-tab-btn {
+  border: none;
+  background: transparent;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748B;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ia2-mode-tab-btn:hover {
+  color: #0F172A;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.ia2-mode-tab-btn.active {
+  background: #FFFFFF;
+  color: #1E293B;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  font-weight: 800;
+}
+
+.ia2-badge-retroacao {
+  background: #FEE2E2;
+  color: #991B1B;
+  font-weight: 800;
+  border: 1px solid #FCA5A5;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+}
+
+.ia2-btn-prontuario-padrao {
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border-color: #CBD5E1;
+  color: #475569;
+  background: #FFFFFF;
+  transition: all 0.2s ease;
+}
+
+.ia2-btn-prontuario-padrao:hover {
+  background: #F8FAFC;
+  border-color: #94A3B8;
+  color: #0F172A;
+}
+
+/* Fallback para compatibilidade com classes antigas */
 .ia2-patient-info {
   display: flex;
   align-items: center;
@@ -1321,29 +1466,248 @@ body.modo-ia2-active #containerModoIA2 {
 }
 
 .ia2-escrita-panel {
-  background: #ffffff;
-  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+  padding: 24px 28px;
+  box-shadow: 0 6px 25px -4px rgba(15, 23, 42, 0.06);
+  transition: all 0.2s ease;
 }
-.ia2-escrita-textarea {
-  width: 100%;
-  height: 420px;
+
+.ia2-escrita-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.ia2-escrita-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ia2-escrita-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+  border: 1px solid #C7D2FE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
+  flex-shrink: 0;
+}
+
+.ia2-escrita-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ia2-btn-ditado {
+  font-weight: 800;
+  color: #047857;
+  border-color: #A7F3D0;
+  background: #ECFDF5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.ia2-btn-ditado:hover {
+  background: #D1FAE5;
+  border-color: #6EE7B7;
+  color: #065F46;
+}
+
+.ia2-btn-perguntas-auxiliares {
+  font-weight: 800 !important;
+  color: #1D4ED8 !important;
+  border: 1.5px solid #93C5FD !important;
+  background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%) !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.ia2-btn-perguntas-auxiliares:hover {
+  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%) !important;
+  border-color: #60A5FA !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+}
+
+.ia2-toolbar-btn {
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border-color: #E2E8F0;
+  color: #334155;
+  background: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.ia2-toolbar-btn:hover {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+  color: #0F172A;
+}
+
+.ia2-toolbar-btn.btn-limpar:hover {
+  color: #DC2626;
+  border-color: #FCA5A5;
+  background: #FEF2F2;
+}
+
+.ia2-toolbar-btn.btn-switch:hover {
+  color: #047857;
+  border-color: #A7F3D0;
+  background: #ECFDF5;
+}
+
+/* Container Estruturado do Editor Pericial */
+.ia2-editor-container {
   border: 1.5px solid #CBD5E1;
   border-radius: 14px;
-  padding: 16px;
-  font-size: 14px;
-  line-height: 1.6;
-  font-family: inherit;
+  background: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.ia2-editor-container:focus-within {
+  border-color: #6366F1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.ia2-editor-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+  font-size: 12px;
+  color: #64748B;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ia2-editor-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.ia2-editor-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10B981;
+}
+
+.ia2-hint-badge {
+  font-size: 11.5px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.ia2-escrita-textarea,
+.ia2-escrita-textarea-v2 {
+  width: 100%;
+  height: 420px;
+  border: none;
+  padding: 18px 20px;
+  font-size: 15px;
+  line-height: 1.75;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 500;
+  color: #0F172A;
   resize: vertical;
   outline: none;
   box-sizing: border-box;
-  color: #0F172A;
+  background: #FFFFFF;
 }
-.ia2-escrita-textarea:focus {
-  border-color: #6366F1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+
+.ia2-escrita-textarea:focus,
+.ia2-escrita-textarea-v2:focus {
+  outline: none;
+}
+
+.ia2-escrita-textarea::placeholder,
+.ia2-escrita-textarea-v2::placeholder {
+  color: #94A3B8;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.ia2-editor-statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background: #F8FAFC;
+  border-top: 1px solid #E2E8F0;
+  font-size: 12px;
+  color: #64748B;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ia2-count-badge {
+  font-weight: 700;
+  color: #475569;
+}
+
+.ia2-editor-guide-pill {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #047857;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.ia2-escrita-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 18px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ia2-btn-finalizar {
+  padding: 13px 28px;
+  font-size: 15px;
+  font-weight: 900;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .ia2-wave-container {

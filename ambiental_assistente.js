@@ -2277,6 +2277,16 @@ function trocarSubViewIA2(view) {
   if (vGravacao) vGravacao.style.display = (view === "gravacao" ? "block" : "none");
   if (vEscrita) vEscrita.style.display = (view === "escrita" ? "block" : "none");
 
+  // Atualizar botões de alternância rápida na barra superior do paciente
+  const topBtnGravacao = $("ia2TopBtnGravacao");
+  const topBtnEscrita = $("ia2TopBtnEscrita");
+  if (topBtnGravacao) {
+    topBtnGravacao.classList.toggle("active", view === "gravacao");
+  }
+  if (topBtnEscrita) {
+    topBtnEscrita.classList.toggle("active", view === "escrita");
+  }
+
   if (view === "gravacao") {
     const hasActiveContent = Boolean(ia2Gravando || (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0) || window.__ia2AudioBlobPendente || window.__ia2JaTranscreveuOuRefinou);
     const heroScreen = $("ia2GravacaoEstadoInicial");
@@ -2306,13 +2316,8 @@ function trocarSubViewIA2(view) {
   } else if (view === "escrita") {
     const tEsc = $("ia2EscritaText");
     if (tEsc) {
-      const utilAtual = extrairTextoUtilEscritaIA2(tEsc.value || "");
-      if ((!tEsc.value.trim() || !utilAtual) && !window._ia2EscritaLimpouManualmente) {
-        inserirRoteiroPerguntasEscritaIA2(true);
-      } else {
-        window._ia2BaseTextEscrita = (tEsc.value || "").trim();
-        atualizarContadorEscritaIA2();
-      }
+      window._ia2BaseTextEscrita = (tEsc.value || "").trim();
+      atualizarContadorEscritaIA2();
       setTimeout(() => { try { tEsc.focus(); } catch (_) {} }, 100);
     }
   }
@@ -3007,14 +3012,20 @@ function focarOuInserirPerguntaEscritaIA2(id) {
   }
 }
 
-function inserirRoteiroPerguntasEscritaIA2(silencioso = false) {
+function inserirPerguntasAuxiliaresEscritaIA2(silencioso = false) {
   const ta = $("ia2EscritaText");
   if (!ta) return;
 
   const utilAtual = extrairTextoUtilEscritaIA2(ta.value || "");
-  if (!silencioso && utilAtual.length > 30 && !window._ia2EscritaApenasCadastroInicial) {
-    if (!confirm("Deseja inserir o Roteiro de 11 Perguntas? (Clique em 'OK' para substituir o texto atual ou 'Cancelar' para manter como está)")) {
-      return;
+  let deveSubstituir = true;
+  let deveAnexar = false;
+
+  if (!silencioso && utilAtual && utilAtual.length > 20 && !window._ia2EscritaApenasCadastroInicial) {
+    if (confirm("Você já possui anotações neste campo.\n\nDeseja substituir pelo roteiro de perguntas auxiliares?\n(Clique em 'OK' para substituir ou 'Cancelar' para anexar ao final do seu texto)")) {
+      deveSubstituir = true;
+    } else {
+      deveSubstituir = false;
+      deveAnexar = true;
     }
   }
 
@@ -3043,7 +3054,12 @@ function inserirRoteiroPerguntasEscritaIA2(silencioso = false) {
     `Observações / Exame Físico: `
   ];
 
-  ta.value = linhasRoteiro.join("\n");
+  const textoFormatado = linhasRoteiro.join("\n");
+  if (deveAnexar && ta.value.trim()) {
+    ta.value = ta.value.trim() + "\n\n--- PERGUNTAS AUXILIARES ---\n" + textoFormatado;
+  } else {
+    ta.value = textoFormatado;
+  }
   window._ia2BaseTextEscrita = ta.value.trim();
   window._ia2EscritaApenasCadastroInicial = true;
   window._ia2EscritaLimpouManualmente = false;
@@ -3058,8 +3074,14 @@ function inserirRoteiroPerguntasEscritaIA2(silencioso = false) {
       ta.focus();
       try { ta.setSelectionRange(pos, pos); } catch (_) {}
     }
-  }
 }
+
+function inserirRoteiroPerguntasEscritaIA2(silencioso = false) {
+  return inserirPerguntasAuxiliaresEscritaIA2(silencioso);
+}
+
+window.inserirPerguntasAuxiliaresEscritaIA2 = inserirPerguntasAuxiliaresEscritaIA2;
+window.inserirRoteiroPerguntasEscritaIA2 = inserirRoteiroPerguntasEscritaIA2;
 
 function inserirFraseRapidaEscritaIA2(frase) {
   const ta = $("ia2EscritaText");
@@ -3110,7 +3132,7 @@ function limparTextoEscritaIA2() {
   });
   atualizarContadorEscritaIA2();
   ta.focus();
-  toast("🗑️ Campo limpo! Você pode digitar livremente ou clicar em 'Inserir Perguntas Guia'.");
+  toast("🗑️ Campo limpo! Você pode digitar livremente ou clicar em '+ Perguntas auxiliares'.");
 }
 
 function atualizarContadorEscritaIA2() {
