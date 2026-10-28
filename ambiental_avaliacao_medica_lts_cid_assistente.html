@@ -9,7 +9,7 @@
 
 <title>Ambiental — Avaliação Médica Pericial LTS</title>
 <!-- v15: validação determinística dos quesitos baseada diretamente nos radio buttons + sincronização de estado -->
-<link rel="stylesheet" href="/ambiental_assistente.css?v=2.0.5">
+<link rel="stylesheet" href="/ambiental_assistente.css?v=2.0.8">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/auth.js"></script><script src="/api.js"></script></head>
 <body><div id="authLoading" style="position:fixed;inset:0;background:#F2F6FA;z-index:999999;display:grid;place-items:center;font-family:Inter,system-ui,sans-serif;color:#073F87"><div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DDE6EF;border-radius:14px;padding:13px 16px;box-shadow:0 12px 35px rgba(10,30,55,.1);font-size:12px;font-weight:800"><img src="/logo.png" alt="" style="width:28px;height:28px;object-fit:contain"><span>Verificando sessão...</span></div></div>
 <script>
@@ -62,7 +62,7 @@
 <header class="header">
   <div class="header-inner">
     <div class="brand">
-      <img id="logoHeader" alt="Logo Ambiental">
+      <img id="logoHeader" src="logo.png" alt="Logo Ambiental" onerror="this.onerror=null;this.src='/logo.png'">
       <div>
         <div class="brand-title">AVALIAÇÃO MÉDICA PERICIAL — LTS</div>
         <div class="brand-sub">Formulário Digital de Atendimento Médico</div>
@@ -2644,7 +2644,7 @@ Atestado de 15 dias do dia 29/09 por Z98.8 favorável."></textarea>
   </div>
 </div>
 
-<script src="/ambiental_assistente.js?v=2.0.7"></script>
+<script src="/ambiental_assistente.js?v=2.0.8"></script>
 </div> <!-- Fecha a div .app -->
 
 <script>window.addEventListener("pageshow",()=>{AmbientalAuth.me().then(p=>{if(!p) location.replace("/login.html?reason=expired");}).catch(()=>{});});</script></body>

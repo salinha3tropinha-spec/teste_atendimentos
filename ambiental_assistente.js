@@ -188,7 +188,11 @@ function toIsoDate(dStr) {
   return s;
 }
 window.toIsoDate = toIsoDate;
-$("logoHeader").src = LOGO_DATA;
+if ($("logoHeader")) {
+  try {
+    $("logoHeader").src = (typeof LOGO_DATA !== "undefined" && LOGO_DATA) ? LOGO_DATA : ($("logoHeader").getAttribute("src") || "logo.png");
+  } catch (_) {}
+}
 
 
 /* =========================================================
@@ -3073,7 +3077,10 @@ function inserirPerguntasAuxiliaresEscritaIA2(silencioso = false) {
       const pos = firstEmptyMatch.index + firstEmptyMatch[0].length;
       ta.focus();
       try { ta.setSelectionRange(pos, pos); } catch (_) {}
+    } else {
+      ta.focus();
     }
+  }
 }
 
 function inserirRoteiroPerguntasEscritaIA2(silencioso = false) {
