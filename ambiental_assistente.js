@@ -139,7 +139,7 @@ const examItems = [
 ];
 
 const state = {
-  current:1, atendimento:"", medico:"", capacidade:"", parecer:"", outrasDoencas:"Sim",
+  current:1, atendimento:"", medico:"", capacidade:"", parecer:"", outrasDoencas:"Não",
   medications:[], conditions:[], quesitos:[], exam:{}, documentosComplementares:[], cidsSecundarios:[], exameFisicoTipo:"", alteracoesClinicasExames:"", queixaDuracao:""
 };
 
@@ -1165,7 +1165,7 @@ function syncState(){
 
     state.atendimento=$("atd")?.value || state.atendimento || ""; state.medico=$("medico")?.value || state.medico || "";
     state.readaptado=getRadio("readaptado")||state.readaptado||prevAux.readaptado||"";
-    state.outrasDoencas=getRadio("outrasDoencas")||getRadio("agilOutrasDoencas")||state.outrasDoencas||"Sim";
+    state.outrasDoencas=getRadio("outrasDoencas")||getRadio("agilOutrasDoencas")||state.outrasDoencas||"Não";
     state.alteracaoMed=getRadio("alteracaoMed")||state.alteracaoMed||"Não";
     state.limitacaoFuncional=getRadio("limitacaoFuncional")||state.limitacaoFuncional||"Não";
     const isAgilSync = (typeof currentAttendanceMode !== "undefined" && currentAttendanceMode === "agil") || (typeof document !== "undefined" && document.body && document.body.classList.contains("mode-agil-active"));
@@ -1264,7 +1264,7 @@ function applyState(){
   state.limitacaoFuncional=normalizeLegacyYesNo(state.limitacaoFuncional||state.aux.limitacaoFuncional);
   state.limitacaoRol=normalizeLegacyYesNo(state.limitacaoRol||state.aux.limitacaoRol);
   state.readaptado=normalizeLegacyYesNo(state.readaptado||state.aux.readaptado);
-  state.outrasDoencas=normalizeLegacyYesNo(state.outrasDoencas||state.aux.outrasDoencas)||"Sim";
+  state.outrasDoencas=normalizeLegacyYesNo(state.outrasDoencas||state.aux.outrasDoencas)||"Não";
   state.alteracaoMed=normalizeLegacyYesNo(state.alteracaoMed||state.aux.alteracaoMed);
   state.queixaDuracao=state.queixaDuracao||state.aux.queixaDuracao||""; state.exameFisicoTipo=state.exameFisicoTipo||state.exam.selected||""; state.exameFisicoDescricao=state.exameFisicoDescricao||state.exam.descricao||""; state.alteracoesClinicasExames=state.alteracoesClinicasExames||state.examDescription||"";
   state.aux.nomePaciente=state.aux.nomePaciente||state.nomePaciente||""; state.aux.cpfPaciente=state.aux.cpfPaciente||state.cpfPaciente||"";
@@ -4304,7 +4304,23 @@ function isAdmInDoctorLogin() {
   return isAdm || isImp;
 }
 
+function aplicarPermissoesBannerIA() {
+  const banner = $("bannerPreenchimentoIA");
+  if (!banner) return;
+  const permitir = isAdmInDoctorLogin();
+  banner.style.display = permitir ? "flex" : "none";
+}
+window.aplicarPermissoesBannerIA = aplicarPermissoesBannerIA;
+try { aplicarPermissoesBannerIA(); } catch(_) {}
+if (typeof document !== 'undefined') {
+  document.addEventListener("DOMContentLoaded", aplicarPermissoesBannerIA);
+}
+
 function abrirModalPreenchimentoIA() {
+  if (!isAdmInDoctorLogin()) {
+    toast("Acesso restrito: O Preenchimento Inteligente com IA está disponível apenas para Administrador ou Login Médico via Admin.");
+    return;
+  }
   const modal = $("modalPreenchimentoIA");
   if (!modal) {
     console.error("Modal modalPreenchimentoIA não encontrado no DOM!");
@@ -6574,21 +6590,229 @@ function renderDocumentRecords(){
 function editDocumentRecord(i,k,v){state.documentosComplementares[i][k]=v;autoSave()}
 function removeDocumentRecord(i){state.documentosComplementares.splice(i,1);renderDocumentRecords();autoSave()}
 
+/* =========================================================
+   BASE BRUTA DE MEDICAMENTOS PERICIAIS (FÓRMULAS & POSOLOGIAS)
+   ========================================================= */
+const BASE_MEDICAMENTOS = [
+  // --- Saúde Mental: Antidepressivos / ISRS / Duais ---
+  { nome: "Sertralina 50mg", formula: "Cloridrato de Sertralina", principio: "Sertralina", classe: "ISRS", dosagem: "50 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 50 mg/dia" },
+  { nome: "Sertralina 100mg", formula: "Cloridrato de Sertralina", principio: "Sertralina", classe: "ISRS", dosagem: "100 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 100 mg/dia" },
+  { nome: "Escitalopram 10mg", formula: "Oxalato de Escitalopram", principio: "Escitalopram", classe: "ISRS", dosagem: "10 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 10 mg/dia" },
+  { nome: "Escitalopram 20mg", formula: "Oxalato de Escitalopram", principio: "Escitalopram", classe: "ISRS", dosagem: "20 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 20 mg/dia" },
+  { nome: "Fluoxetina 20mg", formula: "Cloridrato de Fluoxetina", principio: "Fluoxetina", classe: "ISRS", dosagem: "20 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 20 mg/dia" },
+  { nome: "Fluoxetina 40mg", formula: "Cloridrato de Fluoxetina", principio: "Fluoxetina", classe: "ISRS", dosagem: "40 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 40 mg/dia" },
+  { nome: "Paroxetina 20mg", formula: "Cloridrato de Paroxetina", principio: "Paroxetina", classe: "ISRS", dosagem: "20 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 20 mg/dia" },
+  { nome: "Citalopram 20mg", formula: "Bromidrato de Citalopram", principio: "Citalopram", classe: "ISRS", dosagem: "20 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 20 mg/dia" },
+  { nome: "Venlafaxina 75mg", formula: "Cloridrato de Venlafaxina", principio: "Venlafaxina", classe: "Dual (IRSN)", dosagem: "75 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 75 mg/dia" },
+  { nome: "Venlafaxina 150mg", formula: "Cloridrato de Venlafaxina", principio: "Venlafaxina", classe: "Dual (IRSN)", dosagem: "150 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 150 mg/dia" },
+  { nome: "Desvenlafaxina 50mg", formula: "Succinato de Desvenlafaxina", principio: "Desvenlafaxina", classe: "Dual (IRSN)", dosagem: "50 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 50 mg/dia" },
+  { nome: "Desvenlafaxina 100mg", formula: "Succinato de Desvenlafaxina", principio: "Desvenlafaxina", classe: "Dual (IRSN)", dosagem: "100 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 100 mg/dia" },
+  { nome: "Duloxetina 30mg", formula: "Cloridrato de Duloxetina", principio: "Duloxetina", classe: "Dual (IRSN)", dosagem: "30 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 30 mg/dia" },
+  { nome: "Duloxetina 60mg", formula: "Cloridrato de Duloxetina", principio: "Duloxetina", classe: "Dual (IRSN)", dosagem: "60 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 60 mg/dia" },
+  { nome: "Bupropiona 150mg", formula: "Cloridrato de Bupropiona XL", principio: "Bupropiona", classe: "NDRI", dosagem: "150 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 150 mg/dia" },
+  { nome: "Bupropiona 300mg", formula: "Cloridrato de Bupropiona XL", principio: "Bupropiona", classe: "NDRI", dosagem: "300 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 300 mg/dia" },
+  { nome: "Mirtazapina 15mg", formula: "Mirtazapina", principio: "Mirtazapina", classe: "NaSSA", dosagem: "15 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 15 mg/dia" },
+  { nome: "Mirtazapina 30mg", formula: "Mirtazapina", principio: "Mirtazapina", classe: "NaSSA", dosagem: "30 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 30 mg/dia" },
+  { nome: "Amitriptilina 25mg", formula: "Cloridrato de Amitriptilina", principio: "Amitriptilina", classe: "Tricíclico", dosagem: "25 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 25 mg/dia" },
+  { nome: "Amitriptilina 75mg", formula: "Cloridrato de Amitriptilina", principio: "Amitriptilina", classe: "Tricíclico", dosagem: "75 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 75 mg/dia" },
+  { nome: "Nortriptilina 25mg", formula: "Cloridrato de Nortriptilina", principio: "Nortriptilina", classe: "Tricíclico", dosagem: "25 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 25 mg/dia" },
+  { nome: "Trazodona 50mg", formula: "Cloridrato de Trazodona", principio: "Trazodona", classe: "SARI", dosagem: "50 mg", frequencia: "1x/dia ao deitar", observacao: "Dose diária: 50 mg/dia" },
+  { nome: "Trazodona 100mg", formula: "Cloridrato de Trazodona", principio: "Trazodona", classe: "SARI", dosagem: "100 mg", frequencia: "1x/dia ao deitar", observacao: "Dose diária: 100 mg/dia" },
+  { nome: "Vortioxetina 10mg", formula: "Bromidrato de Vortioxetina", principio: "Vortioxetina", classe: "Modulador", dosagem: "10 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 10 mg/dia" },
+
+  // --- Ansiolíticos, Hipnóticos & Estabilizadores de Humor ---
+  { nome: "Clonazepam 0,5mg", formula: "Clonazepam", principio: "Clonazepam", classe: "Benzodiazepínico", dosagem: "0,5 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 0,5 mg/dia" },
+  { nome: "Clonazepam 2mg", formula: "Clonazepam", principio: "Clonazepam", classe: "Benzodiazepínico", dosagem: "2 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 2 mg/dia" },
+  { nome: "Alprazolam 0,5mg", formula: "Alprazolam", principio: "Alprazolam", classe: "Benzodiazepínico", dosagem: "0,5 mg", frequencia: "até 2x/dia s/n", observacao: "Dose diária: 1 mg/dia" },
+  { nome: "Alprazolam 1mg", formula: "Alprazolam", principio: "Alprazolam", classe: "Benzodiazepínico", dosagem: "1 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 1 mg/dia" },
+  { nome: "Diazepam 10mg", formula: "Diazepam", principio: "Diazepam", classe: "Benzodiazepínico", dosagem: "10 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 10 mg/dia" },
+  { nome: "Lorazepam 2mg", formula: "Lorazepam", principio: "Lorazepam", classe: "Benzodiazepínico", dosagem: "2 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 2 mg/dia" },
+  { nome: "Zolpidem 10mg", formula: "Hemitartarato de Zolpidem", principio: "Zolpidem", classe: "Hipnótico Z", dosagem: "10 mg", frequencia: "1x/dia ao deitar", observacao: "Dose diária: 10 mg/dia" },
+  { nome: "Quetiapina 25mg", formula: "Hemifumarato de Quetiapina", principio: "Quetiapina", classe: "Antipsicótico Atípico", dosagem: "25 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 25 mg/dia" },
+  { nome: "Quetiapina 100mg", formula: "Hemifumarato de Quetiapina", principio: "Quetiapina", classe: "Antipsicótico Atípico", dosagem: "100 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 100 mg/dia" },
+  { nome: "Quetiapina 200mg", formula: "Hemifumarato de Quetiapina", principio: "Quetiapina", classe: "Antipsicótico Atípico", dosagem: "200 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 200 mg/dia" },
+  { nome: "Risperidona 1mg", formula: "Risperidona", principio: "Risperidona", classe: "Antipsicótico Atípico", dosagem: "1 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 1 mg/dia" },
+  { nome: "Risperidona 2mg", formula: "Risperidona", principio: "Risperidona", classe: "Antipsicótico Atípico", dosagem: "2 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 2 mg/dia" },
+  { nome: "Olanzapina 5mg", formula: "Olanzapina", principio: "Olanzapina", classe: "Antipsicótico Atípico", dosagem: "5 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 5 mg/dia" },
+  { nome: "Olanzapina 10mg", formula: "Olanzapina", principio: "Olanzapina", classe: "Antipsicótico Atípico", dosagem: "10 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 10 mg/dia" },
+  { nome: "Aripiprazol 10mg", formula: "Aripiprazol", principio: "Aripiprazol", classe: "Antipsicótico Atípico", dosagem: "10 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 10 mg/dia" },
+  { nome: "Carbonato de Lítio 300mg", formula: "Carbonato de Lítio", principio: "Lítio", classe: "Estabilizador", dosagem: "300 mg", frequencia: "2x/dia (12/12h)", observacao: "Dose diária: 600 mg/dia" },
+  { nome: "Ácido Valproico 500mg", formula: "Divalproato de Sódio", principio: "Valproato", classe: "Estabilizador", dosagem: "500 mg", frequencia: "2x/dia (12/12h)", observacao: "Dose diária: 1000 mg/dia" },
+  { nome: "Lamotrigina 25mg", formula: "Lamotrigina", principio: "Lamotrigina", classe: "Estabilizador", dosagem: "25 mg", frequencia: "1x/dia", observacao: "Dose diária: 25 mg/dia" },
+  { nome: "Lamotrigina 50mg", formula: "Lamotrigina", principio: "Lamotrigina", classe: "Estabilizador", dosagem: "50 mg", frequencia: "1x/dia", observacao: "Dose diária: 50 mg/dia" },
+  { nome: "Lamotrigina 100mg", formula: "Lamotrigina", principio: "Lamotrigina", classe: "Estabilizador", dosagem: "100 mg", frequencia: "1x/dia", observacao: "Dose diária: 100 mg/dia" },
+
+  // --- Ortopedia, Reumatologia & Dor Neuropática ---
+  { nome: "Pregabalina 75mg", formula: "Pregabalina", principio: "Pregabalina", classe: "Gabapentinoide", dosagem: "75 mg", frequencia: "2x/dia (12/12h)", observacao: "Dose diária: 150 mg/dia" },
+  { nome: "Pregabalina 150mg", formula: "Pregabalina", principio: "Pregabalina", classe: "Gabapentinoide", dosagem: "150 mg", frequencia: "2x/dia (12/12h)", observacao: "Dose diária: 300 mg/dia" },
+  { nome: "Gabapentina 300mg", formula: "Gabapentina", principio: "Gabapentina", classe: "Gabapentinoide", dosagem: "300 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 300 mg/dia" },
+  { nome: "Gabapentina 600mg", formula: "Gabapentina", principio: "Gabapentina", classe: "Gabapentinoide", dosagem: "600 mg", frequencia: "2x/dia (12/12h)", observacao: "Dose diária: 1200 mg/dia" },
+  { nome: "Ciclobenzaprina 5mg", formula: "Cloridrato de Ciclobenzaprina", principio: "Ciclobenzaprina", classe: "Relaxante Muscular", dosagem: "5 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 5 mg/dia" },
+  { nome: "Ciclobenzaprina 10mg", formula: "Cloridrato de Ciclobenzaprina", principio: "Ciclobenzaprina", classe: "Relaxante Muscular", dosagem: "10 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 10 mg/dia" },
+  { nome: "Tizanidina 2mg", formula: "Cloridrato de Tizanidina", principio: "Tizanidina", classe: "Relaxante Muscular", dosagem: "2 mg", frequencia: "1x/dia ao deitar", observacao: "Dose diária: 2 mg/dia" },
+  { nome: "Baclofeno 10mg", formula: "Baclofeno", principio: "Baclofeno", classe: "Antiespástico", dosagem: "10 mg", frequencia: "2x/dia", observacao: "Dose diária: 20 mg/dia" },
+  { nome: "Dipirona 1g", formula: "Dipirona Monoidratada", principio: "Dipirona", classe: "Analgésico", dosagem: "1 g", frequencia: "se dor até 6/6h", observacao: "Uso sintomático s/n" },
+  { nome: "Dipirona 500mg", formula: "Dipirona Monoidratada", principio: "Dipirona", classe: "Analgésico", dosagem: "500 mg", frequencia: "se dor até 6/6h", observacao: "Uso sintomático s/n" },
+  { nome: "Paracetamol 750mg", formula: "Paracetamol", principio: "Paracetamol", classe: "Analgésico", dosagem: "750 mg", frequencia: "se dor até 6/6h", observacao: "Uso sintomático s/n" },
+  { nome: "Ibuprofeno 600mg", formula: "Ibuprofeno", principio: "Ibuprofeno", classe: "AINE", dosagem: "600 mg", frequencia: "a cada 8h após refeição", observacao: "Dose diária: 1800 mg/dia" },
+  { nome: "Meloxicam 15mg", formula: "Meloxicam", principio: "Meloxicam", classe: "AINE", dosagem: "15 mg", frequencia: "1x/dia após almoço", observacao: "Dose diária: 15 mg/dia" },
+  { nome: "Cetoprofeno 150mg", formula: "Cetoprofeno LP", principio: "Cetoprofeno", classe: "AINE", dosagem: "150 mg", frequencia: "1x/dia", observacao: "Dose diária: 150 mg/dia" },
+  { nome: "Naproxeno 500mg", formula: "Naproxeno Sódico", principio: "Naproxeno", classe: "AINE", dosagem: "500 mg", frequencia: "12/12h após refeições", observacao: "Dose diária: 1000 mg/dia" },
+  { nome: "Diclofenaco Sódico 50mg", formula: "Diclofenaco Sódico", principio: "Diclofenaco", classe: "AINE", dosagem: "50 mg", frequencia: "8/8h", observacao: "Dose diária: 150 mg/dia" },
+  { nome: "Celecoxibe 200mg", formula: "Celecoxibe", principio: "Celecoxibe", classe: "Inibidor COX-2", dosagem: "200 mg", frequencia: "1x/dia", observacao: "Dose diária: 200 mg/dia" },
+  { nome: "Etoricoxibe 90mg", formula: "Etoricoxibe", principio: "Etoricoxibe", classe: "Inibidor COX-2", dosagem: "90 mg", frequencia: "1x/dia", observacao: "Dose diária: 90 mg/dia" },
+  { nome: "Tramadol 50mg", formula: "Cloridrato de Tramadol", principio: "Tramadol", classe: "Opioide Fraco", dosagem: "50 mg", frequencia: "se dor intensa até 8/8h", observacao: "Uso sob demanda" },
+  { nome: "Codeína + Paracetamol 30/500mg", formula: "Fosfato de Codeína + Paracetamol", principio: "Codeína + Paracetamol", classe: "Opioide + Analgésico", dosagem: "30/500 mg", frequencia: "até 8/8h se dor", observacao: "Uso analgésico s/n" },
+  { nome: "Prednisona 20mg", formula: "Prednisona", principio: "Prednisona", classe: "Corticoide Oral", dosagem: "20 mg", frequencia: "1x/dia pela manhã", observacao: "Uso anti-inflamatório" },
+  { nome: "Prednisona 5mg", formula: "Prednisona", principio: "Prednisona", classe: "Corticoide Oral", dosagem: "5 mg", frequencia: "1x/dia pela manhã", observacao: "Manutenção corticoide" },
+  { nome: "Dexametasona 4mg", formula: "Acetato de Dexametasona", principio: "Dexametasona", classe: "Corticoide", dosagem: "4 mg", frequencia: "1x/dia pela manhã", observacao: "Fase aguda inflamatória" },
+
+  // --- Cardiologia, Hipertensão & Dislipidemia ---
+  { nome: "Losartana Potássica 50mg", formula: "Losartana Potássica", principio: "Losartana", classe: "BRA", dosagem: "50 mg", frequencia: "1x/dia", observacao: "Dose diária: 50 mg/dia" },
+  { nome: "Losartana Potássica 100mg", formula: "Losartana Potássica", principio: "Losartana", classe: "BRA", dosagem: "100 mg", frequencia: "1x/dia", observacao: "Dose diária: 100 mg/dia" },
+  { nome: "Enalapril 10mg", formula: "Maleato de Enalapril", principio: "Enalapril", classe: "IECA", dosagem: "10 mg", frequencia: "1x/dia", observacao: "Dose diária: 10 mg/dia" },
+  { nome: "Enalapril 20mg", formula: "Maleato de Enalapril", principio: "Enalapril", classe: "IECA", dosagem: "20 mg", frequencia: "1x/dia", observacao: "Dose diária: 20 mg/dia" },
+  { nome: "Hidroclorotiazida 25mg", formula: "Hidroclorotiazida", principio: "Hidroclorotiazida", classe: "Diurético Tiazídico", dosagem: "25 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 25 mg/dia" },
+  { nome: "Amlodipino 5mg", formula: "Besilato de Anlodipino", principio: "Anlodipino", classe: "BCC", dosagem: "5 mg", frequencia: "1x/dia", observacao: "Dose diária: 5 mg/dia" },
+  { nome: "Amlodipino 10mg", formula: "Besilato de Anlodipino", principio: "Anlodipino", classe: "BCC", dosagem: "10 mg", frequencia: "1x/dia", observacao: "Dose diária: 10 mg/dia" },
+  { nome: "Atenolol 50mg", formula: "Atenolol", principio: "Atenolol", classe: "Betabloqueador", dosagem: "50 mg", frequencia: "1x/dia", observacao: "Dose diária: 50 mg/dia" },
+  { nome: "Metoprolol 50mg", formula: "Succinato de Metoprolol", principio: "Metoprolol", classe: "Betabloqueador", dosagem: "50 mg", frequencia: "1x/dia", observacao: "Dose diária: 50 mg/dia" },
+  { nome: "Carvedilol 6,25mg", formula: "Carvedilol", principio: "Carvedilol", classe: "Betabloqueador", dosagem: "6,25 mg", frequencia: "2x/dia (12/12h)", observacao: "Dose diária: 12,5 mg/dia" },
+  { nome: "Carvedilol 12,5mg", formula: "Carvedilol", principio: "Carvedilol", classe: "Betabloqueador", dosagem: "12,5 mg", frequencia: "2x/dia (12/12h)", observacao: "Dose diária: 25 mg/dia" },
+  { nome: "Sinvastatina 20mg", formula: "Sinvastatina", principio: "Sinvastatina", classe: "Estatina", dosagem: "20 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 20 mg/dia" },
+  { nome: "Sinvastatina 40mg", formula: "Sinvastatina", principio: "Sinvastatina", classe: "Estatina", dosagem: "40 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 40 mg/dia" },
+  { nome: "Atorvastatina 20mg", formula: "Atorvastatina Cálcica", principio: "Atorvastatina", classe: "Estatina", dosagem: "20 mg", frequencia: "1x/dia à noite", observacao: "Dose diária: 20 mg/dia" },
+  { nome: "Rosuvastatina 10mg", formula: "Rosuvastatina Cálcica", principio: "Rosuvastatina", classe: "Estatina", dosagem: "10 mg", frequencia: "1x/dia", observacao: "Dose diária: 10 mg/dia" },
+  { nome: "Espironolactona 25mg", formula: "Espironolactona", principio: "Espironolactona", classe: "Diurético Poupador", dosagem: "25 mg", frequencia: "1x/dia", observacao: "Dose diária: 25 mg/dia" },
+  { nome: "Furosemida 40mg", formula: "Furosemida", principio: "Furosemida", classe: "Diurético de Alça", dosagem: "40 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 40 mg/dia" },
+  { nome: "Ácido Acetilsalicílico (AAS) 100mg", formula: "Ácido Acetilsalicílico", principio: "AAS", classe: "Antiagregante", dosagem: "100 mg", frequencia: "1x/dia após almoço", observacao: "Dose diária: 100 mg/dia" },
+
+  // --- Diabetes, Tireoide & Metabolismo ---
+  { nome: "Metformina 850mg", formula: "Cloridrato de Metformina", principio: "Metformina", classe: "Antidiabético Biguanida", dosagem: "850 mg", frequencia: "2x/dia após refeições", observacao: "Dose diária: 1700 mg/dia" },
+  { nome: "Metformina XR 500mg", formula: "Cloridrato de Metformina XR", principio: "Metformina", classe: "Antidiabético Biguanida", dosagem: "500 mg", frequencia: "1x/dia ao jantar", observacao: "Dose diária: 500 mg/dia" },
+  { nome: "Glibenclamida 5mg", formula: "Glibenclamida", principio: "Glibenclamida", classe: "Sulfonilureia", dosagem: "5 mg", frequencia: "1x/dia antes do café", observacao: "Dose diária: 5 mg/dia" },
+  { nome: "Gliclazida MR 30mg", formula: "Gliclazida MR", principio: "Gliclazida", classe: "Sulfonilureia", dosagem: "30 mg", frequencia: "1x/dia no café da manhã", observacao: "Dose diária: 30 mg/dia" },
+  { nome: "Dapagliflozina 10mg", formula: "Dapagliflozina", principio: "Dapagliflozina", classe: "iSGLT2", dosagem: "10 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 10 mg/dia" },
+  { nome: "Empagliflozina 25mg", formula: "Empagliflozina", principio: "Empagliflozina", classe: "iSGLT2", dosagem: "25 mg", frequencia: "1x/dia pela manhã", observacao: "Dose diária: 25 mg/dia" },
+  { nome: "Levotiroxina 50mcg", formula: "Levotiroxina Sódica", principio: "Levotiroxina", classe: "Hormônio Tireoidiano", dosagem: "50 mcg", frequencia: "1x/dia em jejum", observacao: "Dose diária: 50 mcg/dia" },
+  { nome: "Levotiroxina 75mcg", formula: "Levotiroxina Sódica", principio: "Levotiroxina", classe: "Hormônio Tireoidiano", dosagem: "75 mcg", frequencia: "1x/dia em jejum", observacao: "Dose diária: 75 mcg/dia" },
+  { nome: "Levotiroxina 100mcg", formula: "Levotiroxina Sódica", principio: "Levotiroxina", classe: "Hormônio Tireoidiano", dosagem: "100 mcg", frequencia: "1x/dia em jejum", observacao: "Dose diária: 100 mcg/dia" },
+  { nome: "Insulina NPH", formula: "Insulina Humana NPH", principio: "Insulina", classe: "Insulina", dosagem: "Conforme prescrição", frequencia: "Antes do café e ao deitar", observacao: "Controle glicêmico contínuo" },
+
+  // --- Gastro & Pneumo ---
+  { nome: "Omeprazol 20mg", formula: "Omeprazol", principio: "Omeprazol", classe: "IBP", dosagem: "20 mg", frequencia: "1x/dia em jejum", observacao: "Dose diária: 20 mg/dia" },
+  { nome: "Pantoprazol 40mg", formula: "Pantoprazol Sódico", principio: "Pantoprazol", classe: "IBP", dosagem: "40 mg", frequencia: "1x/dia em jejum", observacao: "Dose diária: 40 mg/dia" },
+  { nome: "Esomeprazol 40mg", formula: "Esomeprazol Magnésico", principio: "Esomeprazol", classe: "IBP", dosagem: "40 mg", frequencia: "1x/dia em jejum", observacao: "Dose diária: 40 mg/dia" },
+  { nome: "Salbutamol Spray 100mcg", formula: "Sulfato de Salbutamol", principio: "Salbutamol", classe: "Broncodilatador SABA", dosagem: "100 mcg/puff", frequencia: "2 puffs se falta de ar", observacao: "Uso sob demanda" },
+  { nome: "Budesonida Spray 200mcg", formula: "Budesonida", principio: "Budesonida", classe: "Corticoide Inalatório", dosagem: "200 mcg", frequencia: "1 inalação 12/12h", observacao: "Uso de manutenção" },
+  { nome: "Formoterol + Budesonida 6/200mcg", formula: "Fumarato de Formoterol + Budesonida", principio: "Formoterol + Budesonida", classe: "LABA + Corticoide", dosagem: "6/200 mcg", frequencia: "1 inalação 12/12h", observacao: "Manutenção pulmonar" }
+];
+
+function searchMedicamentos(query, limit = 8) {
+  if (!query) return [];
+  const q = String(query).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  if (q.length < 1) return [];
+  const terms = q.split(/\s+/).filter(Boolean);
+  
+  return BASE_MEDICAMENTOS.filter(item => {
+    const hay = `${item.nome} ${item.formula} ${item.principio} ${item.classe} ${item.dosagem}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return terms.every(t => hay.includes(t));
+  }).slice(0, limit);
+}
+
 function renderMedications(){
   const boxes=[$("medRows"),$("agilMedRows")].filter(Boolean);
   boxes.forEach(box=>{
+    const prefix = box.id === "agilMedRows" ? "agilMed" : "normMed";
     if(!state.medications.length){box.innerHTML='<div class="empty">Nenhuma medicação adicionada.</div>';return;}
     box.innerHTML=state.medications.map((m,i)=>`
       <div class="med-row">
-        <input class="input small-input field-span" list="medSuggestionsList" placeholder="Medicamento" value="${esc(m.medicamento)}" oninput="editMedication(${i},'medicamento',this.value)">
-        <input class="input small-input" placeholder="Dosagem" value="${esc(m.dosagem)}" oninput="editMedication(${i},'dosagem',this.value)">
-        <input class="input small-input" placeholder="Frequência" value="${esc(m.frequencia)}" oninput="editMedication(${i},'frequencia',this.value)">
-        <input class="input small-input field-span" placeholder="Observação" value="${esc(m.observacao)}" oninput="editMedication(${i},'observacao',this.value)">
-        <button class="remove" onclick="removeMedication(${i})" title="Remover">×</button>
+        <div class="med-autocomplete-wrap">
+          <input class="input small-input field-span med-input-nome" id="${prefix}_nome_${i}" placeholder="Medicamento / Fórmula..." value="${esc(m.medicamento)}" autocomplete="off" oninput="onMedicationInput(${i}, this.value, '${prefix}')" onfocus="onMedicationFocus(${i}, this.value, '${prefix}')">
+          <div id="${prefix}_sug_${i}" class="med-suggestions-dropdown"></div>
+        </div>
+        <input class="input small-input" id="${prefix}_dose_${i}" placeholder="Dosagem" value="${esc(m.dosagem)}" oninput="editMedication(${i},'dosagem',this.value)">
+        <input class="input small-input" id="${prefix}_freq_${i}" placeholder="Frequência" value="${esc(m.frequencia)}" oninput="editMedication(${i},'frequencia',this.value)">
+        <input class="input small-input field-span" id="${prefix}_obs_${i}" placeholder="Observação" value="${esc(m.observacao)}" oninput="editMedication(${i},'observacao',this.value)">
+        <button type="button" class="remove" onclick="removeMedication(${i})" title="Remover">×</button>
       </div>`).join("");
   });
 }
-function editMedication(i,k,v){state.medications[i][k]=v;autoSave()}
+
+function onMedicationInput(i, val, prefix) {
+  editMedication(i, 'medicamento', val);
+  const box = $(`${prefix}_sug_${i}`);
+  if (!box) return;
+
+  if (!val || val.trim().length < 1) {
+    box.classList.remove("show");
+    box.innerHTML = "";
+    return;
+  }
+
+  const results = searchMedicamentos(val, 8);
+  if (!results.length) {
+    box.classList.remove("show");
+    box.innerHTML = "";
+    return;
+  }
+
+  box.innerHTML = results.map(x => `
+    <div class="med-option" onclick="selectMedicationSuggestion(${i}, '${esc(x.nome)}', '${prefix}')">
+      <span class="med-tag">${esc(x.classe || 'Fármaco')}</span>
+      <span style="flex:1">
+        <div style="font-weight:700;font-size:12.5px;color:#1E293B">${esc(x.nome)}</div>
+        <div style="font-size:11px;color:#64748B">${esc(x.dosagem)} • ${esc(x.frequencia)} ${x.observacao ? `• ${esc(x.observacao)}` : ''}</div>
+      </span>
+    </div>
+  `).join("");
+  box.classList.add("show");
+}
+
+function onMedicationFocus(i, val, prefix) {
+  if (val && val.trim().length >= 1) {
+    onMedicationInput(i, val, prefix);
+  }
+}
+
+function selectMedicationSuggestion(i, nome, prefix) {
+  const med = BASE_MEDICAMENTOS.find(x => x.nome === nome);
+  if (!med || !state.medications[i]) return;
+
+  const formulaFinal = med.formula || med.nome;
+  state.medications[i].medicamento = formulaFinal;
+  state.medications[i].dosagem = med.dosagem;
+  state.medications[i].frequencia = med.frequencia;
+  state.medications[i].observacao = med.observacao;
+
+  const box = $(`${prefix}_sug_${i}`);
+  if (box) {
+    box.classList.remove("show");
+    box.innerHTML = "";
+  }
+
+  ["agilMed", "normMed"].forEach(pfx => {
+    const elNome = $(`${pfx}_nome_${i}`);
+    const elDose = $(`${pfx}_dose_${i}`);
+    const elFreq = $(`${pfx}_freq_${i}`);
+    const elObs = $(`${pfx}_obs_${i}`);
+    if (elNome) { elNome.value = formulaFinal; elNome.classList.add("field-autofilled"); setTimeout(() => elNome.classList.remove("field-autofilled"), 1200); }
+    if (elDose) { elDose.value = med.dosagem; elDose.classList.add("field-autofilled"); setTimeout(() => elDose.classList.remove("field-autofilled"), 1200); }
+    if (elFreq) { elFreq.value = med.frequencia; elFreq.classList.add("field-autofilled"); setTimeout(() => elFreq.classList.remove("field-autofilled"), 1200); }
+    if (elObs) { elObs.value = med.observacao; elObs.classList.add("field-autofilled"); setTimeout(() => elObs.classList.remove("field-autofilled"), 1200); }
+  });
+
+  toast(`Medicamento autopreenchido: ${formulaFinal} (${med.dosagem})`);
+  autoSave();
+  if (typeof atualizarProgressoAgil === "function") atualizarProgressoAgil();
+}
+
+function editMedication(i,k,v){
+  if (state.medications[i]) {
+    state.medications[i][k]=v;
+    autoSave();
+  }
+}
 function removeMedication(i){state.medications.splice(i,1);renderMedications();autoSave()}
 
 function addCondition(data={}){
@@ -7405,7 +7629,10 @@ async function init(){
      else if (_c && (_c.id || _c.nome || _c.email)) currentProfile = _c;
    } catch(_) {}
  }
- if (currentProfile) applyProfessionalDefaults(currentProfile);
+ if (currentProfile) {
+   applyProfessionalDefaults(currentProfile);
+   if (typeof aplicarPermissoesBannerIA === "function") aplicarPermissoesBannerIA();
+ }
  await loadCIDs().catch(err => console.warn("Erro ao carregar base de CIDs:", err));
  const params=new URLSearchParams(location.search); const recordId=params.get("atendimento"); const isNew=params.get("novo")==="1"; const openDocumentOnLoad=params.get("documento")==="1";
  const doctorDefaultMode = (currentProfile?.modo_atendimento === "extenso" || currentProfile?.modo_atendimento === "estendido") ? "estendido" : "agil";
@@ -7550,6 +7777,9 @@ async function init(){
  if(typeof initEsislaCharCounters === "function") initEsislaCharCounters();
  if(typeof verificarCoerenciaPericial === "function") verificarCoerenciaPericial();
  if(typeof verificarRegraJuntaMedica === "function") verificarRegraJuntaMedica();
+ if(typeof aplicarPermissoesBannerIA === "function") aplicarPermissoesBannerIA();
+ if(typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico();
+ if(typeof destacarCamposPreenchidosAtestado === "function") destacarCamposPreenchidosAtestado();
 
  // Se o médico estiver configurado para o Modo IA e estiver iniciando um atendimento
  const modoIa2Param = params.get("modo_ia2") === "1" || params.get("ia2") === "1" || params.get("modo") === "ia2";
@@ -7575,7 +7805,14 @@ async function init(){
 }
 init().catch(e=>{console.error("Falha na inicialização:",e);toast("Erro ao iniciar o sistema.");});
 
-document.addEventListener("click",e=>{const o=e.target.closest(".cid-option");if(o?.dataset?.cidCode)selectCID(o.dataset.cidCode);if(!e.target.closest(".cid-wrap")){$("cidSuggestions")?.classList.remove("show");}});
+document.addEventListener("click",e=>{
+  const o=e.target.closest(".cid-option");
+  if(o?.dataset?.cidCode)selectCID(o.dataset.cidCode);
+  if(!e.target.closest(".cid-wrap")){$("cidSuggestions")?.classList.remove("show");}
+  if(!e.target.closest(".med-autocomplete-wrap")){
+    document.querySelectorAll(".med-suggestions-dropdown.show").forEach(box => box.classList.remove("show"));
+  }
+});
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
     $("cidSuggestions")?.classList.remove("show");
@@ -8559,6 +8796,21 @@ function syncExtendedToAgil() {
       $("agilExameFisicoTipo").value = "";
     }
   }
+
+  if (typeof renderizarSugestoesExameFisico === "function") {
+    if (isOsteo) renderizarSugestoesExameFisico("osteomuscular");
+    else if (isMental) renderizarSugestoesExameFisico("mental");
+    else if (isOutros) {
+      const sLow = String(state.outrosSubtipo || "").toLowerCase();
+      if (sLow.includes("respirat")) renderizarSugestoesExameFisico("respiratorio");
+      else if (sLow.includes("circulat")) renderizarSugestoesExameFisico("circulatorio");
+      else if (sLow.includes("digest")) renderizarSugestoesExameFisico("digestivo");
+      else if (sLow.includes("nervos") || sLow.includes("neurol")) renderizarSugestoesExameFisico("neurologico");
+      else renderizarSugestoesExameFisico("geral");
+    } else {
+      renderizarSugestoesExameFisico("osteomuscular");
+    }
+  }
   
   const mentalWrap = $("agilMentalSelector");
   if (mentalWrap) {
@@ -8955,17 +9207,20 @@ function onAgilExameTipoChange(val) {
     if (osteoWrap) osteoWrap.style.display = "none";
     if (outrosWrap) outrosWrap.style.display = "none";
     if (btnIaJust) btnIaJust.style.display = "none";
+    if (typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico("mental");
   } else if (val === "Aparelho Osteomuscular e Tecido Conjutivo") {
     if (mentalWrap) mentalWrap.style.display = "none";
     if (osteoWrap) osteoWrap.style.display = "block";
     if (outrosWrap) outrosWrap.style.display = "none";
     if (btnIaJust) btnIaJust.style.display = "none";
     if (typeof updateOsteoUI === "function") updateOsteoUI();
+    if (typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico("osteomuscular");
   } else if (val === "Outros") {
     if (mentalWrap) mentalWrap.style.display = "none";
     if (osteoWrap) osteoWrap.style.display = "none";
     if (outrosWrap) outrosWrap.style.display = "block";
     if (btnIaJust) btnIaJust.style.display = "inline-flex";
+    if (typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico("geral");
 
     state.exameMentalResultado = "";
     state.osteomuscularResultado = "";
@@ -9058,6 +9313,21 @@ function escolherOutrosSubtipo(nome) {
   state.aux.outrosSubtipo = nome;
   state.aux.areaExameClinico = nome;
   if ($("exameFisicoTipo")) $("exameFisicoTipo").value = nome;
+
+  // Sugestões contextuais baseadas no segmento
+  const sLow = String(nome || "").toLowerCase();
+  if (sLow.includes("respirat")) {
+    if (typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico("respiratorio");
+  } else if (sLow.includes("circulat")) {
+    if (typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico("circulatorio");
+  } else if (sLow.includes("digest")) {
+    if (typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico("digestivo");
+  } else if (sLow.includes("nervos") || sLow.includes("neurol")) {
+    if (typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico("neurologico");
+  } else {
+    if (typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico("geral");
+  }
+
   renderOutrosUI();
   autoSave();
   toast(`Segmento ${nome} selecionado.`);
@@ -10375,10 +10645,10 @@ function ensureAgileBackgroundDefaults() {
   if ($("agilHistoricoPregresso")) $("agilHistoricoPregresso").value = histMelhoria;
   
   if (!state.outrasDoencas) {
-    state.outrasDoencas = "Sim";
-    state.aux.outrasDoencas = "Sim";
-    setRadio("outrasDoencas", "Sim");
-    setRadio("agilOutrasDoencas", "Sim");
+    state.outrasDoencas = "Não";
+    state.aux.outrasDoencas = "Não";
+    setRadio("outrasDoencas", "Não");
+    setRadio("agilOutrasDoencas", "Não");
   }
   
   // 04 — Atestado / Relatório / Exames: "Em anexo"
@@ -10659,13 +10929,36 @@ function finalizarAtendimentoAgil() {
 function toggleAtestadoAssistente(aberto) {
   const panel = $("agilAtestadoAssistenteSubpanel");
   if (panel) {
-    panel.style.display = aberto ? "block" : "none";
+    panel.style.display = "block"; // Fixo e não pode ser desligado
   }
   const chk = $("agilCheckAtestadoAssistente");
-  if (chk && chk.checked !== !!aberto) {
-    chk.checked = !!aberto;
+  if (chk) {
+    chk.checked = true;
   }
+  destacarCamposPreenchidosAtestado();
   atualizarDiasConcedidosAutomatico();
+}
+
+function destacarCamposPreenchidosAtestado() {
+  const campos = ["agilCrmCro", "agilDataExpedicao", "agilDataDocumento", "agilDiasSolicitados"];
+  let preenchidosCount = 0;
+
+  campos.forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    const v = String(el.value || "").trim();
+    if (v && v !== "" && v !== "--") {
+      el.classList.add("field-autofilled");
+      preenchidosCount++;
+    } else {
+      el.classList.remove("field-autofilled");
+    }
+  });
+
+  const badge = $("badgeAtestadoAutopreenchido");
+  if (badge) {
+    badge.style.display = preenchidosCount > 0 ? "inline-flex" : "none";
+  }
 }
 
 function atualizarDiasConcedidosAutomatico() {
@@ -10876,6 +11169,7 @@ function calcularDatasAtestado() {
   // Atualizar opção de Parecer abaixo da Justificativa quando identificar data antiga do atestado (oculta se retroação)
   // Regra DPME: só deve ativar se JÁ PASSOU o prazo do atestado (a partir da data de término do afastamento)
   atualizarOpcaoParecerDataAntigaUI(diffDays, diffHoje, fmtDoc, docDate, dias, endDate, todayZero, fmtTermino);
+  destacarCamposPreenchidosAtestado();
 }
 
 function removerParentesesTextoJS(texto) {
@@ -11818,8 +12112,119 @@ function testarMicrofoneAposDesbloqueio() {
 }
 
 /* =========================================================
-   PRODUTIVIDADE MÉDICA: CHIPS DE ACHADOS DO EXAME FÍSICO
+   BASE BRUTA DE EXAMES FÍSICOS & SUGESTÕES CONTEXTUAIS
    ========================================================= */
+const BASE_EXAMES_FISICOS = {
+  osteomuscular: [
+    { rotulo: "Lasègue Negativo Bilateral", texto: "Teste de Lasègue negativo bilateralmente (sem radiculopatia lombo-sacra)." },
+    { rotulo: "Marcha Típica s/ Claudicação", texto: "Marcha típica, eubásica, com velocidade e cadência normais, sem claudicação ou uso de órteses." },
+    { rotulo: "Sem Contraturas Paravertebrais", texto: "Ausência de contraturas musculares paravertebrais palpáveis; indolor à palpação de processos espinhosos." },
+    { rotulo: "Força Grau V Preservada", texto: "Força muscular grau V preservada globalmente em membros superiores e inferiores bilateralmente." },
+    { rotulo: "Sensibilidade e Reflexos Preservados", texto: "Sensibilidade tátil, térmica e dolorosa preservadas; reflexos tendinosos profundos normoativos e simétricos." },
+    { rotulo: "Mobilidade Articular Preservada", texto: "Mobilidade ativa e passiva das articulações preservadas, sem crepitações, bloqueios ou derrames articulares." },
+    { rotulo: "Coluna Cervical s/ Limitação", texto: "Coluna cervical com amplitude de movimento preservada para flexão, extensão e rotação; teste de Spurling negativo." },
+    { rotulo: "Coluna Lombar s/ Limitação", texto: "Coluna lombar com mobilidade fisiológica mantida; teste de Schöber sem restrições; sem dor à percussão vertebral." },
+    { rotulo: "Ombros: Neer e Hawkins Negativos", texto: "Articulações escapuloumerais sem atrofias ou deformidades; manobras de Neer, Hawkins-Kennedy e Yocum negativas." },
+    { rotulo: "Punhos: Phalen e Tinel Negativos", texto: "Punhos e mãos sem sinais inflamatórios; manobras de Phalen e Tinel negativas bilateralmente." },
+    { rotulo: "Joelhos: Meniscos e Ligamentos Estáveis", texto: "Joelhos sem edema ou derrame articular; gavetas anterior/posterior e testes de McMurray negativos." },
+    { rotulo: "Contratura Paravertebral Presente", texto: "Presença de hipertonia e contratura da musculatura paravertebral lombar à palpação, com arco de movimento doloroso e restrito." },
+    { rotulo: "Lasègue Positivo", texto: "Teste de Lasègue positivo a 45º à direita com irradiação dermatomérica para membro inferior." },
+    { rotulo: "Sinal de Phalen Positivo", texto: "Teste de Phalen e sinal de Tinel positivos à compressão do nervo mediano no punho acometido." }
+  ],
+  mental: [
+    { rotulo: "Exame Mental Globalmente Preservado", texto: "Consciente, orientado no tempo e espaço, pensamento de curso e conteúdo preservados, sem alterações senso-perceptivas, humor eutímico, afeto congruente, juízo crítico mantido." },
+    { rotulo: "Fácies Hipotímica / Humor Depressivo", texto: "Apresenta-se com fácies hipotímica, lentificação psicomotora moderada, postura cabisbaixa, discurso espontâneo porém escasso." },
+    { rotulo: "Afeto Congruente / Sem Delírios", texto: "Contato visual mantido, sem ideação delirante ou desagregação do pensamento; inteligência clinicamente compatível com o nível sociocultural." },
+    { rotulo: "Ansiedade / Inquietude Psicomotora", texto: "Ansiedade manifesta, inquietação motora leve, queixas de tensão constante, hipervigilância sem desorientação alopsíquica." },
+    { rotulo: "Sem Ideação Suicida ou Psicose", texto: "Nega ideação de autoextermínio, planos suicidas ou sintomas psicóticos ativos; crítica do estado mantida." },
+    { rotulo: "Insônia / Cansaço Relatado", texto: "Relato de sono não reparador com insônia intermediária, sem comprometimento mnêmico objetivo durante a avaliação." },
+    { rotulo: "Labilidade Emocional / Choro Fácil", texto: "Labilidade afetiva observada durante o relato da rotina laboral, com episódios de choro incontido e angústia expressa." },
+    { rotulo: "Atenção e Memória Preservadas", texto: "Atenção concentrada e memória de fixação e evocação preservadas nas provas clínicas rotineiras." }
+  ],
+  respiratorio: [
+    { rotulo: "Murmúrio Vesicular Universalmente Audível", texto: "Aparelho Respiratório: Tórax simétrico, expansibilidade preservada bilateralmente. Murmúrio vesicular universalmente audível, sem ruídos adventícios. Eupneico em ar ambiente." },
+    { rotulo: "Sibilos Dispersos / Broncoespasmo", texto: "Aparelho Respiratório: Murmúrio vesicular presente bilateralmente com sibilos expiratórios esparsos, sem tiragem intercostal." },
+    { rotulo: "Sem Desconforto Respiratório", texto: "Padrão ventilatório calmo, sem esforço respiratório, sem cianose central ou periférica; saturação de O2 em ar ambiente satisfatória." }
+  ],
+  circulatorio: [
+    { rotulo: "Bulhas Rítmicas Normofonéticas", texto: "Aparelho Circulatório: Ritmo cardíaco regular em 2 tempos, bulhas normofonéticas (BRNF) sem sopros audíveis. PA dentro dos limites de tolerabilidade." },
+    { rotulo: "Sem Edema de MMII / Pulsos Palpáveis", texto: "Membros inferiores sem edema bilateral, pulsos periféricos (tibiais posteriores e pediosos) palpáveis e simétricos, panturrilhas livres e sem sinais de TVP." },
+    { rotulo: "Perfusão Periférica Preservada", texto: "Boa perfusão tecidual periférica (tempo de enchimento capilar < 2 segundos), jugulares planas a 45 graus." }
+  ],
+  geral: [
+    { rotulo: "Bom Estado Geral (BEG)", texto: "Exame Físico Geral: Bom estado geral (BEG), lúcido e orientado no tempo e espaço (LOTE), corado, hidratado, anictérico, acianótico, afebril ao toque." },
+    { rotulo: "Fácies Atípica sem Sinais de Dor", texto: "Fácies atípica, cooperativo com o exame, sem atitude antálgica aparente ou sinais objetivos de desconforto físico agudo durante a perícia." },
+    { rotulo: "Deambulação Livre e Sem Apoio", texto: "Locomoção livre, sem necessidade de muletas, bengala ou acompanhante para transferências e marcha." },
+    { rotulo: "Sem Linfonodomegalias ou Lesões Cutâneas", texto: "Ausência de linfonodomegalias palpáveis cervicais, axilares ou inguinais. Pele e mucosas sem lesões ativas relevantes." }
+  ],
+  digestivo: [
+    { rotulo: "Abdome Flácido Indolor s/ Visceromegalias", texto: "Aparelho Digestivo: Abdome plano, flácido, depressível, indolor à palpação superficial e profunda. Ruídos hidroaéreos normoativos, sem massas ou visceromegalias palpáveis." },
+    { rotulo: "Sem Sinais de Irritação Peritoneal", texto: "Descompressão brusca indolor (sinal de Blumberg negativo); sinal de Murphy negativo; sem cicatrizes cirúrgicas anômalas." }
+  ],
+  neurologico: [
+    { rotulo: "Pupilas Isocóricas / Pares Cranianos Normais", texto: "Sistema Nervoso: Pupilas isocóricas e fotorreagentes, motilidade ocular extrínseca preservada, sem paresias de pares cranianos." },
+    { rotulo: "Equilíbrio e Coordenação Mantidos", texto: "Equilíbrio estático preservado (Romberg negativo); coordenação motora apendicular e teste index-nariz sem dismetria ou tremores de intenção." },
+    { rotulo: "Reflexos Tendinosos Grau II Normoativos", texto: "Reflexos bicipital, tricipital, patelar e aquileu simétricos e normoativos (grau II/IV bilateralmente). Ausência de reflexos patológicos (Babinski negativo)." }
+  ]
+};
+
+let _sistemaExameAtivo = "osteomuscular";
+
+function renderizarSugestoesExameFisico(sistemaForcado, filtroTexto = "") {
+  const container = $("agilExameFisicoSugestoesList");
+  if (!container) return;
+
+  let sistema = sistemaForcado || _sistemaExameAtivo || "osteomuscular";
+  _sistemaExameAtivo = sistema;
+
+  const badge = $("agilExameFisicoCategoriaBadge");
+  const nomesMap = {
+    osteomuscular: "Osteomuscular",
+    mental: "Exame Mental",
+    respiratorio: "Respiratório",
+    circulatorio: "Circulatório",
+    geral: "Geral",
+    digestivo: "Digestivo",
+    neurologico: "Neurológico"
+  };
+  if (badge) badge.textContent = nomesMap[sistema] || "Geral";
+
+  qsa("#agilExameFisicoTabs .exam-tab-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.sistema === sistema);
+  });
+
+  const lista = BASE_EXAMES_FISICOS[sistema] || BASE_EXAMES_FISICOS.osteomuscular;
+  const q = String(filtroTexto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  const filtrados = lista.filter(item => {
+    if (!q) return true;
+    const hay = `${item.rotulo} ${item.texto}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return hay.includes(q);
+  });
+
+  if (!filtrados.length) {
+    container.innerHTML = `<span style="font-size:11.5px;color:#94A3B8;padding:6px">Nenhum achado encontrado para o filtro digitado.</span>`;
+    return;
+  }
+
+  container.innerHTML = filtrados.map(item => `
+    <button type="button" class="exam-sug-item" onclick="inserirAchadoExame('${esc(item.texto)}')" title="${esc(item.texto)}">
+      <span class="plus-icon">＋</span>
+      <span>${esc(item.rotulo)}</span>
+    </button>
+  `).join("");
+}
+
+function selecionarTabExameFisico(sistema) {
+  _sistemaExameAtivo = sistema;
+  const filtroInput = $("agilFiltroExameFisico");
+  renderizarSugestoesExameFisico(sistema, filtroInput ? filtroInput.value : "");
+}
+
+function filtrarSugestoesExameFisico(termo) {
+  renderizarSugestoesExameFisico(_sistemaExameAtivo, termo);
+}
+
 function inserirAchadoExame(texto) {
   const el = $("agilExameFisicoDescricao");
   if (!el) return;
@@ -11831,6 +12236,8 @@ function inserirAchadoExame(texto) {
   const updated = cur ? `${cur}\n${texto}` : texto;
   el.value = updated;
   syncAgilField("exameFisicoDescricao", updated);
+  el.classList.add("field-autofilled");
+  setTimeout(() => el.classList.remove("field-autofilled"), 1200);
   toast(`Achado inserido: "${texto.slice(0, 32)}..."`);
   atualizarProgressoAgil();
 }

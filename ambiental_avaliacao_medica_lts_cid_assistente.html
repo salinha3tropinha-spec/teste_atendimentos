@@ -451,8 +451,8 @@ Observações / Exame Físico: </textarea>
 
     <!-- CONTAINER MODO ÁGIL -->
     <div id="containerModoAgil">
-      <!-- Banner de Importação Rápida com IA -->
-      <div style="background:linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%);border:1.5px dashed #2563EB;border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 8px rgba(37,99,235,0.06)">
+      <!-- Banner de Importação Rápida com IA (Visível apenas para Administrador ou Login Médico via Admin) -->
+      <div id="bannerPreenchimentoIA" style="display:none;background:linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%);border:1.5px dashed #2563EB;border-radius:14px;padding:14px 18px;margin-bottom:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 8px rgba(37,99,235,0.06)">
         <div style="max-width:760px">
           <strong style="color:#1E3A8A;font-size:13.5px;display:flex;align-items:center;gap:7px">
             <span>✨</span> Preenchimento Inteligente com IA (Anotações do Médico ou Dados do e-SISLA)
@@ -667,71 +667,10 @@ Observações / Exame Físico: </textarea>
               <option value="Sinvastatina"></option>
             </datalist>
 
-            <!-- Chips de Inserção Rápida de Medicações Frequentes por Patologia -->
-            <div style="margin-top:12px;padding:12px;background:#F8FAFC;border:1px dashed #CBD5E1;border-radius:10px">
-              <div style="font-size:11.5px;font-weight:700;color:#334155;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-                <span>⚡</span> <span>Prescrições Frequentes (1 clique adiciona com dosagem em mg/dia formatada):</span>
-              </div>
-              
-              <!-- Saúde Mental -->
-              <div style="margin-bottom:6px">
-                <span style="font-size:10.5px;font-weight:700;color:#6366F1;text-transform:uppercase;letter-spacing:0.5px">🧠 Saúde Mental:</span>
-                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px">
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Sertralina', '50 mg', '1x/dia pela manhã', 'Dose diária: 50 mg/dia')">+ Sertralina 50mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Sertralina', '100 mg', '1x/dia pela manhã', 'Dose diária: 100 mg/dia')">+ Sertralina 100mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Escitalopram', '10 mg', '1x/dia pela manhã', 'Dose diária: 10 mg/dia')">+ Escitalopram 10mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Escitalopram', '20 mg', '1x/dia pela manhã', 'Dose diária: 20 mg/dia')">+ Escitalopram 20mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Clonazepam', '2 mg', '1x/dia à noite', 'Dose diária: 2 mg/dia')">+ Clonazepam 2mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Fluoxetina', '20 mg', '1x/dia pela manhã', 'Dose diária: 20 mg/dia')">+ Fluoxetina 20mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Venlafaxina', '75 mg', '1x/dia pela manhã', 'Dose diária: 75 mg/dia')">+ Venlafaxina 75mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Duloxetina', '30 mg', '1x/dia pela manhã', 'Dose diária: 30 mg/dia')">+ Duloxetina 30mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Quetiapina', '25 mg', '1x/dia à noite', 'Dose diária: 25 mg/dia')">+ Quetiapina 25mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Zolpidem', '10 mg', '1x/dia ao deitar', 'Dose diária: 10 mg/dia')">+ Zolpidem 10mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Amitriptilina', '25 mg', '1x/dia à noite', 'Dose diária: 25 mg/dia')">+ Amitriptilina 25mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Mirtazapina', '15 mg', '1x/dia à noite', 'Dose diária: 15 mg/dia')">+ Mirtazapina 15mg</button>
-                </div>
-              </div>
-
-              <!-- Hipertensão & Cardiovascular -->
-              <div style="margin-bottom:6px">
-                <span style="font-size:10.5px;font-weight:700;color:#DC2626;text-transform:uppercase;letter-spacing:0.5px">❤️ Hipertensão / Cardiovascular / Gastro:</span>
-                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px">
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Losartana Potássica', '50 mg', '1x/dia', 'Dose diária: 50 mg/dia')">+ Losartana 50mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Enalapril', '20 mg', '1x/dia', 'Dose diária: 20 mg/dia')">+ Enalapril 20mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Hidroclorotiazida', '25 mg', '1x/dia pela manhã', 'Dose diária: 25 mg/dia')">+ Hidroclorotiazida 25mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Amlodipino', '5 mg', '1x/dia', 'Dose diária: 5 mg/dia')">+ Amlodipino 5mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Atenolol', '50 mg', '1x/dia', 'Dose diária: 50 mg/dia')">+ Atenolol 50mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Sinvastatina', '20 mg', '1x/dia à noite', 'Dose diária: 20 mg/dia')">+ Sinvastatina 20mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Omeprazol', '20 mg', '1x/dia em jejum', 'Dose diária: 20 mg/dia')">+ Omeprazol 20mg</button>
-                </div>
-              </div>
-
-              <!-- Diabetes & Metabólica -->
-              <div style="margin-bottom:6px">
-                <span style="font-size:10.5px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.5px">🩸 Diabetes &amp; Metabólica:</span>
-                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px">
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Metformina', '850 mg', '2x/dia após refeições', 'Dose diária: 1700 mg/dia')">+ Metformina 850mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Glibenclamida', '5 mg', '1x/dia antes do café', 'Dose diária: 5 mg/dia')">+ Glibenclamida 5mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Dapagliflozina', '10 mg', '1x/dia', 'Dose diária: 10 mg/dia')">+ Dapagliflozina 10mg</button>
-                </div>
-              </div>
-
-              <!-- Ortopedia, Dor & Anti-inflamatórios -->
-              <div>
-                <span style="font-size:10.5px;font-weight:700;color:#D97706;text-transform:uppercase;letter-spacing:0.5px">🦴 Ortopedia / Dor:</span>
-                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:3px">
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Ciclobenzaprina', '10 mg', '1x/dia à noite', 'Dose diária: 10 mg/dia')">+ Ciclobenzaprina 10mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Pregabalina', '75 mg', '2x/dia (12/12h)', 'Dose diária: 150 mg/dia')">+ Pregabalina 75mg 12/12h</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Gabapentina', '300 mg', '1x/dia à noite', 'Dose diária: 300 mg/dia')">+ Gabapentina 300mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Dipirona', '1 g', 'se dor até 6/6h', 'Uso sintomático s/n')">+ Dipirona 1g</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Paracetamol', '750 mg', 'se dor até 6/6h', 'Uso sintomático s/n')">+ Paracetamol 750mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Ibuprofeno', '600 mg', 'a cada 8h após refeição', 'Dose diária: 1800 mg/dia')">+ Ibuprofeno 600mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Meloxicam', '15 mg', '1x/dia após almoço', 'Dose diária: 15 mg/dia')">+ Meloxicam 15mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Cetoprofeno', '150 mg', '1x/dia', 'Dose diária: 150 mg/dia')">+ Cetoprofeno 150mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Tramadol', '50 mg', 'se dor intensa até 8/8h', 'Uso sob demanda')">+ Tramadol 50mg</button>
-                  <button type="button" class="chip-sm" onclick="adicionarMedRapida('Prednisona', '20 mg', '1x/dia pela manhã', 'Uso anti-inflamatório')">+ Prednisona 20mg</button>
-                </div>
-              </div>
+            <!-- Autocomplete de Medicações via Base Bruta Pericial -->
+            <div class="help" style="margin-top:6px;font-size:11.5px;color:#475569;display:flex;align-items:center;gap:6px">
+              <span>💡</span>
+              <span>Digite no campo <strong>Medicamento</strong> para pesquisar sugestões da Base de Fármacos com autopreenchimento de fórmula, dosagem, frequência e posologia.</span>
             </div>
 
             <div class="subpanel" style="margin-top:14px">
@@ -782,11 +721,11 @@ Observações / Exame Físico: </textarea>
             <div class="field">
               <label>Possui outras doenças em tratamento?</label>
               <div class="radio-row">
-                <label class="choice"><input type="radio" name="agilOutrasDoencas" value="Sim" checked onchange="syncAgilOutrasDoencas('Sim')"><span>Sim</span></label>
-                <label class="choice"><input type="radio" name="agilOutrasDoencas" value="Não" onchange="syncAgilOutrasDoencas('Não')"><span>Não</span></label>
+                <label class="choice"><input type="radio" name="agilOutrasDoencas" value="Sim" onchange="syncAgilOutrasDoencas('Sim')"><span>Sim</span></label>
+                <label class="choice"><input type="radio" name="agilOutrasDoencas" value="Não" checked onchange="syncAgilOutrasDoencas('Não')"><span>Não</span></label>
               </div>
             </div>
-            <div id="agilDoencasPanel" class="subpanel" style="margin-top:12px">
+            <div id="agilDoencasPanel" class="subpanel hidden" style="display:none;margin-top:12px">
               <h4 style="margin-bottom:8px">Doenças / condições e tratamentos</h4>
               <div id="agilCondRows"></div>
               <div class="add-row"><button class="btn-add" type="button" onclick="addCondition()">+ Adicionar condição</button></div>
@@ -820,18 +759,15 @@ Observações / Exame Físico: </textarea>
               </div>
             </div>
 
-            <!-- Subpainel: Atestado Assistente & Calculadora Pericial de Prazos -->
-            <!-- Subpainel: Atestado Assistente & Calculadora Pericial de Prazos (oculto por padrão com checkbox) -->
+            <!-- Subpainel: Atestado Assistente & Calculadora Pericial de Prazos (Fixo e Obrigatório e-SISLA) -->
             <div class="field col-12" style="margin-top:10px">
-              <label style="display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:#0F3254;cursor:pointer;background:#F8FAFC;border:1.5px solid #CBD5E1;padding:8px 14px;border-radius:10px;user-select:none;margin-bottom:6px;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,0.03)">
-                <input type="checkbox" id="agilCheckAtestadoAssistente" onchange="toggleAtestadoAssistente(this.checked)" style="width:17px;height:17px;accent-color:#2563EB;cursor:pointer">
-                <span>📅 Informar Dados do Atestado do Médico Assistente &amp; Prazos</span>
-              </label>
-              <div id="agilAtestadoAssistenteSubpanel" class="subpanel" style="display:none;margin-top:2px;background:#F8FAFC;border:1.5px solid #CBD5E1;border-radius:12px;padding:14px">
+              <div id="agilAtestadoAssistenteSubpanel" class="subpanel" style="display:block;margin-top:2px;background:#F8FAFC;border:1.5px solid #CBD5E1;border-radius:12px;padding:14px">
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
                   <div style="font-weight:800;font-size:13px;color:#0F3254;display:flex;align-items:center;gap:6px">
                     <span>📅</span>
                     <span>Dados do Atestado do Médico Assistente &amp; Prazos</span>
+                    <span style="font-size:11px;font-weight:700;color:#0369A1;background:#E0F2FE;border:1px solid #BAE6FD;padding:2px 8px;border-radius:999px">Obrigatório / e-SISLA</span>
+                    <span id="badgeAtestadoAutopreenchido" style="display:none;font-size:11px;font-weight:700;color:#047857;background:#D1FAE5;border:1px solid #A7F3D0;padding:2px 8px;border-radius:999px">✨ Preenchido Automaticamente</span>
                   </div>
                   <div id="retroacaoAlertaBadge" style="display:none;font-size:11.5px;font-weight:700;color:#9A3412;background:#FFEDD5;border:1px solid #FDBA74;padding:3px 10px;border-radius:12px">
                     ⚠️ Atestado com &gt; 3 dias de retroação
@@ -1346,15 +1282,35 @@ Observações / Exame Físico: </textarea>
             </div>
             <textarea class="textarea" id="agilExameFisicoDescricao" style="min-height:120px" placeholder="Achados clínicos e observações do exame físico/mental..." oninput="syncAgilField('exameFisicoDescricao', this.value)"></textarea>
             
-            <!-- Achados Frequentes / Chips Rápidos -->
-            <div class="exam-chips-row" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-              <span style="font-size:11.5px;font-weight:700;color:#64748B;display:inline-flex;align-items:center">⚡ Inserção rápida de achados:</span>
-              <button type="button" class="chip-sm" onclick="inserirAchadoExame('Lasègue negativo bilateralmente.')">+ Lasègue Negativo Bilateral</button>
-              <button type="button" class="chip-sm" onclick="inserirAchadoExame('Marcha típica, sem claudicação ou uso de órteses.')">+ Marcha Típica s/ Claudicação</button>
-              <button type="button" class="chip-sm" onclick="inserirAchadoExame('Ausência de contraturas musculares paravertebrais palpáveis.')">+ Sem Contraturas Paravertebrais</button>
-              <button type="button" class="chip-sm" onclick="inserirAchadoExame('Força muscular grau V preservada em todos os membros.')">+ Força Grau V Preservada</button>
-              <button type="button" class="chip-sm" onclick="inserirAchadoExame('Sensibilidade tátil e reflexos tendinosos profundos preservados.')">+ Sensibilidade e Reflexos Preservados</button>
-              <button type="button" class="chip-sm" onclick="inserirAchadoExame('Fácies atípica, sem sinais objetivos de dor aguda no ato pericial.')">+ Fácies Atípica s/ Dor Aguda</button>
+            <!-- Painel Contextual de Achados do Exame Físico (Base Bruta Pericial) -->
+            <div id="agilExameFisicoSugestoesContainer" class="exam-sugestoes-panel" style="margin-top:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+                <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#0F3254">
+                  <span>⚡</span>
+                  <span>Inserção rápida de achados clínicos (Base Bruta):</span>
+                  <span id="agilExameFisicoCategoriaBadge" class="badge" style="background:#E0E7FF;color:#3730A3;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px">Osteomuscular</span>
+                </div>
+                <!-- Barra de filtro rápido de achados -->
+                <div style="position:relative;min-width:220px;max-width:320px;flex:1">
+                  <input type="text" id="agilFiltroExameFisico" class="input small-input" placeholder="🔍 Filtrar achados clínicos..." oninput="filtrarSugestoesExameFisico(this.value)" style="padding-left:10px;font-size:11.5px;border-radius:6px;height:30px">
+                </div>
+              </div>
+
+              <!-- Tabs/Pílulas de Sistemas Clínicos -->
+              <div id="agilExameFisicoTabs" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+                <button type="button" class="exam-tab-btn active" data-sistema="osteomuscular" onclick="selecionarTabExameFisico('osteomuscular')">🦴 Osteomuscular</button>
+                <button type="button" class="exam-tab-btn" data-sistema="mental" onclick="selecionarTabExameFisico('mental')">🧠 Exame Mental</button>
+                <button type="button" class="exam-tab-btn" data-sistema="respiratorio" onclick="selecionarTabExameFisico('respiratorio')">🫁 Respiratório</button>
+                <button type="button" class="exam-tab-btn" data-sistema="circulatorio" onclick="selecionarTabExameFisico('circulatorio')">❤️ Circulatório</button>
+                <button type="button" class="exam-tab-btn" data-sistema="geral" onclick="selecionarTabExameFisico('geral')">🩺 Geral</button>
+                <button type="button" class="exam-tab-btn" data-sistema="digestivo" onclick="selecionarTabExameFisico('digestivo')">🩹 Digestivo</button>
+                <button type="button" class="exam-tab-btn" data-sistema="neurologico" onclick="selecionarTabExameFisico('neurologico')">⚡ Neurológico</button>
+              </div>
+
+              <!-- Lista de Sugestões Contextuais -->
+              <div id="agilExameFisicoSugestoesList" style="display:flex;gap:6px;flex-wrap:wrap;max-height:160px;overflow-y:auto;padding-right:4px">
+                <!-- Populado dinamicamente via renderizarSugestoesExameFisico() -->
+              </div>
             </div>
 
             <div class="help" style="margin-top:6px">Preenchido automaticamente ao selecionar o exame clínico/mental ou segmentos anatômicos, disponível para revisão do médico. Alimenta o e-Sisla.</div>
@@ -1579,11 +1535,11 @@ Observações / Exame Físico: </textarea>
         </div>
         <div class="field"><label>Possui outras doenças em tratamento?</label>
           <div class="radio-row">
-            <label class="choice"><input type="radio" name="outrasDoencas" value="Sim" checked onchange="toggleDoencas()"><span>Sim</span></label>
-            <label class="choice"><input type="radio" name="outrasDoencas" value="Não" onchange="toggleDoencas()"><span>Não</span></label>
+            <label class="choice"><input type="radio" name="outrasDoencas" value="Sim" onchange="toggleDoencas()"><span>Sim</span></label>
+            <label class="choice"><input type="radio" name="outrasDoencas" value="Não" checked onchange="toggleDoencas()"><span>Não</span></label>
           </div>
         </div>
-        <div id="doencasPanel" class="subpanel">
+        <div id="doencasPanel" class="subpanel hidden" style="display:none">
           <h4>Doenças / condições e tratamentos</h4>
           <div id="condRows"></div>
           <button class="btn-add" type="button" onclick="addCondition()">+ Adicionar condição</button>

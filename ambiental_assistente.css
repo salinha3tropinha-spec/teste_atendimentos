@@ -2539,3 +2539,200 @@ body:not(.mode-agil-active) #containerModoAgil {
   to { opacity: 1; transform: scale(1.15); }
 }
 
+/* =========================================================
+   PRODUTIVIDADE MÉDICA: BANCO DE DADOS DE MEDICAMENTOS & AUTOCOMPLETE
+   ========================================================= */
+.med-autocomplete-wrap {
+  position: relative;
+  width: 100%;
+}
+.med-suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1050;
+  background: #FFFFFF;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+  max-height: 250px;
+  overflow-y: auto;
+  display: none;
+  margin-top: 4px;
+}
+.med-suggestions-dropdown.show {
+  display: block;
+}
+.med-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #F1F5F9;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.15s ease;
+}
+.med-option:last-child {
+  border-bottom: none;
+}
+.med-option:hover, .med-option.active {
+  background: #F0FDF4;
+}
+.med-tag {
+  font-weight: 700;
+  color: #1E40AF;
+  background: #DBEAFE;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   CAMPOS AUTOPREENCHIDOS (DESTAQUE VERDE SUAVE)
+   ========================================================= */
+.field-autofilled {
+  background-color: #ECFDF5 !important;
+  border-color: #10B981 !important;
+  color: #065F46 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15) !important;
+  transition: all 0.3s ease;
+}
+.field-autofilled:focus {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+}
+
+/* =========================================================
+   BASE BRUTA DE EXAMES FÍSICOS & SUGESTÕES CONTEXTUAIS
+   ========================================================= */
+.exam-sugestoes-panel {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  transition: all 0.2s ease;
+}
+.exam-tab-btn {
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.exam-tab-btn:hover {
+  background: #F1F5F9;
+  color: #0F3254;
+  border-color: #94A3B8;
+}
+.exam-tab-btn.active {
+  background: #0F52BA;
+  color: #FFFFFF;
+  border-color: #0F52BA;
+  box-shadow: 0 2px 6px rgba(15, 82, 186, 0.25);
+}
+.exam-sug-item {
+  padding: 6px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #1E293B;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  user-select: none;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.exam-sug-item:hover {
+  background: #EFF6FF;
+  border-color: #3B82F6;
+  color: #1D4ED8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(37,99,235,0.12);
+}
+.exam-sug-item .plus-icon {
+  color: #059669;
+  font-weight: 800;
+  font-size: 12px;
+}
+.exam-sug-item-desc {
+  display: block;
+  font-size: 10px;
+  color: #64748B;
+  margin-top: 2px;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================================================
+   POLIMENTO VISUAL E DESPOLUIÇÃO DO ATENDIMENTO
+   ========================================================= */
+.agil-card {
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+.agil-card-head {
+  padding: 14px 20px;
+  background: #FAFCFE;
+  border-bottom: 1px solid #F1F5F9;
+}
+.agil-card-head h3 {
+  font-size: 14.5px;
+  color: #0F3254;
+}
+.agil-card-head p {
+  font-size: 12px;
+  color: #64748B;
+  margin-top: 3px;
+}
+.agil-card-body {
+  padding: 18px 20px;
+}
+.subpanel {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+}
+.small-input {
+  border-radius: 7px;
+  border: 1px solid #CBD5E1;
+}
+.med-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr 1fr 1.2fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+.med-row .remove {
+  background: #FEE2E2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.med-row .remove:hover {
+  background: #FCA5A5;
+  color: #991B1B;
+}
+
