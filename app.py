@@ -5651,7 +5651,11 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
         ant_clean = "Nega antecedentes mórbidos relevantes, cirurgias prévias, neoplasias ou hábitos tabágicos e etilistas."
 
     ef_raw = str(payload.get("exame_fisico_descricao") or "").strip()
-    ef_tipo = str(payload.get("outros_subtipo") or payload.get("exame_fisico_tipo") or "").strip()
+    ex_principal = str(payload.get("exame_fisico_tipo") or payload.get("agil_exame_fisico_tipo") or "").strip()
+    if ex_principal and not any(t in ex_principal.lower() for t in ("geral", "outro")):
+        ef_tipo = ex_principal
+    else:
+        ef_tipo = str(payload.get("outros_subtipo") or payload.get("area_exame_clinico") or ex_principal or "").strip()
     if ef_raw:
         ef_text = ef_raw
         if ef_tipo and not any(t in ef_tipo.lower() for t in ("geral", "outro")) and not ef_text.lower().startswith(ef_tipo.lower()):
@@ -6110,7 +6114,11 @@ def api_ai_esisla():
 
             # Exame Físico Geral: priorizar estritamente os achados registrados no atendimento pelo médico perito
             ef_achados = str(payload.get("exame_fisico_descricao") or "").strip()
-            ef_tipo = str(payload.get("outros_subtipo") or payload.get("exame_fisico_tipo") or "").strip()
+            ex_principal = str(payload.get("exame_fisico_tipo") or payload.get("agil_exame_fisico_tipo") or "").strip()
+            if ex_principal and not any(t in ex_principal.lower() for t in ("geral", "outro")):
+                ef_tipo = ex_principal
+            else:
+                ef_tipo = str(payload.get("outros_subtipo") or payload.get("area_exame_clinico") or ex_principal or "").strip()
             ef_match = re.search(r"(\(\*\)\s*Exame Físico Geral:?\s*\n\s*)(.*?)(\n\s*Descrição das Alterações (?:Clínicas|Médicas))", ficha_text, re.DOTALL | re.IGNORECASE)
             if ef_match:
                 if ef_achados:

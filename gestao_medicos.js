@@ -422,6 +422,69 @@
     }
   };
 
+  const MAPA_NOMES_ESISLA_DOC = {
+    'aoal': 'Aparelho Osteomuscular e Tecido Conjuntivo',
+    'em': 'Exame Mental',
+    'ac': 'Aparelho Circulatório',
+    'ar': 'Aparelho Respiratório',
+    'tcspf': 'Tecido celular subcutâneo Pele e Fâneros',
+    'ad': 'Aparelho Digestivo',
+    'agu': 'Aparelho Geniturinário',
+    'ahp': 'Aparelho Hemolinfopoiético',
+    'ae': 'Aparelho Endócrino',
+    'sn': 'Sistema Nervoso',
+    'os': 'Órgãos dos Sentidos',
+    'outro': 'Outros'
+  };
+
+  function detectarSistemaExameFisicoDoc(st, aux, texto, cidCode) {
+    if (typeof window !== 'undefined' && window.EsislaCore && typeof window.EsislaCore.detectarSistemaExameFisico === 'function') {
+      return window.EsislaCore.detectarSistemaExameFisico(st, aux, texto, cidCode);
+    }
+    const exTipo = String(st?.exameFisicoTipo || aux?.exameFisicoTipo || st?.agilExameFisicoTipo || '').trim().toLowerCase();
+    const outrosSub = String(st?.outrosSubtipo || aux?.outrosSubtipo || st?.areaExameClinico || '').trim().toLowerCase();
+    const cUpper = String(cidCode || st?.cid || aux?.cid || '').trim().toUpperCase();
+    if (cUpper.startsWith('Z76') || st?.isAcompanhante || aux?.isAcompanhante) return 'outro';
+    if (exTipo.includes('mental') && !exTipo.includes('físic') && !exTipo.includes('fisic')) return 'em';
+    if (exTipo.includes('osteomuscular') || exTipo.includes('conjutivo') || exTipo.includes('conjuntivo') || exTipo.includes('ortop')) return 'aoal';
+    if (exTipo.includes('circulat') || exTipo.includes('cardio')) return 'ac';
+    if (exTipo.includes('respirat') || exTipo.includes('pulmon')) return 'ar';
+    if (exTipo.includes('pele') || exTipo.includes('subcut')) return 'tcspf';
+    if (exTipo.includes('digest')) return 'ad';
+    if (exTipo.includes('genit') || exTipo.includes('urin')) return 'agu';
+    if (exTipo.includes('hemolin')) return 'ahp';
+    if (exTipo.includes('endocrin')) return 'ae';
+    if (exTipo.includes('nervoso')) return 'sn';
+    if (exTipo.includes('sentidos')) return 'os';
+    if (outrosSub.includes('osteomuscular') || outrosSub.includes('ortop')) return 'aoal';
+    if (outrosSub.includes('mental')) return 'em';
+    if (outrosSub.includes('circulat')) return 'ac';
+    if (outrosSub.includes('respirat')) return 'ar';
+    if (outrosSub.includes('pele') || outrosSub.includes('subcut')) return 'tcspf';
+    if (outrosSub.includes('digest')) return 'ad';
+    if (outrosSub.includes('genit')) return 'agu';
+    if (outrosSub.includes('hemolin')) return 'ahp';
+    if (outrosSub.includes('endocrin')) return 'ae';
+    if (outrosSub.includes('nervoso')) return 'sn';
+    if (outrosSub.includes('sentidos')) return 'os';
+    const efLower = String(texto || '').toLowerCase();
+    if (/(?:las[eèé]gue|paravertebral|flexo[-\s]?extens|mobilidade ativa|dor [aà] palpa[çc]|coluna lombar|coluna cervical|joelho|ombro)/i.test(efLower)) return 'aoal';
+    if (/(?:humor|afeto|ansiedade|depressiv|labilidade|insight|f[aá]cies entristecida)/i.test(efLower)) return 'em';
+    if (/(?:murm[uú]rio vesicular|mv\+|ru[íi]dos advent[íi]cios|estertores|dispneia)/i.test(efLower)) return 'ar';
+    if (cUpper.startsWith('F')) return 'em';
+    if (cUpper.startsWith('M') || cUpper.startsWith('S') || cUpper.startsWith('T')) return 'aoal';
+    if (cUpper.startsWith('I')) return 'ac';
+    if (cUpper.startsWith('J')) return 'ar';
+    if (cUpper.startsWith('L')) return 'tcspf';
+    if (cUpper.startsWith('K')) return 'ad';
+    if (cUpper.startsWith('N')) return 'agu';
+    if (cUpper.startsWith('D')) return 'ahp';
+    if (cUpper.startsWith('E')) return 'ae';
+    if (cUpper.startsWith('G')) return 'sn';
+    if (cUpper.startsWith('H')) return 'os';
+    return 'outro';
+  }
+
   window.renderDoctorEsislaBlocos = function(textoFicha) {
     const container = $('doctorEsislaBlocosContainer');
     if (!container) return;
@@ -477,6 +540,41 @@
       '(*) Parecer Médico'
     ]) || p.exameFisicoDescricao || a.exameFisicoDescricao || '';
 
+    const sistemaEscolhido = (typeof window !== 'undefined' && window.EsislaCore && typeof window.EsislaCore.detectarSistemaExameFisico === 'function')
+      ? window.EsislaCore.detectarSistemaExameFisico(p, a, str, p.cid || a.cid || r.cid)
+      : detectarSistemaExameFisicoDoc(p, a, str, p.cid || a.cid || r.cid);
+    const mapaNomes = (typeof window !== 'undefined' && window.MAPA_NOMES_ESISLA) || MAPA_NOMES_ESISLA_DOC;
+    const sistemaNome = mapaNomes[sistemaEscolhido] || (sistemaEscolhido === 'outro' ? 'Outros' : 'Aparelho Osteomuscular e Tecido Conjuntivo');
+
+    // Limpar repetição do título/sistema no início do texto do exame físico
+    let exameFisicoLimpo = exameFisico;
+    exameFisicoLimpo = exameFisicoLimpo.replace(/^\s*(?:Aparelho\s+)?(?:E\s+)?Outros\s*:\s*/i, '').trim();
+    const prefixosSistema = [
+      sistemaNome,
+      'Aparelho Osteomuscular e Tecido Conjuntivo',
+      'Aparelho Osteomuscular e Tecido Conjutivo',
+      'Exame Mental',
+      'Tecido celular subcutâneo Pele e Fâneros',
+      'Tecido celular subcutâneo',
+      'Pele e Fâneros',
+      'Aparelho Circulatório',
+      'Aparelho Respiratório',
+      'Aparelho Hemolinfopoiético',
+      'Aparelho Hemolinfopoético',
+      'Aparelho Digestivo',
+      'Aparelho Geniturinário',
+      'Aparelho Genitourinário',
+      'Aparelho Endócrino',
+      'Sistema Nervoso',
+      'Órgãos dos Sentidos',
+      'Exame Físico Geral'
+    ];
+    for (const pref of prefixosSistema) {
+      if (!pref) continue;
+      const rx = new RegExp('^\\s*' + pref.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '\\s*:\\s*', 'i');
+      exameFisicoLimpo = exameFisicoLimpo.replace(rx, '').trim();
+    }
+
     const altClinicas = extractSectionDoctorEsisla(str, [
       'Descrição das Alterações Clínicas e Exames Complementares',
       'Descrição das Alterações Clínicas encontradas e Relato dos Exames Complementares',
@@ -513,7 +611,17 @@
       { icon: '📜', title: 'Antecedentes Mórbidos', content: antecedentes },
       { icon: '📑', title: 'Atestado / Relatório / Exames Complementares', content: atestado },
       { icon: '💓', title: 'Sinais Vitais e Biometria', content: biometria },
-      { icon: '🩺', title: '(*) Exame Físico Geral', content: exameFisico },
+      {
+        icon: '🩺',
+        title: '(*) Exame Físico Geral',
+        content: exameFisicoLimpo,
+        badgeHtml: sistemaNome ? `
+          <div style="margin:4px 0 10px 0;display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;padding:3px 9px;border-radius:6px;background:#EFF6FF;color:#1D4ED8;font-weight:700;border:1px solid #BFDBFE">
+              ☑️ Checkbox e-SISLA: ${esc(sistemaNome)}
+            </span>
+          </div>` : ''
+      },
       { icon: '🔬', title: 'Descrição das Alterações Clínicas e Exames Complementares', content: altClinicas },
       { icon: '⚠️', title: '(*) Descrição da(s) Limitação(ções) Física(s) e/ou Mental(is)', content: limitacoes },
       { icon: '⚖️', title: '(*) Parecer Médico', content: parecerBloco },
@@ -531,6 +639,7 @@
           <div class="doc-esisla-card-title"><span>${b.icon}</span><span>${esc(b.title)}</span></div>
           <button type="button" class="btn-sm" onclick="copyDoctorEsislaBlock(this)">📋 Copiar Bloco</button>
         </div>
+        ${b.badgeHtml || ''}
         <div class="doc-esisla-card-body" style="white-space:pre-wrap;line-height:1.6">${esc(b.content)}</div>
       </div>
     `).join('');
@@ -937,21 +1046,22 @@
     }
     const pesoRaw = String((str.match(/Peso[:\s]*(\d+)/i) || [])[1] || p.peso || a.peso || '').replace(/\D/g, '').slice(0, 3);
 
-    const exTipoLower = String(p.outrosSubtipo || a.outrosSubtipo || p.exameFisicoTipo || a.exameFisicoTipo || '').toLowerCase();
-    const efLower = String(exameFisico || '').toLowerCase();
+    const sistemaEscolhido = (typeof window !== 'undefined' && window.EsislaCore && typeof window.EsislaCore.detectarSistemaExameFisico === 'function')
+      ? window.EsislaCore.detectarSistemaExameFisico(p, a, str, cid1)
+      : detectarSistemaExameFisicoDoc(p, a, str, cid1);
     const cb = {
-      'voMedico.parEdtcspf': /tcspf|tecido celular subcut[âa]neo|pele e f[âa]neros/i.test(exTipoLower) || /tcspf|tecido celular subcut[âa]neo/i.test(efLower),
-      'voMedico.parEdAc': /circulat[óo]rio|cardio/i.test(exTipoLower) || (/aparelho circulat[óo]rio/i.test(efLower) && !/bom do estado geral/i.test(efLower)),
-      'voMedico.parEdAr': /respirat[óo]rio|pulmon/i.test(exTipoLower) || (/aparelho respirat[óo]rio/i.test(efLower) && !/bom do estado geral/i.test(efLower)),
-      'voMedico.parEdAHp': /hemolinfopo[ée]tico|hemat/i.test(exTipoLower) || /hemolinfopo[ée]tico/i.test(efLower),
-      'voMedico.parEdAd': /digestivo|gastr/i.test(exTipoLower) || /aparelho digestivo/i.test(efLower),
-      'voMedico.parEdAgu': /geniturin[áa]rio|urin|renal/i.test(exTipoLower) || /aparelho geniturin[áa]rio/i.test(efLower),
-      'voMedico.parEdAoal': /osteomuscular|conjuntivo|conjutivo/i.test(exTipoLower) || /osteomuscular|conjuntivo|conjutivo/i.test(efLower) || (!exTipoLower && cid1.startsWith('M')),
-      'voMedico.parEdAe': /end[óo]crino|metab[óo]l/i.test(exTipoLower) || /aparelho end[óo]crino/i.test(efLower),
-      'voMedico.parEdSn': /sistema nervoso|neurol/i.test(exTipoLower) || /sistema nervoso/i.test(efLower),
-      'voMedico.parEdOs': /[óo]rg[ãa]os dos sentidos|oftalm|otol/i.test(exTipoLower) || /[óo]rg[ãa]os dos sentidos/i.test(efLower),
-      'voMedico.parEdEm': /exame mental|estado mental|mental/i.test(exTipoLower) || /^exame mental|estado mental/i.test(efLower) || (!exTipoLower && cid1.startsWith('F')),
-      'voMedico.parEdOutro': /outro|geral/i.test(exTipoLower) || /bom do estado geral/i.test(efLower)
+      'voMedico.parEdtcspf': sistemaEscolhido === 'tcspf',
+      'voMedico.parEdAc': sistemaEscolhido === 'ac',
+      'voMedico.parEdAr': sistemaEscolhido === 'ar',
+      'voMedico.parEdAHp': sistemaEscolhido === 'ahp',
+      'voMedico.parEdAd': sistemaEscolhido === 'ad',
+      'voMedico.parEdAgu': sistemaEscolhido === 'agu',
+      'voMedico.parEdAoal': sistemaEscolhido === 'aoal',
+      'voMedico.parEdAe': sistemaEscolhido === 'ae',
+      'voMedico.parEdSn': sistemaEscolhido === 'sn',
+      'voMedico.parEdOs': sistemaEscolhido === 'os',
+      'voMedico.parEdEm': sistemaEscolhido === 'em',
+      'voMedico.parEdOutro': sistemaEscolhido === 'outro'
     };
     if (!Object.values(cb).some(Boolean) && exameFisico) {
       cb['voMedico.parEdOutro'] = true;

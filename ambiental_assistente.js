@@ -12926,9 +12926,30 @@ function detectarSistemaExameFisico(st, aux, texto, cidCode) {
     ''
   ).trim().toLowerCase();
 
-  // 1. Subtipos selecionados quando a opção "Outros" foi detalhada pelo médico (chips das 12 áreas clínicas)
-  if (outrosSub.includes('geral') || outrosSub === 'e outros' || outrosSub === 'outros') return 'outro';
-  if (outrosSub.includes('osteomuscular') || outrosSub.includes('ortop')) return 'aoal';
+  // 1. Acompanhante sempre usa 'Outros'
+  const cUpper = String(cidCode || st?.cid || aux?.cid || '').trim().toUpperCase();
+  const isAcomp = cUpper.startsWith('Z76') || Boolean(st?.isAcompanhante || aux?.isAcompanhante);
+  if (isAcomp) return 'outro';
+
+  // 2. Precedência Máxima: Seleção principal do médico em "Tipo de exame físico / mental" (exTipo)
+  if (exTipo === 'exame mental' || (exTipo.includes('mental') && !exTipo.includes('físic') && !exTipo.includes('fisic'))) {
+    return 'em';
+  }
+  if (exTipo.includes('osteomuscular') || exTipo.includes('conjutivo') || exTipo.includes('conjuntivo') || exTipo.includes('ortop')) {
+    return 'aoal';
+  }
+  if (exTipo.includes('circulat') || exTipo.includes('cardio')) return 'ac';
+  if (exTipo.includes('respirat') || exTipo.includes('pulmon')) return 'ar';
+  if (exTipo.includes('pele') || exTipo.includes('fânero') || exTipo.includes('fanero') || exTipo.includes('subcut') || exTipo.includes('dermat')) return 'tcspf';
+  if (exTipo.includes('digest') || exTipo.includes('gastr')) return 'ad';
+  if (exTipo.includes('genit') || exTipo.includes('urin') || exTipo.includes('renal')) return 'agu';
+  if (exTipo.includes('hemolin') || exTipo.includes('hemat')) return 'ahp';
+  if (exTipo.includes('endocrin') || exTipo.includes('metabol') || exTipo.includes('diabet')) return 'ae';
+  if (exTipo.includes('nervoso') || exTipo.includes('neurol')) return 'sn';
+  if (exTipo.includes('sentidos') || exTipo.includes('oftalm') || exTipo.includes('otol')) return 'os';
+
+  // 3. Subtipos selecionados quando a opção "Outros" foi detalhada pelo médico (chips das 12 áreas clínicas)
+  if (outrosSub.includes('osteomuscular') || outrosSub.includes('ortop') || outrosSub.includes('conjutivo') || outrosSub.includes('conjuntivo')) return 'aoal';
   if (outrosSub.includes('mental') || outrosSub.includes('psiqui')) return 'em';
   if (outrosSub.includes('circulat') || outrosSub.includes('cardio')) return 'ac';
   if (outrosSub.includes('respirat') || outrosSub.includes('pulmon')) return 'ar';
@@ -12940,35 +12961,12 @@ function detectarSistemaExameFisico(st, aux, texto, cidCode) {
   if (outrosSub.includes('nervoso') || outrosSub.includes('neurol')) return 'sn';
   if (outrosSub.includes('sentidos') || outrosSub.includes('oftalm') || outrosSub.includes('otol')) return 'os';
 
-  // 2. Precedência da seleção principal do médico em "Tipo de exame físico / mental"
-  if (exTipo === 'exame mental' || (exTipo.includes('mental') && !exTipo.includes('físic'))) {
-    return 'em';
-  }
-  if (exTipo.includes('osteomuscular') || exTipo.includes('conjutivo') || exTipo.includes('conjuntivo')) {
-    return 'aoal';
-  }
-  if (exTipo.includes('geral') || exTipo === 'outros' || exTipo === 'e outros' || outrosSub === 'e outros' || outrosSub === 'outros' || exTipo.startsWith('outro')) {
-    return 'outro';
-  }
-  // Caso exTipo seja diretamente um dos sistemas específicos (ex: formulário estendido)
-  if (exTipo.includes('circulat') || exTipo.includes('cardio')) return 'ac';
-  if (exTipo.includes('respirat') || exTipo.includes('pulmon')) return 'ar';
-  if (exTipo.includes('pele') || exTipo.includes('fânero') || exTipo.includes('fanero') || exTipo.includes('subcut') || exTipo.includes('dermat')) return 'tcspf';
-  if (exTipo.includes('digest') || exTipo.includes('gastr')) return 'ad';
-  if (exTipo.includes('genit') || exTipo.includes('urin') || exTipo.includes('renal')) return 'agu';
-  if (exTipo.includes('hemolin') || exTipo.includes('hemat')) return 'ahp';
-  if (exTipo.includes('endocrin') || exTipo.includes('metabol') || exTipo.includes('diabet')) return 'ae';
-  if (exTipo.includes('nervoso') || exTipo.includes('neurol')) return 'sn';
-  if (exTipo.includes('sentidos') || exTipo.includes('oftalm') || exTipo.includes('otol')) return 'os';
-
-  // 3. Verificação pelo conteúdo do texto clínico registrado (exame físico padrão / achados)
+  // 4. Verificação pelo conteúdo do texto clínico registrado (exame físico padrão / achados)
   const exameFisicoTexto = (String(texto || '').match(/\(\*\)\s*Exame Físico Geral:?\s*\n\s*([\s\S]*?)(?=\n\s*(?:Descrição das Alterações|Descri[çc][ãa]o das Altera[çc][õo]es|\(\*\)Descrição da\(s\) Limitação|\(\*\)Parecer Médico|Limitação|$))/i) || [])[1] || exDesc || '';
   const efLower = exameFisicoTexto.toLowerCase();
-  const exameFisicoLinha1 = (String(texto || '').match(/\(\*\)\s*Exame Físico Geral:?\s*\n\s*([^\n\r]+)/i) || [])[1]?.toLowerCase() || '';
-  if (exameFisicoLinha1.startsWith('aparelho e outro') || exameFisicoLinha1.startsWith('aparelho outro') || exameFisicoLinha1.startsWith('e outros') || exameFisicoLinha1.includes('outros:') || efLower.includes('bom do estado geral') || efLower.includes('exame físico geral')) {
-    return 'outro';
-  }
-  if (exameFisicoLinha1.includes('osteomuscular') || exameFisicoLinha1.includes('conjutivo') || exameFisicoLinha1.includes('conjuntivo') || efLower.includes('osteomuscular')) return 'aoal';
+  const exameFisicoLinha1 = (exameFisicoTexto.match(/^[^\n\r]+/i) || [])[0]?.toLowerCase() || '';
+
+  if (exameFisicoLinha1.includes('osteomuscular') || exameFisicoLinha1.includes('conjutivo') || exameFisicoLinha1.includes('conjuntivo')) return 'aoal';
   if (exameFisicoLinha1.startsWith('exame mental') || efLower.startsWith('exame mental')) return 'em';
   if ((exameFisicoLinha1.includes('circulat') || efLower.includes('circulat')) && !efLower.includes('bom do estado geral') && !efLower.includes('ap.respirat')) return 'ac';
   if ((exameFisicoLinha1.includes('respirat') || efLower.includes('respirat')) && !efLower.includes('bom do estado geral') && !efLower.includes('cardio')) return 'ar';
@@ -12979,22 +12977,37 @@ function detectarSistemaExameFisico(st, aux, texto, cidCode) {
   if (exameFisicoLinha1.includes('endocrin') || efLower.includes('endocrin')) return 'ae';
   if (exameFisicoLinha1.includes('nervoso') || efLower.includes('nervoso')) return 'sn';
   if (exameFisicoLinha1.includes('sentidos') || efLower.includes('sentidos')) return 'os';
-  if (exameFisicoLinha1.includes('outro') || exameFisicoLinha1.includes('geral')) return 'outro';
 
-  // 4. Precedência pelo código CID do atendimento (SOMENTE se não houve escolha médica nem texto específico)
-  if (!exTipo && !outrosSub) {
-    const c = String(cidCode || '').toUpperCase().trim();
-    if (c.startsWith('M')) return 'aoal';
-    if (c.startsWith('F')) return 'em';
-    if (c.startsWith('I')) return 'ac';
-    if (c.startsWith('J')) return 'ar';
-    if (c.startsWith('L')) return 'tcspf';
-    if (c.startsWith('K')) return 'ad';
-    if (c.startsWith('N')) return 'agu';
-    if (c.startsWith('D')) return 'ahp';
-    if (c.startsWith('E')) return 'ae';
-    if (c.startsWith('G')) return 'sn';
-    if (c.startsWith('H')) return 'os';
+  // Achados semiológicos específicos
+  if (/(?:las[eèé]gue|paravertebral|flexo[-\s]?extens|mobilidade ativa|amplitude articular|dor [aà] palpa[çc]|tendinite|bursite|epicondil|coluna lombar|coluna cervical|joelho|ombro|cotovelo|punho|quadril|tornozelo|mmii|mmss|for[çc]a motriz|grau v)/i.test(efLower)) {
+    return 'aoal';
+  }
+  if (/(?:humor|afeto|ansiedade|pensamento ruminante|depressiv|psicomotor|labilidade|insight|suicida|delir|alucin|f[aá]cies entristecida|hipot[íi]mic)/i.test(efLower)) {
+    return 'em';
+  }
+  if (/(?:murm[uú]rio vesicular|mv\+|ru[íi]dos advent[íi]cios|estertores|sibilos|roncos|dispneia)/i.test(efLower)) {
+    return 'ar';
+  }
+  if (/(?:bulhas r[íi]tmicas|rcr em 2t|bnf|sopros)/i.test(efLower)) {
+    return 'ac';
+  }
+  if (/(?:les[ãa]o cut[âa]nea|eritema|prurido|m[aá]cula|p[aá]pula|cicatriz cir[úu]rgica|ferida operat[óo]ria)/i.test(efLower)) {
+    return 'tcspf';
+  }
+
+  // 5. Fallback inteligente baseado no código CID-10
+  if (cUpper) {
+    if (cUpper.startsWith('F')) return 'em';
+    if (cUpper.startsWith('M') || cUpper.startsWith('S') || cUpper.startsWith('T')) return 'aoal';
+    if (cUpper.startsWith('I')) return 'ac';
+    if (cUpper.startsWith('J')) return 'ar';
+    if (cUpper.startsWith('L')) return 'tcspf';
+    if (cUpper.startsWith('K')) return 'ad';
+    if (cUpper.startsWith('N')) return 'agu';
+    if (cUpper.startsWith('D5') || cUpper.startsWith('D6') || cUpper.startsWith('D7')) return 'ahp';
+    if (cUpper.startsWith('E')) return 'ae';
+    if (cUpper.startsWith('G')) return 'sn';
+    if (cUpper.startsWith('H')) return 'os';
   }
 
   return 'outro';
