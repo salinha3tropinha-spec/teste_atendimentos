@@ -2278,7 +2278,17 @@ function trocarSubViewIA2(view) {
   if (vEscrita) vEscrita.style.display = (view === "escrita" ? "block" : "none");
 
   if (view === "gravacao") {
-    renderizarColinhaIA2();
+    const hasActiveContent = Boolean(ia2Gravando || (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0) || window.__ia2AudioBlobPendente || window.__ia2JaTranscreveuOuRefinou);
+    const heroScreen = $("ia2GravacaoEstadoInicial");
+    const workScreen = $("ia2GravacaoWorkspaceAtivo");
+    if (hasActiveContent) {
+      if (heroScreen) heroScreen.style.display = "none";
+      if (workScreen) workScreen.style.display = "block";
+      renderizarColinhaIA2();
+    } else {
+      if (heroScreen) heroScreen.style.display = "block";
+      if (workScreen) workScreen.style.display = "none";
+    }
     const tArea = $("ia2GravacaoTranscricao");
     if (tArea) {
       window._ia2BaseTextGravacao = (tArea.value || "").trim();
@@ -2494,6 +2504,16 @@ async function iniciarGravacaoIA2() {
   ia2Gravando = true;
   atualizarGuiaPassosIA2(2);
 
+  // Revelar workspace de gravação ativa e colinhas
+  const heroScreen = $("ia2GravacaoEstadoInicial");
+  const workScreen = $("ia2GravacaoWorkspaceAtivo");
+  if (heroScreen) heroScreen.style.display = "none";
+  if (workScreen) {
+    workScreen.style.display = "block";
+    workScreen.classList.add("ia2-fade-in-up");
+  }
+  renderizarColinhaIA2();
+
   // Snapshot inicial do texto existente na textarea
   const tArea = $("ia2GravacaoTranscricao");
   window._ia2BaseTextGravacao = (tArea?.value || "").trim();
@@ -2515,13 +2535,13 @@ async function iniciarGravacaoIA2() {
     btn.style.borderColor = "#B91C1C";
     btn.style.boxShadow = "0 4px 14px rgba(220,38,38,0.35)";
   }
-  if (btnText) btnText.textContent = "2. Pausar e Ver Transcrição";
+  if (btnText) btnText.textContent = "Pausar Áudio";
   if (btnIcon) btnIcon.textContent = "⏸️";
   if (badge) {
     badge.style.background = "#DCFCE7";
     badge.style.color = "#15803D";
     badge.style.borderColor = "#86EFAC";
-    badge.innerHTML = "🎙️ Gravando consulta... Clique em '2. Pausar' quando terminar de perguntar";
+    badge.innerHTML = "🔴 Gravando consulta... Fale normalmente com o servidor";
   }
   if (wave) wave.classList.add("ia2-recording-active");
 
@@ -2537,11 +2557,11 @@ async function iniciarGravacaoIA2() {
         <div style="width:76px;height:76px;border-radius:50%;background:#FEE2E2;border:3px solid #EF4444;display:flex;align-items:center;justify-content:center;font-size:34px;margin-bottom:16px;box-shadow:0 0 0 10px rgba(239,68,68,0.12)">🎙️</div>
         <h4 style="margin:0 0 8px;font-size:18px;font-weight:900;color:#0F172A">Gravando Áudio da Consulta...</h4>
         <p style="font-size:14px;color:#475569;max-width:480px;margin:0 0 18px;line-height:1.5">
-          Conduza a conversa com o paciente normalmente. Use o <strong>Roteiro de Perguntas (Colinha)</strong> à esquerda como guia.
+          Conduza a conversa com o paciente normalmente. Acompanhe o <strong>Roteiro de Perguntas (Colinha)</strong> à esquerda para orientar o atendimento.
         </p>
         <div style="background:#EFF6FF;border:1.5px solid #93C5FD;color:#1E40AF;font-size:13px;font-weight:700;padding:10px 20px;border-radius:14px;display:inline-flex;align-items:center;gap:10px;max-width:520px;text-align:left">
-          <span style="font-size:20px">⏸️</span>
-          <span><strong>Próximo Passo:</strong> Quando terminar as perguntas, clique no botão vermelho <strong>"2. Pausar e Ver Transcrição"</strong> acima para ler o que foi dito e ver se faltou alguma pergunta.</span>
+          <span style="font-size:20px">🏁</span>
+          <span>Ao terminar a consulta, clique no botão verde <strong>"Finalizar Atendimento"</strong> acima. A IA transcreverá tudo, montará o diálogo e estruturará o prontuário.</span>
         </div>
       </div>
     `;
@@ -2676,13 +2696,13 @@ function pausarGravacaoIA2(skipAutoRefine = false) {
     btn.style.borderColor = "#1D4ED8";
     btn.style.boxShadow = "0 3px 10px rgba(37,99,235,0.25)";
   }
-  if (btnText) btnText.textContent = "Continuar Gravação (Mais Perguntas)";
-  if (btnIcon) btnIcon.textContent = "🎙️";
+  if (btnText) btnText.textContent = "Continuar Gravação";
+  if (btnIcon) btnIcon.textContent = "▶️";
   if (badge) {
     badge.style.background = "#FEF3C7";
     badge.style.color = "#92400E";
     badge.style.borderColor = "#FDE68A";
-    badge.innerHTML = "⏳ Gravação pausada — IA transcrevendo a conversa...";
+    badge.innerHTML = "⏸️ Gravação pausada. Clique em 'Continuar Gravação' ou em 'Finalizar Atendimento'";
   }
   if (wave) wave.classList.remove("ia2-recording-active");
   const waveBars = document.querySelectorAll("#ia2WaveContainer .ia2-wave-bar");
@@ -2710,15 +2730,6 @@ function pausarGravacaoIA2(skipAutoRefine = false) {
     window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mType });
     const btnDl = $("ia2BtnDownloadAudio");
     if (btnDl) btnDl.style.display = "inline-flex";
-
-    // Transcreve automaticamente o áudio gravado no momento ao pausar (exceto quando chamado pela finalização direta)
-    if (!skipAutoRefine) {
-      setTimeout(() => {
-        if (!ia2Gravando && (window.__ia2AudioBlobPendente || (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0))) {
-          refinarDialogoComIA2(true);
-        }
-      }, 280);
-    }
   }
 }
 
@@ -2764,6 +2775,12 @@ function limparTranscricaoIA2() {
     }
     window.__ia2JaTranscreveuOuRefinou = false;
     atualizarGuiaPassosIA2(1);
+    const heroScreen = $("ia2GravacaoEstadoInicial");
+    const workScreen = $("ia2GravacaoWorkspaceAtivo");
+    if (heroScreen && workScreen) {
+      heroScreen.style.display = "block";
+      workScreen.style.display = "none";
+    }
     const btn = $("ia2BtnGravacaoToggle");
     const btnText = $("ia2BtnGravacaoText");
     const btnIcon = $("ia2BtnGravacaoIcon");
@@ -3450,23 +3467,26 @@ function processarArquivoAudioImportadoIA2(input) {
     }
   }
 
+  // Revelar workspace de gravação ativa e colinhas
+  const heroScreen = $("ia2GravacaoEstadoInicial");
+  const workScreen = $("ia2GravacaoWorkspaceAtivo");
+  if (heroScreen) heroScreen.style.display = "none";
+  if (workScreen) {
+    workScreen.style.display = "block";
+    workScreen.classList.add("ia2-fade-in-up");
+  }
+  renderizarColinhaIA2();
+
   if (badge) {
     badge.style.background = "#DCFCE7";
     badge.style.color = "#15803D";
-    badge.innerHTML = "✅ Áudio carregado (pronto para IA)";
+    badge.innerHTML = "✅ Áudio carregado • Clique em 'Finalizar Atendimento' para estruturar";
   }
 
   const btnDl = $("ia2BtnDownloadAudio");
   if (btnDl) btnDl.style.display = "none";
 
   toast(`🎵 Arquivo de áudio "${file.name}" carregado com sucesso!`);
-
-  // Dispara automaticamente a transcrição multimodal com IA
-  setTimeout(() => {
-    if (window.__ia2AudioBlobPendente) {
-      refinarDialogoComIA2(true);
-    }
-  }, 350);
 }
 
 function removerAudioImportadoIA2() {
@@ -3521,12 +3541,136 @@ function baixarGravacaoAudioIA2() {
   toast("Gravação baixada com sucesso!");
 }
 
+// Animação Inovadora ao Finalizar Gravação (Montagem de Perguntas e Respostas com IA)
+let _ia2AnimInterval = null;
+function mostrarAnimacaoMontandoDialogoIA2(ativo) {
+  const overlay = $("ia2LoadingOverlay");
+  if (!overlay) return;
+  if (!ativo) {
+    overlay.style.display = "none";
+    if (_ia2AnimInterval) {
+      clearInterval(_ia2AnimInterval);
+      _ia2AnimInterval = null;
+    }
+    return;
+  }
+
+  const titleEl = $("ia2LoadingTitle");
+  const subEl = $("ia2LoadingSubtitle");
+  const pillEl = $("ia2LoadingPillText");
+  const pBar = $("ia2ProgressBar");
+
+  if (titleEl) titleEl.textContent = "🧠 IA Montando Perguntas e Respostas da Consulta";
+  if (subEl) subEl.textContent = "Analisando áudio, identificando vozes (Médico Perito x Periciado) e estruturando o diálogo...";
+  if (pBar) pBar.style.width = "25%";
+
+  overlay.style.display = "flex";
+
+  const etapas = [
+    { pct: 25, msg: "🎙️ Processando áudio gravado e limpando ruídos..." },
+    { pct: 50, msg: "🗣️ Identificando vozes: Médico Perito x Periciado..." },
+    { pct: 75, msg: "💬 Montando diálogo em Perguntas e Respostas..." },
+    { pct: 90, msg: "📋 Mapeando Roteiro Pericial e conferindo respostas..." }
+  ];
+  let stepIdx = 0;
+  if (_ia2AnimInterval) clearInterval(_ia2AnimInterval);
+  _ia2AnimInterval = setInterval(() => {
+    stepIdx = (stepIdx + 1) % etapas.length;
+    const item = etapas[stepIdx];
+    if (pillEl) pillEl.textContent = item.msg;
+    if (pBar) pBar.style.width = `${item.pct}%`;
+    for (let i = 1; i <= 4; i++) {
+      const stepEl = $(`ia2Step${i}`);
+      if (!stepEl) continue;
+      if (i <= stepIdx + 1) {
+        stepEl.className = (i === stepIdx + 1) ? "ia2-step-item active" : "ia2-step-item done";
+      } else {
+        stepEl.className = "ia2-step-item pending";
+      }
+    }
+  }, 850);
+}
+
+function abrirModalPerguntasNaoRespondidasIA2(pendentes) {
+  const modalAviso = $("ia2ModalAvisoColinha");
+  if (!modalAviso) return;
+
+  const qtdEl = $("ia2QtdPerguntasPendentes");
+  if (qtdEl) qtdEl.textContent = String(pendentes.length);
+
+  const container = $("ia2ListaPerguntasPendentes");
+  if (container) {
+    container.innerHTML = pendentes.map(q => `
+      <div class="ia2-pending-manual-card" style="background:#FFFFFF;border:1.5px solid #FCD34D;border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(245,158,11,0.08)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="background:#FEF3C7;color:#92400E;font-weight:900;font-size:11.5px;padding:3px 8px;border-radius:6px">Pergunta ${String(q.numero || q.id).padStart(2, '0')}</span>
+            <strong style="color:#0F172A;font-size:13.5px">${esc(q.pergunta)}</strong>
+          </div>
+          <span style="font-size:11px;color:#D97706;font-weight:700">Não detectada</span>
+        </div>
+        <span style="font-size:11.5px;color:#64748B;display:block;margin-bottom:8px">${esc(q.subtexto || '')}</span>
+        <input type="text" id="ia2PendingManualInput_${q.id}" data-colinha-id="${q.id}" class="ia2-pending-input" style="width:100%;box-sizing:border-box;padding:9px 14px;border:1.5px solid #CBD5E1;border-radius:10px;font-size:13px;color:#1E293B;outline:none;background:#FAFAFA;transition:border-color 0.2s" placeholder="Preencha a resposta do periciado ou observação do exame..." onfocus="this.style.borderColor='#3B82F6';this.style.background='#fff'" onblur="this.style.borderColor='#CBD5E1'">
+      </div>
+    `).join("");
+  }
+
+  modalAviso.style.display = "flex";
+}
+
+function fecharModalAvisoColinhaIA2() {
+  const modalAviso = $("ia2ModalAvisoColinha");
+  if (modalAviso) modalAviso.style.display = "none";
+}
+
+function confirmarFinalizacaoIA2MesmoComPendencias() {
+  salvarEdicaoVisualIA2();
+  let txt = ($("ia2GravacaoTranscricao")?.value || "").trim();
+
+  // Coleta respostas digitadas nos inputs manuais de perguntas pendentes
+  const manualInputs = document.querySelectorAll("#ia2ListaPerguntasPendentes input[data-colinha-id]");
+  let respostasManuaisAdicionadas = 0;
+  if (manualInputs && manualInputs.length > 0) {
+    manualInputs.forEach(inp => {
+      const qId = parseInt(inp.getAttribute("data-colinha-id"), 10);
+      const val = (inp.value || "").trim();
+      const qConfig = COLINHA_IA2_CONFIG.find(it => it.id === qId);
+      if (val && qConfig) {
+        if (ia2ColinhaStatus[qId]) {
+          ia2ColinhaStatus[qId].matched = true;
+          ia2ColinhaStatus[qId].snippet = val;
+          ia2ColinhaStatus[qId].manualState = true;
+        }
+        txt += `\n\nMédico Perito: ${qConfig.pergunta}\nPericiado: ${val}`;
+        respostasManuaisAdicionadas++;
+      }
+    });
+  }
+
+  if (respostasManuaisAdicionadas > 0) {
+    const tArea = $("ia2GravacaoTranscricao");
+    if (tArea) tArea.value = txt;
+    window._ia2BaseTextGravacao = txt;
+    renderizarColinhaIA2();
+    atualizarContadorGravacaoIA2();
+  }
+
+  fecharModalAvisoColinhaIA2();
+
+  if (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0 && !window.__ia2AudioBlobPendente) {
+    const mime = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
+    window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mime });
+  }
+
+  abrirModalDecisaoMedicoIA2("gravacao", txt);
+}
+
 // Finalização do Modo IA 2.0
 async function finalizarAtendimentoIA2(origem) {
   if (origem === "gravacao") {
     if (ia2Gravando) {
       pausarGravacaoIA2(true);
-      await new Promise(r => setTimeout(r, 250));
+      await new Promise(r => setTimeout(r, 200));
     }
     salvarEdicaoVisualIA2();
 
@@ -3542,27 +3686,41 @@ async function finalizarAtendimentoIA2(origem) {
       return;
     }
 
-    // Se já existe uma transcrição em andamento iniciada ao pausar, apenas aguarda ela concluir
-    if (_ia2RefinandoAtivo && _ia2RefinandoPromise) {
-      try {
+    // Iniciar animação inovadora de estruturação da IA
+    mostrarAnimacaoMontandoDialogoIA2(true);
+
+    try {
+      if (_ia2RefinandoAtivo && _ia2RefinandoPromise) {
         const refData = await _ia2RefinandoPromise;
         txt = ($("ia2GravacaoTranscricao")?.value || "").trim() || (refData && refData.texto_formatado) || txt;
-      } catch (err) {
-        console.warn("Aviso ao aguardar transcrição em andamento:", err);
-      }
-    } else if (hasAudio && (!window.__ia2JaTranscreveuOuRefinou || !txt)) {
-      // Só transcreve se ainda não tiver sido transcrito ao pausar/importar
-      try {
+      } else if (hasAudio && (!window.__ia2JaTranscreveuOuRefinou || !txt)) {
         const refData = await refinarDialogoComIA2(true);
         if (refData && refData.texto_formatado) {
           txt = refData.texto_formatado;
         }
-      } catch (err) {
-        console.warn("Aviso ao transcrever áudio na finalização:", err);
       }
+    } catch (err) {
+      console.warn("Aviso ao transcrever áudio na finalização:", err);
+    } finally {
+      mostrarAnimacaoMontandoDialogoIA2(false);
     }
 
-    abrirModalDecisaoMedicoIA2("gravacao", txt);
+    txt = ($("ia2GravacaoTranscricao")?.value || "").trim() || txt;
+
+    // Verificar se há perguntas do roteiro pericial (colinha) pendentes
+    const pendentes = COLINHA_IA2_CONFIG.filter(q => {
+      const st = ia2ColinhaStatus[q.id];
+      const isChecked = (st && st.manualState !== null && st.manualState !== undefined)
+        ? st.manualState
+        : (st && (st.matched || st.aiMatched));
+      return !isChecked;
+    });
+
+    if (pendentes.length > 0) {
+      abrirModalPerguntasNaoRespondidasIA2(pendentes);
+    } else {
+      abrirModalDecisaoMedicoIA2("gravacao", txt);
+    }
   } else if (origem === "escrita") {
     const rawTxt = ($("ia2EscritaText")?.value || "").trim();
     const txtUtil = extrairTextoUtilEscritaIA2(rawTxt);
@@ -3572,22 +3730,6 @@ async function finalizarAtendimentoIA2(origem) {
     }
     abrirModalDecisaoMedicoIA2("escrita", txtUtil);
   }
-}
-
-function fecharModalAvisoColinhaIA2() {
-  const modalAviso = $("ia2ModalAvisoColinha");
-  if (modalAviso) modalAviso.style.display = "none";
-}
-
-function confirmarFinalizacaoIA2MesmoComPendencias() {
-  fecharModalAvisoColinhaIA2();
-  salvarEdicaoVisualIA2();
-  if (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0 && !window.__ia2AudioBlobPendente) {
-    const mime = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
-    window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mime });
-  }
-  const txt = ($("ia2GravacaoTranscricao")?.value || "").trim();
-  abrirModalDecisaoMedicoIA2("gravacao", txt);
 }
 
 // Modal de Decisão Discreta do Médico Perito
@@ -4127,16 +4269,8 @@ async function finalizarAtendimentoDefinitivoIA2() {
   ensureAgileBackgroundDefaults();
   syncState();
 
-  // 2. Executa a finalização oficial do atendimento seguindo rigorosamente o fluxo do prontuário
-  if (currentAttendanceMode === "agil" && typeof finalizarAtendimentoAgil === "function") {
-    finalizarAtendimentoAgil();
-  } else if (typeof finalizeFromHeader === "function") {
-    finalizeFromHeader();
-  } else if (typeof openFinalizeDialog === "function") {
-    openFinalizeDialog();
-  } else {
-    await confirmFinalize();
-  }
+  // 2. Finaliza e salva no sistema diretamente sem exigir duplo clique
+  await confirmFinalize();
 }
 
 function salvarComoRascunhoIA2() {

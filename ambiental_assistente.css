@@ -2736,3 +2736,98 @@ body:not(.mode-agil-active) #containerModoAgil {
   color: #991B1B;
 }
 
+/* =========================================================
+   REFINAMENTOS DO MODO IA 2.0 (HERO GRAVAÇÃO, ANIMAÇÃO & PENDÊNCIAS)
+   ========================================================= */
+
+.ia2-gravacao-clean-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 440px;
+  animation: ia2FadeInUp 0.35s ease-out;
+}
+
+.ia2-hero-card {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 24px;
+  padding: 42px 36px;
+  max-width: 620px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  box-sizing: border-box;
+}
+
+.ia2-hero-big-record-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 18px;
+  padding: 16px 28px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+  max-width: 460px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ia2-hero-big-record-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 14px 32px rgba(16, 185, 129, 0.45);
+}
+
+.ia2-hero-big-record-btn:active {
+  transform: scale(0.98);
+}
+
+.ia2-hero-mic-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.3);
+}
+
+.ia2-fade-in-up {
+  animation: ia2FadeInUp 0.35s ease-out;
+}
+
+@keyframes ia2FadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ia2-pending-manual-card {
+  transition: all 0.2s ease;
+}
+
+.ia2-pending-manual-card:hover {
+  border-color: #F59E0B;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.12);
+}
+
+.ia2-pending-input:focus {
+  border-color: #2563EB !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  background: #FFFFFF !important;
+}
+

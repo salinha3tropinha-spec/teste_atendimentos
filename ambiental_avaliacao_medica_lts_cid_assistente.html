@@ -140,10 +140,10 @@
 
       <!-- VIEW 1: SELEÇÃO DE MODO (Gravação vs Escrita) -->
       <div id="ia2ViewSelecao">
-        <div style="text-align:center;max-width:760px;margin:24px auto 20px">
-          <span class="badge" style="background:#EEF2FF;color:#4338CA;font-weight:800;font-size:12px;padding:6px 14px;border-radius:20px;border:1px solid #C7D2FE">✨ INTELIGÊNCIA ARTIFICIAL PERICIAL 2.0</span>
-          <h2 style="font-size:24px;color:#0F172A;font-weight:900;margin:12px 0 6px">Como deseja realizar este atendimento?</h2>
-          <p style="color:#64748B;font-size:14px;margin:0">Selecione uma das opções abaixo para conduzir a perícia médica de forma ágil, com preenchimento oculto em segundo plano e preparação direta para o e-SISLA.</p>
+        <div style="text-align:center;max-width:740px;margin:28px auto 22px">
+          <span class="badge" style="background:#EEF2FF;color:#4338CA;font-weight:800;font-size:12px;padding:6px 16px;border-radius:20px;border:1px solid #C7D2FE;letter-spacing:0.4px">✨ INTELIGÊNCIA ARTIFICIAL PERICIAL 2.0</span>
+          <h2 style="font-size:25px;color:#0F172A;font-weight:900;margin:12px 0 6px">Como deseja realizar este atendimento?</h2>
+          <p style="color:#64748B;font-size:14px;margin:0;line-height:1.5">Escolha uma das opções abaixo. A IA estrutura o laudo, preenche o prontuário em segundo plano e prepara tudo diretamente para o e-SISLA.</p>
         </div>
 
         <div class="ia2-selection-card-grid">
@@ -151,21 +151,21 @@
           <div class="ia2-mode-card recording-card" onclick="trocarSubViewIA2('gravacao')">
             <div>
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
-                <div style="width:48px;height:48px;border-radius:14px;background:#ECFDF5;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid #A7F3D0">🎙️</div>
-                <span class="badge" style="background:#DCFCE7;color:#15803D;font-weight:800;font-size:11px">MAIS PRÁTICO • PASSO A PASSO</span>
+                <div style="width:48px;height:48px;border-radius:14px;background:#ECFDF5;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid #A7F3D0;box-shadow:0 2px 8px rgba(16,185,129,0.12)">🎙️</div>
+                <span class="badge" style="background:#DCFCE7;color:#15803D;font-weight:800;font-size:11px;padding:4px 10px;border-radius:10px">MAIS PRÁTICO • POR VOZ</span>
               </div>
-              <h3 style="font-size:18px;color:#0F172A;font-weight:900;margin:0 0 8px">Modo Gravação de Atendimento</h3>
-              <p style="font-size:13px;color:#475569;line-height:1.5;margin:0 0 16px">
-                Ideal para conduzir a consulta conversando normalmente com o paciente, sem precisar digitar. Ao pausar, a IA transcreve tudo e mostra se faltou alguma pergunta.
+              <h3 style="font-size:18px;color:#0F172A;font-weight:900;margin:0 0 8px">Modo Gravação da Consulta</h3>
+              <p style="font-size:13.5px;color:#475569;line-height:1.5;margin:0 0 16px">
+                Converse normalmente com o servidor. A IA ouve o atendimento, orienta o roteiro pericial e monta o diálogo estruturado automaticamente ao finalizar.
               </p>
-              <ul style="margin:0 0 20px;padding-left:18px;font-size:12.5px;color:#334155;line-height:1.7">
-                <li><strong>1º Passo:</strong> Clique em <em>Iniciar Gravação</em> e faça a consulta normalmente</li>
-                <li><strong>2º Passo:</strong> Clique em <em>Pausar</em> para ver o diálogo e as perguntas faltantes</li>
-                <li><strong>3º Passo:</strong> Clique em <em>Finalizar</em> para escolher o parecer e gerar o e-SISLA</li>
-              </ul>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
+                <span class="badge" style="background:#F1F5F9;color:#334155;font-weight:700;font-size:11px">✨ Sem digitação manual</span>
+                <span class="badge" style="background:#F1F5F9;color:#334155;font-weight:700;font-size:11px">📋 Roteiro pericial ao vivo</span>
+                <span class="badge" style="background:#F1F5F9;color:#334155;font-weight:700;font-size:11px">⚡ e-SISLA em 1 clique</span>
+              </div>
             </div>
-            <button type="button" class="btn btn-green" style="width:100%;font-weight:800;padding:13px;font-size:14.5px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px">
-              <span>🎙️</span> Entrar no Modo Gravação
+            <button type="button" class="btn btn-green" style="width:100%;font-weight:800;padding:13px;font-size:14.5px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 12px rgba(16,185,129,0.25)">
+              <span>🎙️</span> Iniciar por Gravação ➜
             </button>
           </div>
 
@@ -173,22 +173,21 @@
           <div class="ia2-mode-card" onclick="trocarSubViewIA2('escrita')">
             <div>
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
-                <div style="width:48px;height:48px;border-radius:14px;background:#EEF2FF;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid #C7D2FE">✍️</div>
-                <span class="badge" style="background:#E0E7FF;color:#4338CA;font-weight:800;font-size:11px">DIGITAÇÃO & COLAGEM RÁPIDA</span>
+                <div style="width:48px;height:48px;border-radius:14px;background:#EEF2FF;display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid #C7D2FE;box-shadow:0 2px 8px rgba(99,102,241,0.12)">✍️</div>
+                <span class="badge" style="background:#E0E7FF;color:#4338CA;font-weight:800;font-size:11px;padding:4px 10px;border-radius:10px">DIGITAÇÃO & DITADO</span>
               </div>
-              <h3 style="font-size:18px;color:#0F172A;font-weight:900;margin:0 0 8px">Modo de Escrita / Ditado</h3>
-              <p style="font-size:13px;color:#475569;line-height:1.5;margin:0 0 16px">
-                Tela única e limpa para você digitar livremente, usar modelos clínicos prontos, colar anotações do WhatsApp/Bloco de Notas ou ditar por voz.
+              <h3 style="font-size:18px;color:#0F172A;font-weight:900;margin:0 0 8px">Modo Escrita ou Ditado Livre</h3>
+              <p style="font-size:13.5px;color:#475569;line-height:1.5;margin:0 0 16px">
+                Tela única sem formulários longos. Cole anotações clínicas, use modelos rápidos de 1 clique ou dite suas considerações livremente por voz.
               </p>
-              <ul style="margin:0 0 20px;padding-left:18px;font-size:12.5px;color:#334155;line-height:1.7">
-                <li><strong>Campo amplo e único</strong> para colar, digitar ou ditar por voz</li>
-                <li><strong>Modelos rápidos com 1 clique</strong> (Ortopedia, Saúde Mental, Retrospectivo)</li>
-                <li><strong>Sem formulários longos</strong>: a IA preenche todo o prontuário sozinha</li>
-                <li><strong>Ficha e-SISLA pronta</strong> em segundos após escolher o seu parecer</li>
-              </ul>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
+                <span class="badge" style="background:#F1F5F9;color:#334155;font-weight:700;font-size:11px">🎤 Ditado por voz</span>
+                <span class="badge" style="background:#F1F5F9;color:#334155;font-weight:700;font-size:11px">📋 Colagem de texto livre</span>
+                <span class="badge" style="background:#F1F5F9;color:#334155;font-weight:700;font-size:11px">⚡ Tela única ágil</span>
+              </div>
             </div>
-            <button type="button" class="btn btn-primary" style="width:100%;font-weight:800;padding:13px;font-size:14.5px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg, #4F46E5, #6366F1);border:none">
-              <span>✍️</span> Entrar no Modo de Escrita
+            <button type="button" class="btn btn-primary" style="width:100%;font-weight:800;padding:13px;font-size:14.5px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg, #4F46E5, #6366F1);border:none;box-shadow:0 4px 12px rgba(79,70,229,0.25)">
+              <span>✍️</span> Iniciar por Escrita ➜
             </button>
           </div>
         </div>
@@ -200,182 +199,221 @@
 
       <!-- VIEW 2: MODO GRAVAÇÃO -->
       <div id="ia2ViewGravacao" style="display:none">
-        <!-- Barra Guia Passo a Passo (1 -> 2 -> 3) para Orientação Visual do Médico -->
-        <div id="ia2GuiaPassosGravacao" class="ia2-stepper-guide">
-          <div id="ia2GuideStep1" class="ia2-guide-step active">
-            <span class="ia2-guide-num">1</span>
-            <div>
-              <strong>Gravar ou Importar</strong>
-              <span>Inicie a gravação e converse com o paciente</span>
-            </div>
-          </div>
-          <div class="ia2-guide-arrow">➜</div>
-          <div id="ia2GuideStep2" class="ia2-guide-step">
-            <span class="ia2-guide-num">2</span>
-            <div>
-              <strong>Pausar e Conferir</strong>
-              <span>A IA transcreve tudo e avisa se faltou alguma pergunta</span>
-            </div>
-          </div>
-          <div class="ia2-guide-arrow">➜</div>
-          <div id="ia2GuideStep3" class="ia2-guide-step">
-            <span class="ia2-guide-num">3</span>
-            <div>
-              <strong>Concluir Atendimento</strong>
-              <span>Escolha o parecer (Favorável/Contrário) e gere o e-SISLA</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top Toolbar de Controle da Gravação -->
-        <div style="background:#ffffff;border:1.5px solid #CBD5E1;border-radius:16px;padding:14px 20px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;box-shadow:0 4px 12px rgba(15,23,42,0.04)">
-          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-            <!-- Timer Digital -->
-            <div class="ia2-timer-box" title="Tempo de gravação da consulta">
-              <span>⏱️</span>
-              <span id="ia2TimerDisplay">00:00:00</span>
-            </div>
-            <!-- Botão Principal: Iniciar / Pausar / Continuar -->
-            <button type="button" id="ia2BtnGravacaoToggle" class="btn btn-green ia2-btn-main-record" onclick="alternarGravacaoIA2()" style="font-weight:900;font-size:14.5px;padding:12px 22px;border-radius:12px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(16,185,129,0.3)">
-              <span id="ia2BtnGravacaoIcon" style="font-size:18px">🎙️</span>
-              <span id="ia2BtnGravacaoText">1. Iniciar Gravação</span>
-            </button>
-            <!-- Visualizador Wave -->
-            <div id="ia2WaveContainer" class="ia2-wave-container">
-              <div class="ia2-wave-bar"></div>
-              <div class="ia2-wave-bar"></div>
-              <div class="ia2-wave-bar"></div>
-              <div class="ia2-wave-bar"></div>
-              <div class="ia2-wave-bar"></div>
-            </div>
-            <!-- Status Badge -->
-            <span id="ia2GravacaoStatusBadge" class="badge" style="background:#F1F5F9;color:#475569;font-weight:700;font-size:12.5px;padding:7px 14px;border-radius:8px;border:1px solid #E2E8F0">
-              ⏹️ Clique em "1. Iniciar Gravação" para começar
+        <!-- TELA INICIAL LIMPA (Antes de Iniciar Gravação) -->
+        <div id="ia2GravacaoEstadoInicial" class="ia2-gravacao-clean-hero">
+          <div class="ia2-hero-card">
+            <span class="badge" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-weight:800;font-size:12px;padding:6px 14px;border-radius:20px">
+              🎙️ GRAVAÇÃO DA CONSULTA PERICIAL
             </span>
-          </div>
+            <h2 style="font-size:24px;color:#0F172A;font-weight:900;margin:14px 0 8px">Pronto para iniciar a consulta?</h2>
+            <p style="color:#64748B;font-size:14px;max-width:540px;margin:0 auto 26px;line-height:1.6">
+              Ao clicar no botão abaixo, o microfone será ativado e o <strong>roteiro pericial (colinha)</strong> será exibido na tela para você acompanhar durante o atendimento.
+            </p>
 
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <!-- Botão Importar Áudio Externo (MP3, WAV, M4A) -->
-            <button type="button" class="btn btn-outline btn-sm" onclick="abrirSeletorAudioIA2()" style="font-weight:700;padding:8px 12px;font-size:12.5px;display:flex;align-items:center;gap:6px" title="Enviar áudio já gravado no celular ou computador (.mp3, .wav, .m4a, .webm)">
-              <span>📁</span> Enviar Áudio Gravado
+            <button type="button" id="ia2BtnIniciarGravacaoHero" class="ia2-hero-big-record-btn" onclick="iniciarGravacaoIA2()">
+              <div class="ia2-hero-mic-circle">
+                <span style="font-size:32px">🎙️</span>
+              </div>
+              <div style="text-align:left">
+                <strong style="display:block;font-size:17px;font-weight:900">Iniciar Gravação da Consulta</strong>
+                <span style="display:block;font-size:12.5px;opacity:0.9">Ativa microfone e abre o checklist pericial</span>
+              </div>
+              <span style="font-size:22px;margin-left:auto">➜</span>
             </button>
-            <input type="file" id="ia2InputAudioFile" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="display:none" onchange="processarArquivoAudioImportadoIA2(this)">
 
-            <!-- Botão Baixar Áudio Gravado -->
-            <button type="button" id="ia2BtnDownloadAudio" class="btn btn-outline btn-sm" onclick="baixarGravacaoAudioIA2()" style="display:none;font-weight:700;padding:8px 12px;font-size:12px;align-items:center;gap:6px" title="Salvar cópia do áudio gravado no seu computador">
-              <span>📥</span> Salvar Áudio
-            </button>
-
-            <button type="button" class="btn btn-outline btn-sm" onclick="trocarSubViewIA2('escrita')" style="font-weight:700;padding:8px 12px;font-size:12.5px" title="Prefere digitar ou colar texto? Clique aqui">✍️ Digitar Texto</button>
-            <div id="ia2RetroacaoAvisoGravacao" style="display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:#FEE2E2;border:1.5px solid #F87171;color:#991B1B;font-size:12px;font-weight:800">
-              <span>⛔</span>
-              <span>Guia fora do prazo (&gt; 3 dias) • Parecer CONTRÁRIO</span>
+            <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:24px;flex-wrap:wrap">
+              <button type="button" class="btn btn-outline btn-sm" onclick="abrirSeletorAudioIA2()" style="font-weight:700;font-size:12px;padding:7px 14px;border-radius:8px">
+                📁 Importar Áudio Gravado
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="trocarSubViewIA2('escrita')" style="font-weight:700;font-size:12px;padding:7px 14px;border-radius:8px">
+                ✍️ Modo Escrita / Ditado
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="sairModoIA2()" style="font-weight:700;font-size:12px;padding:7px 14px;border-radius:8px">
+                👁️ Ver Prontuário Padrão
+              </button>
             </div>
-            <button type="button" id="ia2BtnFinalizarGravacao" class="btn btn-green" onclick="finalizarAtendimentoIA2('gravacao')" style="font-weight:900;font-size:14px;padding:12px 22px;border-radius:12px;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;box-shadow:0 3px 12px rgba(16,185,129,0.3);display:flex;align-items:center;gap:8px">
-              <span>🏁</span> 3. Finalizar Atendimento
-            </button>
           </div>
         </div>
 
-        <!-- Banner de Áudio Carregado / Player de Áudio -->
-        <div id="ia2AudioBannerContainer" style="display:none;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px;padding:10px 16px;margin-bottom:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 6px rgba(16,185,129,0.08)">
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="width:36px;height:36px;border-radius:10px;background:#DCFCE7;display:flex;align-items:center;justify-content:center;font-size:18px">🎵</div>
-            <div>
-              <strong id="ia2AudioBannerTitulo" style="color:#166534;font-size:13px;display:block">Áudio da Consulta Carregado</strong>
-              <span id="ia2AudioBannerInfo" style="color:#15803D;font-size:11.5px">Pronto para transcrição multimodal e diarização com IA</span>
+        <!-- WORKSPACE DE GRAVAÇÃO ATIVA (Exibido suavemente ao clicar em Iniciar) -->
+        <div id="ia2GravacaoWorkspaceAtivo" style="display:none">
+          <!-- Barra Guia Passo a Passo (1 -> 2 -> 3) para Orientação Visual do Médico -->
+          <div id="ia2GuiaPassosGravacao" class="ia2-stepper-guide">
+            <div id="ia2GuideStep1" class="ia2-guide-step active">
+              <span class="ia2-guide-num">1</span>
+              <div>
+                <strong>Gravação Ativa</strong>
+                <span>Converse normalmente com o servidor</span>
+              </div>
+            </div>
+            <div class="ia2-guide-arrow">➜</div>
+            <div id="ia2GuideStep2" class="ia2-guide-step">
+              <span class="ia2-guide-num">2</span>
+              <div>
+                <strong>Pausar se Necessário</strong>
+                <span>Pausa o áudio sem travar nem transcrever</span>
+              </div>
+            </div>
+            <div class="ia2-guide-arrow">➜</div>
+            <div id="ia2GuideStep3" class="ia2-guide-step">
+              <span class="ia2-guide-num">3</span>
+              <div>
+                <strong>Finalizar Atendimento</strong>
+                <span>A IA estrutura perguntas e monta o laudo</span>
+              </div>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <audio id="ia2AudioPlayerPreview" controls style="height:32px;outline:none"></audio>
-            <button type="button" class="btn btn-outline btn-sm" onclick="removerAudioImportadoIA2()" style="color:#DC2626;border-color:#FCA5A5;font-size:12px;padding:4px 10px;font-weight:700" title="Remover este arquivo de áudio">
-              ✕ Remover Áudio
-            </button>
-          </div>
-        </div>
 
-        <!-- Split Grid: Colinha à esquerda, Transcrição à direita -->
-        <div class="ia2-record-layout">
-          <!-- PAINEL ESQUERDO: COLINHA EM TEMPO REAL -->
-          <div class="ia2-colinha-panel">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-              <strong style="font-size:14.5px;color:#0F172A;display:flex;align-items:center;gap:6px">
-                <span>📋</span> Roteiro de Perguntas (Colinha)
-              </strong>
-              <span id="ia2ColinhaCountBadge" class="badge" style="background:#EFF6FF;color:#1D4ED8;font-weight:800;font-size:12px;padding:4px 10px;border-radius:12px">
-                <span id="ia2ColinhaValidadasCount">0</span> de 11 respondidas
+          <!-- Top Toolbar de Controle da Gravação -->
+          <div style="background:#ffffff;border:1.5px solid #CBD5E1;border-radius:16px;padding:14px 20px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;box-shadow:0 4px 12px rgba(15,23,42,0.04)">
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <!-- Timer Digital -->
+              <div class="ia2-timer-box" title="Tempo de gravação da consulta">
+                <span>⏱️</span>
+                <span id="ia2TimerDisplay">00:00:00</span>
+              </div>
+              <!-- Botão Principal: Iniciar / Pausar / Continuar -->
+              <button type="button" id="ia2BtnGravacaoToggle" class="btn btn-danger ia2-btn-main-record" onclick="alternarGravacaoIA2()" style="font-weight:900;font-size:14.5px;padding:12px 22px;border-radius:12px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(220,38,38,0.3);background:#DC2626;border-color:#B91C1C">
+                <span id="ia2BtnGravacaoIcon" style="font-size:18px">⏸️</span>
+                <span id="ia2BtnGravacaoText">Pausar Áudio</span>
+              </button>
+              <!-- Visualizador Wave -->
+              <div id="ia2WaveContainer" class="ia2-wave-container ia2-recording-active">
+                <div class="ia2-wave-bar"></div>
+                <div class="ia2-wave-bar"></div>
+                <div class="ia2-wave-bar"></div>
+                <div class="ia2-wave-bar"></div>
+                <div class="ia2-wave-bar"></div>
+              </div>
+              <!-- Status Badge -->
+              <span id="ia2GravacaoStatusBadge" class="badge" style="background:#FEE2E2;color:#991B1B;font-weight:700;font-size:12.5px;padding:7px 14px;border-radius:8px;border:1px solid #FECACA">
+                🔴 Gravando consulta médica...
               </span>
             </div>
-            <!-- Barra de Progresso da Colinha -->
-            <div style="height:7px;background:#E2E8F0;border-radius:4px;overflow:hidden;margin-bottom:10px">
-              <div id="ia2ColinhaProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg, #10B981, #059669);transition:width 0.3s ease"></div>
-            </div>
-            <div style="font-size:11.5px;color:#475569;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:7px 10px;margin-bottom:12px;line-height:1.4">
-              💡 <strong>Dica:</strong> A IA marca sozinha o que foi perguntado ao pausar o áudio. Se quiser, você também pode <strong>clicar em qualquer item</strong> para marcar manualmente.
-            </div>
 
-            <!-- Lista das 11 perguntas -->
-            <div id="ia2ColinhaItemsList">
-              <!-- Rendered dynamically by JS -->
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <!-- Botão Importar Áudio Externo (MP3, WAV, M4A) -->
+              <button type="button" class="btn btn-outline btn-sm" onclick="abrirSeletorAudioIA2()" style="font-weight:700;padding:8px 12px;font-size:12.5px;display:flex;align-items:center;gap:6px" title="Enviar áudio já gravado no celular ou computador (.mp3, .wav, .m4a, .webm)">
+                <span>📁</span> Enviar Áudio
+              </button>
+              <input type="file" id="ia2InputAudioFile" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm" style="display:none" onchange="processarArquivoAudioImportadoIA2(this)">
+
+              <!-- Botão Baixar Áudio Gravado -->
+              <button type="button" id="ia2BtnDownloadAudio" class="btn btn-outline btn-sm" onclick="baixarGravacaoAudioIA2()" style="display:none;font-weight:700;padding:8px 12px;font-size:12px;align-items:center;gap:6px" title="Salvar cópia do áudio gravado no seu computador">
+                <span>📥</span> Salvar Áudio
+              </button>
+
+              <button type="button" class="btn btn-outline btn-sm" onclick="trocarSubViewIA2('escrita')" style="font-weight:700;padding:8px 12px;font-size:12.5px" title="Prefere digitar ou colar texto? Clique aqui">✍️ Digitar Texto</button>
+              <div id="ia2RetroacaoAvisoGravacao" style="display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:#FEE2E2;border:1.5px solid #F87171;color:#991B1B;font-size:12px;font-weight:800">
+                <span>⛔</span>
+                <span>Guia fora do prazo (&gt; 3 dias) • Parecer CONTRÁRIO</span>
+              </div>
+              <button type="button" id="ia2BtnFinalizarGravacao" class="btn btn-green" onclick="finalizarAtendimentoIA2('gravacao')" style="font-weight:900;font-size:14px;padding:12px 22px;border-radius:12px;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;box-shadow:0 3px 12px rgba(16,185,129,0.3);display:flex;align-items:center;gap:8px">
+                <span>🏁</span> Finalizar Atendimento
+              </button>
             </div>
           </div>
 
-          <!-- PAINEL DIREITO: TRANSCRIÇÃO EM TEMPO REAL -->
-          <div class="ia2-transcript-panel">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <!-- Banner de Áudio Carregado / Player de Áudio -->
+          <div id="ia2AudioBannerContainer" style="display:none;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px;padding:10px 16px;margin-bottom:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 6px rgba(16,185,129,0.08)">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:36px;height:36px;border-radius:10px;background:#DCFCE7;display:flex;align-items:center;justify-content:center;font-size:18px">🎵</div>
+              <div>
+                <strong id="ia2AudioBannerTitulo" style="color:#166534;font-size:13px;display:block">Áudio da Consulta Carregado</strong>
+                <span id="ia2AudioBannerInfo" style="color:#15803D;font-size:11.5px">Pronto para transcrição multimodal e diarização com IA</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <audio id="ia2AudioPlayerPreview" controls style="height:32px;outline:none"></audio>
+              <button type="button" class="btn btn-outline btn-sm" onclick="removerAudioImportadoIA2()" style="color:#DC2626;border-color:#FCA5A5;font-size:12px;padding:4px 10px;font-weight:700" title="Remover este arquivo de áudio">
+                ✕ Remover Áudio
+              </button>
+            </div>
+          </div>
+
+          <!-- Split Grid: Colinha à esquerda, Transcrição à direita -->
+          <div class="ia2-record-layout">
+            <!-- PAINEL ESQUERDO: COLINHA EM TEMPO REAL -->
+            <div class="ia2-colinha-panel">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
                 <strong style="font-size:14.5px;color:#0F172A;display:flex;align-items:center;gap:6px">
-                  <span>💬</span> O que foi dito na Consulta
+                  <span>📋</span> Roteiro de Perguntas (Colinha)
                 </strong>
-                <span id="ia2BadgeDuvidas" class="badge" style="display:none;background:#FEF9C3;color:#854D0E;border:1px solid #FDE047;font-weight:700;font-size:11.5px;padding:3px 9px;border-radius:10px">
-                  🟡 <span id="ia2QtdDuvidas">0</span> termo(s) para conferir
+                <span id="ia2ColinhaCountBadge" class="badge" style="background:#EFF6FF;color:#1D4ED8;font-weight:800;font-size:12px;padding:4px 10px;border-radius:12px">
+                  <span id="ia2ColinhaValidadasCount">0</span> de 11 respondidas
                 </span>
               </div>
-              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                <!-- Seletor de visualização: Diálogo Organizado vs Texto Puro -->
-                <div style="display:inline-flex;border:1px solid #CBD5E1;border-radius:8px;overflow:hidden;background:#F1F5F9;padding:2px">
-                  <button type="button" id="ia2BtnAbaVisual" onclick="trocarAbaTranscricaoIA2('visual')" style="font-size:11.5px;padding:5px 10px;border:none;border-radius:6px;font-weight:700;background:#2563EB;color:#fff;cursor:pointer">💬 Em Cartões</button>
-                  <button type="button" id="ia2BtnAbaTexto" onclick="trocarAbaTranscricaoIA2('texto')" style="font-size:11.5px;padding:5px 10px;border:none;border-radius:6px;font-weight:700;background:transparent;color:#64748B;cursor:pointer">📝 Texto Corrido</button>
+              <!-- Barra de Progresso da Colinha -->
+              <div style="height:7px;background:#E2E8F0;border-radius:4px;overflow:hidden;margin-bottom:10px">
+                <div id="ia2ColinhaProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg, #10B981, #059669);transition:width 0.3s ease"></div>
+              </div>
+              <div style="font-size:11.5px;color:#475569;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:7px 10px;margin-bottom:12px;line-height:1.4">
+                💡 <strong>Dica:</strong> Acompanhe as perguntas durante a consulta. Se desejar, você pode <strong>clicar em qualquer item</strong> para marcar manualmente. Ao finalizar, a IA analisa tudo.
+              </div>
+
+              <!-- Lista das 11 perguntas -->
+              <div id="ia2ColinhaItemsList">
+                <!-- Rendered dynamically by JS -->
+              </div>
+            </div>
+
+            <!-- PAINEL DIREITO: TRANSCRIÇÃO EM TEMPO REAL -->
+            <div class="ia2-transcript-panel">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <strong style="font-size:14.5px;color:#0F172A;display:flex;align-items:center;gap:6px">
+                    <span>💬</span> O que foi dito na Consulta
+                  </strong>
+                  <span id="ia2BadgeDuvidas" class="badge" style="display:none;background:#FEF9C3;color:#854D0E;border:1px solid #FDE047;font-weight:700;font-size:11.5px;padding:3px 9px;border-radius:10px">
+                    🟡 <span id="ia2QtdDuvidas">0</span> termo(s) para conferir
+                  </span>
                 </div>
-                <button type="button" class="btn btn-outline btn-sm" onclick="refinarDialogoComIA2(false)" title="Reprocessar o áudio ou texto com a IA" style="font-size:11.5px;padding:5px 10px;color:#047857;border-color:#A7F3D0;background:#ECFDF5;font-weight:800">🔄 Atualizar com IA</button>
-                <details class="ia2-more-tools-menu" style="position:relative">
-                  <summary class="btn btn-outline btn-sm" style="font-size:11.5px;padding:5px 10px;font-weight:700;color:#475569;list-style:none;cursor:pointer;user-select:none">⚙️ Mais Opções ▾</summary>
-                  <div style="position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #CBD5E1;border-radius:10px;padding:6px;box-shadow:0 10px 25px rgba(15,23,42,0.12);z-index:50;display:flex;flex-direction:column;gap:4px;min-width:170px">
-                    <button type="button" class="btn btn-outline btn-sm" onclick="organizarTranscricaoManualmenteIA2();this.closest('details').removeAttribute('open')" title="Estruturar fala em Perguntas e Respostas" style="font-size:11.5px;padding:6px 10px;color:#0284C7;border-color:#BAE6FD;background:#F0F9FF;font-weight:700;text-align:left;justify-content:flex-start">⚡ Organizar Texto</button>
-                    <button type="button" class="btn btn-outline btn-sm" onclick="copiarTranscricaoIA2();this.closest('details').removeAttribute('open')" style="font-size:11.5px;padding:6px 10px;text-align:left;justify-content:flex-start">📋 Copiar Transcrição</button>
-                    <button type="button" class="btn btn-outline btn-sm" onclick="limparTranscricaoIA2();this.closest('details').removeAttribute('open')" style="font-size:11.5px;padding:6px 10px;color:#EF4444;text-align:left;justify-content:flex-start">🗑️ Apagar Tudo</button>
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  <!-- Seletor de visualização: Diálogo Organizado vs Texto Puro -->
+                  <div style="display:inline-flex;border:1px solid #CBD5E1;border-radius:8px;overflow:hidden;background:#F1F5F9;padding:2px">
+                    <button type="button" id="ia2BtnAbaVisual" onclick="trocarAbaTranscricaoIA2('visual')" style="font-size:11.5px;padding:5px 10px;border:none;border-radius:6px;font-weight:700;background:#2563EB;color:#fff;cursor:pointer">💬 Em Cartões</button>
+                    <button type="button" id="ia2BtnAbaTexto" onclick="trocarAbaTranscricaoIA2('texto')" style="font-size:11.5px;padding:5px 10px;border:none;border-radius:6px;font-weight:700;background:transparent;color:#64748B;cursor:pointer">📝 Texto Corrido</button>
                   </div>
-                </details>
+                  <button type="button" class="btn btn-outline btn-sm" onclick="refinarDialogoComIA2(false)" title="Reprocessar o áudio ou texto com a IA" style="font-size:11.5px;padding:5px 10px;color:#047857;border-color:#A7F3D0;background:#ECFDF5;font-weight:800">🔄 Atualizar com IA</button>
+                  <details class="ia2-more-tools-menu" style="position:relative">
+                    <summary class="btn btn-outline btn-sm" style="font-size:11.5px;padding:5px 10px;font-weight:700;color:#475569;list-style:none;cursor:pointer;user-select:none">⚙️ Mais Opções ▾</summary>
+                    <div style="position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid #CBD5E1;border-radius:10px;padding:6px;box-shadow:0 10px 25px rgba(15,23,42,0.12);z-index:50;display:flex;flex-direction:column;gap:4px;min-width:170px">
+                      <button type="button" class="btn btn-outline btn-sm" onclick="organizarTranscricaoManualmenteIA2();this.closest('details').removeAttribute('open')" title="Estruturar fala em Perguntas e Respostas" style="font-size:11.5px;padding:6px 10px;color:#0284C7;border-color:#BAE6FD;background:#F0F9FF;font-weight:700;text-align:left;justify-content:flex-start">⚡ Organizar Texto</button>
+                      <button type="button" class="btn btn-outline btn-sm" onclick="copiarTranscricaoIA2();this.closest('details').removeAttribute('open')" style="font-size:11.5px;padding:6px 10px;text-align:left;justify-content:flex-start">📋 Copiar Transcrição</button>
+                      <button type="button" class="btn btn-outline btn-sm" onclick="limparTranscricaoIA2();this.closest('details').removeAttribute('open')" style="font-size:11.5px;padding:6px 10px;color:#EF4444;text-align:left;justify-content:flex-start">🗑️ Apagar Tudo</button>
+                    </div>
+                  </details>
+                </div>
               </div>
-            </div>
 
-            <!-- Barra de Status do Refinamento por IA -->
-            <div id="ia2RefinandoBar" style="display:none;background:linear-gradient(90deg, #EFF6FF, #EEF2FF);border:1.5px solid #93C5FD;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#1E40AF;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(37,99,235,0.08)">
-              <span style="display:inline-block;animation:ia2Spin 1s linear infinite;font-size:18px">⚙️</span>
-              <strong id="ia2RefinandoText">✨ IA Médica transcrevendo áudio e verificando perguntas realizadas...</strong>
-            </div>
-
-            <!-- Painel de Campos NÃO Perguntados no Áudio -->
-            <div id="ia2CamposNaoPerguntadosContainer" style="display:none;margin-bottom:12px"></div>
-
-            <!-- Visualizador do Diálogo Organizado com destaque em amarelo para dúvidas -->
-            <div id="ia2GravacaoVisual" class="ia2-transcript-visual" style="display:block">
-              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94A3B8;text-align:center;padding:24px">
-                <div style="width:64px;height:64px;border-radius:50%;background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:12px">🎙️</div>
-                <p style="font-size:15px;max-width:420px;margin:0 0 8px;color:#334155;font-weight:800">Passo 1: Clique no botão verde "1. Iniciar Gravação" acima</p>
-                <span style="font-size:12.5px;color:#64748B;max-width:440px;line-height:1.5">Converse normalmente com o paciente. Quando você clicar em <strong>Pausar</strong>, a IA escreverá todo o diálogo aqui e mostrará se faltou alguma pergunta da Colinha.</span>
+              <!-- Barra de Status do Refinamento por IA -->
+              <div id="ia2RefinandoBar" style="display:none;background:linear-gradient(90deg, #EFF6FF, #EEF2FF);border:1.5px solid #93C5FD;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#1E40AF;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(37,99,235,0.08)">
+                <span style="display:inline-block;animation:ia2Spin 1s linear infinite;font-size:18px">⚙️</span>
+                <strong id="ia2RefinandoText">✨ IA Médica transcrevendo áudio e verificando perguntas realizadas...</strong>
               </div>
-            </div>
 
-            <!-- Textarea com a transcrição acumulada e editável -->
-            <textarea id="ia2GravacaoTranscricao" class="ia2-transcript-textarea" style="display:none" placeholder="A transcrição da médica e da periciada aparecerá aqui automaticamente ao pausar a gravação... Você também pode digitar observações ou colar textos a qualquer momento."></textarea>
+              <!-- Painel de Campos NÃO Perguntados no Áudio -->
+              <div id="ia2CamposNaoPerguntadosContainer" style="display:none;margin-bottom:12px"></div>
 
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px;color:#475569;flex-wrap:wrap;gap:8px;background:#F8FAFC;padding:8px 12px;border-radius:8px;border:1px solid #E2E8F0">
-              <span id="ia2GravacaoContador" style="font-weight:600">0 palavras • 0 caracteres</span>
-              <span id="ia2DuvidasLegenda" style="display:none;color:#B45309;font-weight:700">
-                💡 Termos em <mark class="ia2-doubt-word" style="cursor:default">amarelo</mark> merecem atenção. Clique em qualquer resposta para corrigir.
-              </span>
-              <span>✏️ <strong>Dica:</strong> Você pode clicar em qualquer resposta acima para corrigir ou complementar.</span>
+              <!-- Visualizador do Diálogo Organizado com destaque em amarelo para dúvidas -->
+              <div id="ia2GravacaoVisual" class="ia2-transcript-visual" style="display:block">
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94A3B8;text-align:center;padding:24px">
+                  <div style="width:64px;height:64px;border-radius:50%;background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:12px">🎙️</div>
+                  <p style="font-size:15px;max-width:420px;margin:0 0 8px;color:#334155;font-weight:800">Microfone gravando o atendimento</p>
+                  <span style="font-size:12.5px;color:#64748B;max-width:440px;line-height:1.5">Converse normalmente com o paciente. Ao clicar em <strong>Finalizar Atendimento</strong>, a IA transcreverá tudo, montará o diálogo completo e estruturará o prontuário.</span>
+                </div>
+              </div>
+
+              <!-- Textarea com a transcrição acumulada e editável -->
+              <textarea id="ia2GravacaoTranscricao" class="ia2-transcript-textarea" style="display:none" placeholder="A transcrição da médica e da periciada aparecerá aqui automaticamente ao finalizar a gravação..."></textarea>
+
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px;color:#475569;flex-wrap:wrap;gap:8px;background:#F8FAFC;padding:8px 12px;border-radius:8px;border:1px solid #E2E8F0">
+                <span id="ia2GravacaoContador" style="font-weight:600">0 palavras • 0 caracteres</span>
+                <span id="ia2DuvidasLegenda" style="display:none;color:#B45309;font-weight:700">
+                  💡 Termos em <mark class="ia2-doubt-word" style="cursor:default">amarelo</mark> merecem atenção.
+                </span>
+                <span>✏️ <strong>Dica:</strong> A transcrição completa e organização de perguntas/respostas ocorrem ao clicar em Finalizar.</span>
+              </div>
             </div>
           </div>
         </div>
@@ -2155,139 +2193,142 @@ Observações / Exame Físico: </textarea>
   </div>
 </div>
 
-<!-- 2. MODAL: AVISO DE PERGUNTAS PENDENTES DA COLINHA -->
+<!-- 2. MODAL: AVISO DE PERGUNTAS PENDENTES DA COLINHA (PREENCHIMENTO MANUAL RÁPIDO OU RETORNO) -->
 <div class="modal-backdrop" id="ia2ModalAvisoColinha" style="display:none;z-index:99999">
-  <div class="modal" style="width:min(600px,94vw);border-radius:20px;overflow:hidden">
-    <div style="background:#FFFBEB;border-bottom:1.5px solid #FCD34D;padding:16px 20px;display:flex;align-items:center;gap:12px">
-      <span style="font-size:26px">⚠️</span>
-      <div>
-        <strong style="color:#92400E;font-size:15px;display:block">Perguntas da Colinha Pendentes</strong>
-        <span style="color:#B45309;font-size:12px">Algumas perguntas do roteiro pericial ainda não foram identificadas na consulta.</span>
+  <div class="modal" style="width:min(680px,95vw);border-radius:22px;overflow:hidden;box-shadow:0 25px 60px rgba(15,23,42,0.35)">
+    <div style="background:linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);border-bottom:1.5px solid #FCD34D;padding:18px 22px;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:12px;background:#FDE68A;display:flex;align-items:center;justify-content:center;font-size:22px">📋</div>
+        <div>
+          <strong style="color:#92400E;font-size:16px;font-weight:900;display:block">Roteiro Pericial — Perguntas Não Identificadas</strong>
+          <span style="color:#B45309;font-size:12px">A IA montou o diálogo da consulta e identificou <strong id="ia2QtdPerguntasPendentes">0</strong> pergunta(s) pendente(s).</span>
+        </div>
+      </div>
+      <button type="button" onclick="fecharModalAvisoColinhaIA2()" style="background:rgba(0,0,0,0.06);border:none;color:#78350F;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:900">✕</button>
+    </div>
+
+    <div style="padding:22px;max-height:62vh;overflow-y:auto">
+      <p style="font-size:13px;color:#334155;margin:0 0 14px;line-height:1.5">
+        Você pode <strong>preencher as respostas manualmente</strong> nos campos abaixo ou clicar em <strong>Voltar ao Atendimento</strong> para perguntar ao periciado:
+      </p>
+
+      <div id="ia2ListaPerguntasPendentes" style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
+        <!-- Rendered by JS with input fields -->
       </div>
     </div>
-    <div style="padding:20px;max-height:60vh;overflow-y:auto">
-      <p style="font-size:13px;color:#334155;margin:0 0 12px;line-height:1.5">
-        Identificamos que <strong><span id="ia2QtdPerguntasPendentes">0</span> pergunta(s)</strong> da colinha não foram detectadas na consulta:
-      </p>
-      <div id="ia2ListaPerguntasPendentes" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;margin-bottom:16px;font-size:12.5px;color:#1E293B;line-height:1.6">
-        <!-- Rendered by JS -->
-      </div>
-      <p style="font-size:12.5px;color:#475569;margin:0;line-height:1.4">
-        Deseja <strong>continuar a gravação</strong> para fazer essas perguntas ao periciado ou prefere <strong>finalizar assim mesmo</strong> e gerar a ficha?
-      </p>
-    </div>
-    <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:14px 20px;display:flex;justify-content:flex-end;gap:10px">
-      <button type="button" class="btn btn-outline" onclick="fecharModalAvisoColinhaIA2()" style="font-weight:700">
-        🎙️ Continuar Atendimento / Perguntar
+
+    <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <button type="button" class="btn btn-outline" onclick="fecharModalAvisoColinhaIA2()" style="font-weight:700;padding:10px 18px;border-radius:10px">
+        🎙️ Voltar ao Atendimento
       </button>
-      <button type="button" class="btn btn-green" onclick="confirmarFinalizacaoIA2MesmoComPendencias()" style="font-weight:800;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none">
-        ➡️ Finalizar Mesmo Assim
+      <button type="button" class="btn btn-green" onclick="confirmarFinalizacaoIA2MesmoComPendencias()" style="font-weight:900;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;padding:10px 22px;border-radius:10px;box-shadow:0 3px 12px rgba(16,185,129,0.3);display:flex;align-items:center;gap:8px">
+        <span>Continuar para Decisão Pericial</span> ➜
       </button>
     </div>
   </div>
 </div>
 
-<!-- 2.5. MODAL: DECISÃO PERICIAL DO MÉDICO (SELEÇÃO DISCRETA ANTES DE ESTRUTURAR COM IA) -->
+<!-- 2.5. MODAL: DECISÃO PERICIAL DO MÉDICO (AMPLO, MODERNO E OBJETIVO) -->
 <div class="modal-backdrop" id="ia2ModalDecisaoMedico" style="display:none;z-index:99998">
-  <div class="modal" style="width:min(720px,95vw);border-radius:22px;overflow:hidden;box-shadow:0 20px 60px rgba(15,23,42,0.3)">
-    <div style="background:linear-gradient(135deg, #1E293B 0%, #0F172A 100%);padding:20px 24px;color:#ffffff;display:flex;align-items:center;justify-content:space-between">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:22px">⚖️</div>
+  <div class="modal" style="width:min(880px,96vw);max-width:900px;border-radius:24px;overflow:hidden;box-shadow:0 25px 70px rgba(15,23,42,0.35)">
+    <div style="background:linear-gradient(135deg, #0F172A 0%, #1E293B 100%);padding:22px 28px;color:#ffffff;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:48px;height:48px;border-radius:14px;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid rgba(255,255,255,0.15)">⚖️</div>
         <div>
-          <strong style="font-size:16.5px;font-weight:900;display:block">Decisão Pericial do Médico</strong>
-          <span style="font-size:12px;color:#94A3B8">Defina o parecer e os parâmetros periciais de forma discreta antes de estruturar com a IA.</span>
+          <strong style="font-size:18px;font-weight:900;display:block;letter-spacing:-0.2px">Decisão Pericial do Médico</strong>
+          <span style="font-size:12.5px;color:#94A3B8">Defina o parecer pericial e os parâmetros do afastamento de forma clara e objetiva.</span>
         </div>
       </div>
-      <button type="button" onclick="fecharModalDecisaoMedicoIA2()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:900">✕</button>
+      <button type="button" onclick="fecharModalDecisaoMedicoIA2()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:900;font-size:13px">✕</button>
     </div>
 
-    <div style="padding:22px;max-height:calc(85vh - 120px);overflow-y:auto">
+    <div style="padding:26px;max-height:calc(85vh - 120px);overflow-y:auto">
       <!-- Alerta de Prazo / Retroação da Guia (se > 3 dias) -->
-      <div id="ia2DecisaoRetroAlerta" style="display:none;background:#FEF2F2;border:1.5px solid #F87171;border-radius:12px;padding:12px 16px;margin-bottom:16px;color:#991B1B;font-size:12.5px;line-height:1.5">
-        <strong style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px">
+      <div id="ia2DecisaoRetroAlerta" style="display:none;background:#FEF2F2;border:1.5px solid #F87171;border-radius:14px;padding:14px 18px;margin-bottom:18px;color:#991B1B;font-size:13px;line-height:1.5">
+        <strong style="display:flex;align-items:center;gap:8px;font-size:13.5px;margin-bottom:4px">
           <span>⛔</span> Guia Expedida Fora do Prazo Regulamentar (&gt; 3 dias)
         </strong>
         <span>A guia foi emitida com mais de 3 dias de diferença do atestado. Conforme regulamentação do DPME/SP, o parecer administrativo é <strong>CONTRÁRIO</strong>, exceto se comprovado internamento hospitalar.</span>
       </div>
 
       <!-- Alerta Informativo de Perícia Retrospectiva -->
-      <div id="ia2DecisaoRetroInformativo" style="display:none;background:#ECFDF5;border:1.5px solid #6EE7B7;border-radius:12px;padding:10px 14px;margin-bottom:16px;color:#065F46;font-size:12px;line-height:1.4">
+      <div id="ia2DecisaoRetroInformativo" style="display:none;background:#ECFDF5;border:1.5px solid #6EE7B7;border-radius:14px;padding:12px 16px;margin-bottom:18px;color:#065F46;font-size:12.5px;line-height:1.4">
         <span>💡 <strong>Dica Pericial:</strong> Guia dentro do prazo de 3 dias. Se o servidor estiver assintomático hoje mas teve incapacidade no período do atestado, selecione <strong>Normal (Retrospectivo)</strong> com Parecer <strong>FAVORÁVEL</strong>.</span>
       </div>
 
       <!-- SEÇÃO 1: PARECER PERICIAL -->
-      <div style="margin-bottom:18px">
-        <label style="font-size:13px;font-weight:800;color:#0F172A;display:block;margin-bottom:8px">
+      <div style="margin-bottom:22px">
+        <label style="font-size:13.5px;font-weight:800;color:#0F172A;display:block;margin-bottom:10px">
           1. Parecer Pericial:
         </label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div id="ia2DecisaoCardFav" class="ia2-decision-card selected-fav" onclick="selecionarDecisaoParecerIA2('FAVORÁVEL')">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div id="ia2DecisaoCardFav" class="ia2-decision-card selected-fav" onclick="selecionarDecisaoParecerIA2('FAVORÁVEL')" style="padding:16px 18px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-              <span style="font-size:20px">🟢</span>
-              <strong style="font-size:15px;color:#065F46">FAVORÁVEL</strong>
+              <span style="font-size:22px">🟢</span>
+              <strong style="font-size:16px;color:#065F46">FAVORÁVEL (Deferido)</strong>
             </div>
-            <span style="font-size:12px;color:#047857;line-height:1.4">Homologar licença e conceder os dias de afastamento (parciais ou integrais).</span>
+            <span style="font-size:12.5px;color:#047857;line-height:1.4">Homologar licença e conceder os dias de afastamento laboral solicitados.</span>
           </div>
 
-          <div id="ia2DecisaoCardContr" class="ia2-decision-card" onclick="selecionarDecisaoParecerIA2('CONTRÁRIO')">
+          <div id="ia2DecisaoCardContr" class="ia2-decision-card" onclick="selecionarDecisaoParecerIA2('CONTRÁRIO')" style="padding:16px 18px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-              <span style="font-size:20px">🔴</span>
-              <strong style="font-size:15px;color:#991B1B">CONTRÁRIO</strong>
+              <span style="font-size:22px">🔴</span>
+              <strong style="font-size:16px;color:#991B1B">CONTRÁRIO (Indeferido)</strong>
             </div>
-            <span style="font-size:12px;color:#7F1D1D;line-height:1.4">Indeferir licença (capacidade laborativa preservada ou impedimento legal).</span>
+            <span style="font-size:12.5px;color:#7F1D1D;line-height:1.4">Indeferir licença (capacidade laborativa preservada ou impedimento legal).</span>
           </div>
         </div>
       </div>
 
       <!-- SEÇÃO 2: RESULTADO DO EXAME FÍSICO PERICIAL -->
-      <div style="margin-bottom:18px">
-        <label style="font-size:13px;font-weight:800;color:#0F172A;display:block;margin-bottom:8px">
+      <div style="margin-bottom:22px">
+        <label style="font-size:13.5px;font-weight:800;color:#0F172A;display:block;margin-bottom:10px">
           2. Constatação do Exame Físico Pericial no momento da consulta:
         </label>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-          <div id="ia2DecisaoExameAlterado" class="ia2-decision-card selected-opt" onclick="selecionarDecisaoExameIA2('Alterado')">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-              <span>🔍</span>
-              <strong style="font-size:13.5px;color:#1E293B">Alterado</strong>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div id="ia2DecisaoExameAlterado" class="ia2-decision-card selected-opt" onclick="selecionarDecisaoExameIA2('Alterado')" style="padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:18px">🔍</span>
+              <strong style="font-size:14px;color:#1E293B">Alterado</strong>
             </div>
-            <span style="font-size:11.5px;color:#475569;line-height:1.4">Sinais e sintomas clínicos ativos constatados hoje.</span>
+            <span style="font-size:12px;color:#475569;line-height:1.4">Sinais, sintomas ou limitações clínicas ativas constatadas hoje.</span>
           </div>
 
-          <div id="ia2DecisaoExameNormal" class="ia2-decision-card" onclick="selecionarDecisaoExameIA2('Normal')">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-              <span>🩺</span>
-              <strong style="font-size:13.5px;color:#1E293B">Normal (Retrospectivo)</strong>
+          <div id="ia2DecisaoExameNormal" class="ia2-decision-card" onclick="selecionarDecisaoExameIA2('Normal')" style="padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:18px">🩺</span>
+              <strong style="font-size:14px;color:#1E293B">Normal (Retrospectivo)</strong>
             </div>
-            <span style="font-size:11.5px;color:#475569;line-height:1.4">Perícia retrospectiva: assintomático hoje, mas justificado à época.</span>
+            <span style="font-size:12px;color:#475569;line-height:1.4">Perícia retrospectiva: assintomático hoje, mas justificado à época do atestado.</span>
           </div>
 
-          <div id="ia2DecisaoExameDoc" class="ia2-decision-card" onclick="selecionarDecisaoExameIA2('Documental')">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-              <span>📄</span>
-              <strong style="font-size:13.5px;color:#1E293B">Documental</strong>
+          <div id="ia2DecisaoExameDoc" class="ia2-decision-card" onclick="selecionarDecisaoExameIA2('Documental')" style="padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:18px">📄</span>
+              <strong style="font-size:14px;color:#1E293B">Documental</strong>
             </div>
-            <span style="font-size:11.5px;color:#475569;line-height:1.4">Avaliação baseada estritamente em relatórios médicos.</span>
+            <span style="font-size:12px;color:#475569;line-height:1.4">Avaliação baseada estritamente em relatórios e laudos médicos.</span>
           </div>
         </div>
       </div>
 
       <!-- SEÇÃO 3: DIAS DE AFASTAMENTO CONCEDIDOS -->
-      <div style="margin-bottom:18px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:14px">
-        <label style="font-size:13px;font-weight:800;color:#0F172A;display:block;margin-bottom:10px">
+      <div style="margin-bottom:22px;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:14px;padding:16px 20px">
+        <label style="font-size:13.5px;font-weight:800;color:#0F172A;display:block;margin-bottom:12px">
           3. Dias de Licença Concedidos:
         </label>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#1E293B">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;color:#1E293B">
             <input type="radio" name="ia2DecisaoDiasModo" id="ia2RadioDiasOriginal" value="original" checked onchange="atualizarDecisaoDiasIA2('original')">
             <span>Manter os mesmos dias solicitados no atestado original (<strong id="ia2DecisaoDiasOriginalTexto">—</strong> dias)</span>
           </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#1E293B">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;color:#1E293B">
             <input type="radio" name="ia2DecisaoDiasModo" id="ia2RadioDiasCustom" value="custom" onchange="atualizarDecisaoDiasIA2('custom')">
             <span>Conceder quantidade específica:</span>
-            <input type="number" id="ia2DecisaoDiasInput" min="1" max="180" placeholder="Ex: 3" style="width:75px;padding:4px 8px;border-radius:6px;border:1px solid #CBD5E1;font-weight:700;font-size:13px" onfocus="document.getElementById('ia2RadioDiasCustom').checked=true;atualizarDecisaoDiasIA2('custom');">
+            <input type="number" id="ia2DecisaoDiasInput" min="1" max="180" placeholder="Ex: 3" style="width:85px;padding:6px 10px;border-radius:8px;border:1.5px solid #CBD5E1;font-weight:700;font-size:13.5px" onfocus="document.getElementById('ia2RadioDiasCustom').checked=true;atualizarDecisaoDiasIA2('custom');">
             <span>dias</span>
           </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#1E293B">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;color:#1E293B">
             <input type="radio" name="ia2DecisaoDiasModo" id="ia2RadioDiasZero" value="zero" onchange="atualizarDecisaoDiasIA2('zero')">
             <span>0 dias (Indeferimento total / Parecer Contrário)</span>
           </label>
@@ -2296,36 +2337,35 @@ Observações / Exame Físico: </textarea>
 
       <!-- SEÇÃO 4: NOTAS CLÍNICAS CONFIDENCIAIS DO MÉDICO -->
       <div>
-        <label style="font-size:13px;font-weight:800;color:#0F172A;display:block;margin-bottom:6px">
+        <label style="font-size:13.5px;font-weight:800;color:#0F172A;display:block;margin-bottom:8px">
           4. Observações / Anotações Confidenciais do Perito (Opcional):
         </label>
-        <textarea id="ia2DecisaoObsMedico" rows="3" style="width:100%;box-sizing:border-box;border:1.5px solid #CBD5E1;border-radius:10px;padding:10px;font-size:12.5px;font-family:inherit;color:#1E293B;outline:none" placeholder="Digite impressões que você NÃO falou na frente do paciente... Ex: marcha normal na sala de espera, ausência de fácies álgica, boa amplitude de movimento, receituário sem assinatura digital, etc."></textarea>
-        <span style="font-size:11px;color:#64748B;display:block;margin-top:4px">
+        <textarea id="ia2DecisaoObsMedico" rows="3" style="width:100%;box-sizing:border-box;border:1.5px solid #CBD5E1;border-radius:12px;padding:12px;font-size:13px;font-family:inherit;color:#1E293B;outline:none" placeholder="Digite impressões que você NÃO falou na frente do paciente... Ex: marcha normal na sala de espera, ausência de fácies álgica, boa amplitude de movimento, etc."></textarea>
+        <span style="font-size:11.5px;color:#64748B;display:block;margin-top:6px">
           🔒 A IA integrará essas anotações confidenciais ao exame clínico e justificativa técnica do e-SISLA de forma legal e fundamentada.
         </span>
       </div>
     </div>
 
-    <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px">
-      <button type="button" class="btn btn-outline" onclick="fecharModalDecisaoMedicoIA2()" style="font-weight:700">
+    <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;gap:14px">
+      <button type="button" class="btn btn-outline" onclick="fecharModalDecisaoMedicoIA2()" style="font-weight:700;padding:11px 20px;border-radius:10px">
         ⬅️ Voltar ao Atendimento
       </button>
-      <button type="button" class="btn btn-green" onclick="confirmarDecisaoEEstruturarIA2()" style="font-weight:900;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;padding:10px 22px;border-radius:10px;box-shadow:0 3px 12px rgba(16,185,129,0.35);display:flex;align-items:center;gap:8px">
+      <button type="button" class="btn btn-green" onclick="confirmarDecisaoEEstruturarIA2()" style="font-weight:900;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;padding:12px 26px;border-radius:10px;box-shadow:0 4px 14px rgba(16,185,129,0.35);display:flex;align-items:center;gap:8px;font-size:14px">
         <span>⚡</span> Confirmar Decisão e Estruturar com IA
       </button>
     </div>
   </div>
 </div>
 
-<!-- 3. MODAL: SUCESSO DO PREENCHIMENTO IA 2.0 & e-SISLA -->
+<!-- 3. MODAL: SUCESSO DO PREENCHIMENTO IA 2.0 & e-SISLA (FINALIZAÇÃO DIRETA) -->
 <div class="modal-backdrop" id="ia2ModalSucesso" style="display:none;z-index:99999">
-  <div class="modal" style="width:min(680px,94vw);border-radius:22px;overflow:hidden">
-    <div style="background:linear-gradient(135deg, #065F46 0%, #059669 100%);padding:22px 24px;color:#ffffff;display:flex;align-items:center;justify-content:space-between">
+  <div class="modal" style="width:min(680px,94vw);border-radius:22px;overflow:hidden;box-shadow:0 25px 70px rgba(15,23,42,0.35)">
+    <div style="background:linear-gradient(135deg, #065F46 0%, #059669 100%);padding:20px 24px;color:#ffffff;display:flex;align-items:center;justify-content:space-between">
       <div style="display:flex;align-items:center;gap:14px">
-        <span style="font-size:32px">🎉</span>
+        <span style="font-size:28px">🎉</span>
         <div>
-          <strong style="font-size:17px;font-weight:900;display:block">Atendimento Estruturado com Sucesso pela IA!</strong>
-          <span style="font-size:12.5px;opacity:0.9">O prontuário foi preenchido de forma oculta em segundo plano e está pronto para o e-SISLA.</span>
+          <strong style="font-size:18px;font-weight:900;display:block">Atendimento Estruturado com Sucesso</strong>
         </div>
       </div>
       <button type="button" onclick="fecharModalSucessoIA2()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:900">✕</button>
@@ -2333,7 +2373,7 @@ Observações / Exame Físico: </textarea>
 
     <div style="padding:22px">
       <!-- Grid de Resumo dos Dados Preenchidos -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
         <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:12px">
           <span style="font-size:11px;color:#64748B;font-weight:700;display:block;text-transform:uppercase">CID Principal</span>
           <strong id="ia2SucessoCid" style="font-size:15px;color:#0F172A">—</strong>
@@ -2355,7 +2395,7 @@ Observações / Exame Físico: </textarea>
       </div>
 
       <!-- Ação Principal em Destaque: e-SISLA -->
-      <div style="background:linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);border:2px solid #3B82F6;border-radius:16px;padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div style="background:linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);border:2px solid #3B82F6;border-radius:16px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div>
           <strong style="color:#1E40AF;font-size:14px;display:block">Pronto para a Criação da Ficha e-SISLA</strong>
           <span style="color:#3B82F6;font-size:12px">Sincronize com a extensão e-SISLA com 1 clique ou visualize o laudo completo.</span>
@@ -2370,19 +2410,14 @@ Observações / Exame Físico: </textarea>
         </div>
       </div>
 
-      <!-- Botões de Conclusão Secundários -->
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-        <button type="button" class="btn btn-outline" onclick="revisarProntuarioAbertoIA2()" style="font-weight:700;color:#334155">
-          👁️ Revisar Prontuário Aberto
+      <!-- Botões de Conclusão Apenas: Salvar como Rascunho e Finalizar Atendimento -->
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;border-top:1px solid #E2E8F0;padding-top:16px">
+        <button type="button" class="btn btn-outline" onclick="salvarComoRascunhoIA2()" style="font-weight:700;padding:11px 20px;border-radius:10px;font-size:13.5px;color:#475569">
+          💾 Salvar como Rascunho
         </button>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <button type="button" class="btn btn-outline" onclick="salvarComoRascunhoIA2()" style="font-weight:700;color:#475569">
-            💾 Salvar como Rascunho
-          </button>
-          <button type="button" class="btn btn-green" id="ia2BtnFinalizarDefinitivo" onclick="finalizarAtendimentoDefinitivoIA2()" style="font-weight:900;font-size:13.5px;padding:11px 22px;border-radius:10px;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;box-shadow:0 3px 12px rgba(16,185,129,0.35);display:flex;align-items:center;gap:8px">
-            <span>🏁</span> Finalizar Atendimento
-          </button>
-        </div>
+        <button type="button" class="btn btn-green" id="ia2BtnFinalizarDefinitivo" onclick="finalizarAtendimentoDefinitivoIA2()" style="font-weight:900;font-size:14px;padding:12px 26px;border-radius:10px;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;box-shadow:0 4px 14px rgba(16,185,129,0.35);display:flex;align-items:center;gap:8px">
+          <span>🏁</span> Finalizar Atendimento
+        </button>
       </div>
     </div>
   </div>
