@@ -1419,6 +1419,11 @@ const COLINHA_IA2_CONFIG = [
     pergunta: "Com que frequência comparece às consultas?",
     subtexto: "Periodicidade de acompanhamento médico",
     validar: (text) => {
+      const hasTerapia = /\b(?:fisioterapia|psicoterapia|fisio|psico|fisioterapeuta|psic[óo]log[ao]|cinesioterapia|pilates|hidroterapia|acupuntura|rpg)\b/i.test(text);
+      const hasConsultaMedica = /\b(?:consultas?|m[ée]dic[oa]s?|retornos?|comparece|psiquiatra|ortopedista|neurologista|reumatologista|cardiologista|ambulul?at[óo]rio)\b/i.test(text);
+      if (hasTerapia && !hasConsultaMedica) {
+        return { matched: false };
+      }
       const m = text.match(/\b(?:frequ[êe]ncia|periodicidade|consultas?|retornos?|comparece|acompanhamento)\s*[:=]?\s*([^\.\;\n]+)/i) ||
                 text.match(/\b(?:mensal(?:mente)?|quinzenal(?:mente)?|semanal(?:mente)?|bimestral|trimestral|semestral)\b/i) ||
                 text.match(/\ba\s+cada\s+(\d+|um|uma|dois|duas|tr[êe]s|quinze|vinte|trinta)\s+(?:dias|semanas|meses)\b/i) ||
@@ -1477,9 +1482,9 @@ const COLINHA_IA2_CONFIG = [
     pergunta: "Faz psicoterapia ou fisioterapia?",
     subtexto: "Psicoterapia, fisioterapia ou reabilitação",
     validar: (text) => {
-      const m = text.match(/\b(?:psicoterapia|fisioterapia|terapia|psic[óo]log[ao]|fisio\b|psico\b|pilates|hidroterapia|reabilita[çc][ãa]o|acupuntura|rpg)\b/i) ||
-                text.match(/\bfa[çc]o\s+(?:fisio|psico|terapia|acompanhamento\s+psicol[óo]gico)\b/i) ||
-                text.match(/\bn[ãa]o\s+fa[çc]o\s+(?:fisio|psico|terapia|fisioterapia|psicoterapia)\b/i) ||
+      const m = text.match(/\b(?:psicoterapia|fisioterapia|fisioterapeuta|cinesioterapia|terapia|psic[óo]log[ao]|fisio\b|psico\b|pilates|hidroterapia|reabilita[çc][ãa]o|acupuntura|rpg|terapia\s+ocupacional|fonoaudiologia)\s*([^\.\;\n]*)/i) ||
+                text.match(/\b(?:fa[çc]o|realizo|faz|realiza|estou\s+fazendo|t[ôo]\s+fazendo|iniciei|comecei|frequento)\s+(?:sess[õo]es\s+de\s+)?(?:fisioterapia|psicoterapia|fisio|psico|terapia|acompanhamento\s+psicol[óo]gico|reabilita[çc][ãa]o)\b/i) ||
+                text.match(/\bn[ãa]o\s+(?:fa[çc]o|realizo|faz|realiza)\s+(?:fisio|psico|terapia|fisioterapia|psicoterapia)\b/i) ||
                 text.match(/\bsem\s+(?:fisioterapia|psicoterapia)\b/i) ||
                 text.match(/\b\d+\s*x(?:\s+por\s+semana|\/semana)\b/i);
       return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
@@ -1679,13 +1684,33 @@ function estruturarTranscricaoEmDialogo(textoBruto) {
           const dA = destacarDuvidasHtml(it.resposta, window._ia2DuvidasLowConfidence || []);
           totalDuvidas += dQ.totalDuvidas + dA.totalDuvidas;
 
-          // Identificar se corresponde a algum item da colinha para exibir a badge
+          // Identificar se corresponde a algum item da colinha para exibir a badge (priorizando Item 11 sobre Item 07)
           let colId = null;
-          for (const qCol of COLINHA_IA2_CONFIG) {
-            const vRes = qCol.validar(`${it.pergunta} ${it.resposta}`);
-            if (vRes && vRes.matched) {
+          const orderedCols = [
+            ...COLINHA_IA2_CONFIG.filter(q => q.id === 11),
+            ...COLINHA_IA2_CONFIG.filter(q => q.id !== 11 && q.id !== 7),
+            ...COLINHA_IA2_CONFIG.filter(q => q.id === 7)
+          ];
+          for (const qCol of orderedCols) {
+            const vResQ = qCol.validar(String(it.perguntaOriginal || it.pergunta || ""));
+            if (vResQ && vResQ.matched) {
               colId = qCol.id;
               break;
+            }
+          }
+          if (!colId) {
+            for (const qCol of orderedCols) {
+              const vRes = qCol.validar(`${it.pergunta} ${it.resposta}`);
+              if (vRes && vRes.matched) {
+                colId = qCol.id;
+                break;
+              }
+            }
+          }
+          if (colId && ia2ColinhaStatus[colId] && ia2ColinhaStatus[colId].manualState !== false) {
+            ia2ColinhaStatus[colId].matched = true;
+            if (!ia2ColinhaStatus[colId].snippet) {
+              ia2ColinhaStatus[colId].snippet = String(it.resposta || it.pergunta || "").slice(0, 60);
             }
           }
           const badgeColinha = colId
@@ -2093,10 +2118,32 @@ async function refinarDialogoComIA2(automatico = false) {
           texto_formatado = lines.join("\n\n");
         }
 
+        // Normalizar colinha_id no diálogo para garantir que fisioterapia/psicoterapia seja sempre Item 11 (e nunca Item 07)
+        const qCol11 = COLINHA_IA2_CONFIG.find(q => q.id === 11);
+        if (Array.isArray(dialogo) && qCol11) {
+          dialogo.forEach(item => {
+            if (item && item.tipo !== "nota") {
+              const qaText = `${item.pergunta || ""} ${item.resposta || ""}`;
+              const v11 = qCol11.validar(qaText);
+              if (v11 && v11.matched) {
+                item.colinha_id = 11;
+                if (ia2ColinhaStatus[11] && ia2ColinhaStatus[11].manualState !== false) {
+                  ia2ColinhaStatus[11].matched = true;
+                  ia2ColinhaStatus[11].aiMatched = true;
+                  ia2ColinhaStatus[11].snippet = String(item.resposta || v11.snippet || "").slice(0, 60);
+                }
+              }
+            }
+          });
+        }
+
         // 1. Atualizar colinha pericial semanticamente e banner de campos não perguntados
         if (Array.isArray(colinha_status)) {
           colinha_status.forEach(it => {
             if (it && it.id && ia2ColinhaStatus[it.id]) {
+              if (it.id === 11 && ia2ColinhaStatus[11].aiMatched && !it.matched) {
+                return;
+              }
               ia2ColinhaStatus[it.id].matched = !!it.matched;
               ia2ColinhaStatus[it.id].aiMatched = !!it.matched;
               if (it.snippet) {
@@ -2108,6 +2155,9 @@ async function refinarDialogoComIA2(automatico = false) {
               }
             }
           });
+          renderizarColinhaIA2();
+          atualizarBannerCamposNaoPerguntadosIA2();
+        } else {
           renderizarColinhaIA2();
           atualizarBannerCamposNaoPerguntadosIA2();
         }
@@ -6160,23 +6210,36 @@ function aplicarPreenchimentoIAResultado(dados) {
     const obsTerStr = String(dados.obs_terapias || dados.obsTerapias || "").toLowerCase();
     const rawTxtStrOrig = String(dados.texto_bruto || dados.texto || $("txtPreenchimentoIABruto")?.value || $("ia2EscritaText")?.value || $("ia2GravacaoTranscricao")?.value || window.__ia2UltimoTextoProcessado || "").toLowerCase();
     const rawTxtStr = rawTxtStrOrig
-      .replace(/\d+\.\s*faz\s+psicoterapia\s+ou\s+fisioterapia\??\s*:?/gi, " ")
-      .replace(/faz\s+psicoterapia\s+ou\s+fisioterapia\??\s*:?/gi, " ");
+      .replace(/\d+[\.\)\-]\s*(?:faz|realiza)\s+psicoterapia\s+ou\s+fisioterapia\??\s*:?/gi, " ")
+      .replace(/(?:faz|realiza)\s+psicoterapia\s+ou\s+fisioterapia\??\s*:?/gi, " ")
+      .replace(/(?:faz|realiza)\s+fisioterapia\s+ou\s+psicoterapia\??\s*:?/gi, " ");
 
-    // 1. Avaliar rawTxtStr (texto original do médico) de forma primária e soberana (suporta afirmação/negação antes ou depois do termo)
-    let afirmFisioRaw = /\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia)\b|\b(?:fisioterapia|fisio|cinesioterapia)\s*[,:\-]?\s*(?:em\s+curso|motora|respirat[óo]ria|analg[ée]sica|p[ée]lvica|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|semanal|quinzenal|mensal|ambulatorial|di[áa]ria|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|realiza|realizando|iniciou|sim)\b/i.test(rawTxtStr) || /\bfaz\s+fisio\b|\bem\s+fisio\b|\brealiza\s+fisio\b/i.test(rawTxtStr);
-    let negFisioRaw = /\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora)\b|\b(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora)\s*[,:\-]?\s*(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|sem\s+fazer|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu|n[ãa]o)\b/i.test(rawTxtStr);
+    // 1. Avaliar rawTxtStr (texto original do médico/paciente) de forma primária e soberana (suporta 1ª e 3ª pessoa, antes ou depois do termo)
+    let afirmFisioRaw =
+      /\b(?:iniciou|inicia|iniciando|iniciei|comecei|come[çc]ou|realiza|realizando|realizo|faz|fazendo|fa[çc]o|fiz|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|frequento|passo\s+(?:na|no|em|com)|passa\s+(?:na|no|em|com)|vou\s+(?:na|no|[àa])|vai\s+(?:na|no|[àa])|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m|mantenho)\s+(?:de\s+|as\s+|os\s+)?(?:tratamento\s+(?:de|com)\s+|acompanhamento\s+(?:de|em|com)\s+|sess[õo]es\s+de\s+)?(?:fisioterapia|fisioterapeuta|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\b/i.test(rawTxtStr) ||
+      /\b(?:fisioterapia|fisioterapeuta|fisio|cinesioterapia|fst)\s*[,:\-]?\s*(?:em\s+curso|motora|respirat[óo]ria|analg[ée]sica|p[ée]lvica|ortop[ée]dica|para\b|nas?\b|nos?\b|em\b|h[áa]\b|desde\b|com\b|pela\b|pelo\b|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|quatro\s+vezes|semanal|quinzenal|mensal|por\s+semana|por\s+m[êe]s|ambulatorial|di[áa]ria|faz|fazendo|fa[çc]o|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|realiza|realizando|realizo|iniciou|iniciei|sim)\b/i.test(rawTxtStr) ||
+      /\b(?:faz|fa[çc]o|em|realiza|realizo)\s+fisio\b/i.test(rawTxtStr);
 
-    let afirmPsicoRaw = /\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico)\b|\b(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico)\s*[,:\-]?\s*(?:em\s+curso|semanal|quinzenal|mensal|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|ambulatorial|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|realiza|realizando|iniciou|sim)\b/i.test(rawTxtStr) || /\bfaz\s+psico\b|\bem\s+psico\b|\brealiza\s+psico\b/i.test(rawTxtStr);
-    let negPsicoRaw = /\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico)\b|\b(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico)\s*[,:\-]?\s*(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|sem\s+fazer|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu|n[ãa]o)\b/i.test(rawTxtStr);
+    let negFisioRaw =
+      /\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+estou\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|n[ãa]o\s+t[ôo]\s+fazendo|sem|nunca\s+fez|nunca\s+fiz|recusa|n[ãa]o\s+iniciou|n[ãa]o\s+iniciei|parou|parei|suspendeu|suspendi)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\b/i.test(rawTxtStr) ||
+      /\b(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\s*[,:\-]?\s*(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+estou\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|n[ãa]o\s+t[ôo]\s+fazendo|sem\s+fazer|nunca\s+fez|nunca\s+fiz|recusa|n[ãa]o\s+iniciou|n[ãa]o\s+iniciei|parou|parei|suspendeu|suspendi|n[ãa]o)\b/i.test(rawTxtStr);
 
-    if (/\b(?:nega|n[ãa]o\s+faz|sem)\s+(?:fazer\s+|realizar\s+)?(?:fisioterapia|fisio)\s+(?:e|ou|nem)\s+(?:psicoterapia|psico)\b|\b(?:nega|n[ãa]o\s+faz|sem)\s+(?:fazer\s+|realizar\s+)?(?:psicoterapia|psico)\s+(?:e|ou|nem)\s+(?:fisioterapia|fisio)\b/i.test(rawTxtStr)) {
+    let afirmPsicoRaw =
+      /\b(?:iniciou|inicia|iniciando|iniciei|comecei|come[çc]ou|realiza|realizando|realizo|faz|fazendo|fa[çc]o|fiz|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|frequento|passo\s+(?:na|no|em|com)|passa\s+(?:na|no|em|com)|vou\s+(?:na|no|[àa])|vai\s+(?:na|no|[àa])|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m|mantenho)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)\b/i.test(rawTxtStr) ||
+      /\b(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)\s*[,:\-]?\s*(?:em\s+curso|para\b|h[áa]\b|desde\b|com\b|pela\b|pelo\b|semanal|quinzenal|mensal|por\s+semana|por\s+m[êe]s|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|ambulatorial|faz|fazendo|fa[çc]o|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|realiza|realizando|realizo|iniciou|iniciei|sim)\b/i.test(rawTxtStr) ||
+      /\b(?:faz|fa[çc]o|em|realiza|realizo)\s+psico\b/i.test(rawTxtStr);
+
+    let negPsicoRaw =
+      /\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+estou\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|n[ãa]o\s+t[ôo]\s+fazendo|sem|nunca\s+fez|nunca\s+fiz|recusa|n[ãa]o\s+iniciou|n[ãa]o\s+iniciei|parou|parei|suspendeu|suspendi)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico|pst)\b/i.test(rawTxtStr) ||
+      /\b(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico|pst)\s*[,:\-]?\s*(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+estou\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|n[ãa]o\s+t[ôo]\s+fazendo|sem\s+fazer|nunca\s+fez|nunca\s+fiz|recusa|n[ãa]o\s+iniciou|n[ãa]o\s+iniciei|parou|parei|suspendeu|suspendi|n[ãa]o)\b/i.test(rawTxtStr);
+
+    if (/\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|sem)\s+(?:fazer\s+|realizar\s+)?(?:fisioterapia|fisio)\s+(?:e|ou|nem)\s+(?:psicoterapia|psico)\b|\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|sem)\s+(?:fazer\s+|realizar\s+)?(?:psicoterapia|psico)\s+(?:e|ou|nem)\s+(?:fisioterapia|fisio)\b/i.test(rawTxtStr)) {
       negFisioRaw = true;
       negPsicoRaw = true;
     }
 
     let fisio;
-    if (negFisioRaw) {
+    if (negFisioRaw && !afirmFisioRaw) {
       fisio = false;
     } else if (afirmFisioRaw) {
       fisio = true;
@@ -6187,7 +6250,7 @@ function aplicarPreenchimentoIAResultado(dados) {
     }
 
     let psico;
-    if (negPsicoRaw) {
+    if (negPsicoRaw && !afirmPsicoRaw) {
       psico = false;
     } else if (afirmPsicoRaw) {
       psico = true;
@@ -6435,12 +6498,15 @@ function aplicarPreenchimentoIAResultado(dados) {
         calcRetroDias = Math.round((dtE - dtD) / (1000 * 60 * 60 * 24));
       }
     }
-    const isRetroInv = Boolean(dados.retroacao_invalida || (calcRetroDias !== null && calcRetroDias > 3) || state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+    const isRetroInv = (calcRetroDias !== null && !isNaN(calcRetroDias))
+      ? Boolean(dados.retroacao_invalida || calcRetroDias > 3)
+      : Boolean(dados.retroacao_invalida || state.aux?.retroacaoInvalida || state.retroacaoInvalida);
     state.retroacaoInvalida = isRetroInv;
-    if (state.aux) state.aux.retroacaoInvalida = isRetroInv;
+    if (!state.aux) state.aux = {};
+    state.aux.retroacaoInvalida = isRetroInv;
     if (calcRetroDias !== null && !isNaN(calcRetroDias)) {
       state.retroacaoDias = calcRetroDias;
-      if (state.aux) state.aux.retroacaoDias = calcRetroDias;
+      state.aux.retroacaoDias = calcRetroDias;
     }
 
     state.limitacaoFuncional = isRetroInv ? "Sim" : (dados.limitacao_funcional || state.limitacaoFuncional || "Sim");
@@ -6449,6 +6515,12 @@ function aplicarPreenchimentoIAResultado(dados) {
     state.parecer = isRetroInv ? "CONTRÁRIO" : (dados.parecer || state.parecer || "FAVORÁVEL");
     if (isRetroInv) {
       state.parecerManualOverride = "CONTRÁRIO";
+      state.aux._retroacaoAplicadaAutomaticamente = true;
+    }
+    const justDaIA = String(dados.justificativa || "").trim();
+    if (justDaIA && typeof isTextoJustificativaRetroacao === "function" && !isTextoJustificativaRetroacao(justDaIA)) {
+      state.aux._preRetroJustificativa = justDaIA;
+      state.aux._preRetroParecer = (dados.parecer && String(dados.parecer).toUpperCase() !== "CONTRÁRIO") ? dados.parecer : "FAVORÁVEL";
     }
     state.justificativa = dados.justificativa || state.justificativa || "";
 
@@ -8865,10 +8937,12 @@ function aplicarRegioesOsteomusculares() {
       justificativaTexto = `Capacidade parcial e temporariamente prejudicada, ${limJustif}.`;
     }
     justificativaTexto = justificativaTexto.replace(/\.;/g, ";").replace(/;\./g, ".").replace(/\.\./g, ".");
+    if (!state.aux) state.aux = {};
+    state.aux._preRetroJustificativa = justificativaTexto;
+    state.aux._preRetroParecer = "FAVORÁVEL";
       
     const descFinalOsteo = extrairOuPreservarExameGeral(examesTexto);
     state.exameFisicoDescricao = descFinalOsteo;
-    if (!state.aux) state.aux = {};
     state.aux.exameFisicoDescricao = descFinalOsteo;
     if ($("agilExameFisicoDescricao")) $("agilExameFisicoDescricao").value = descFinalOsteo;
     if ($("exameFisicoDescricao")) $("exameFisicoDescricao").value = descFinalOsteo;
@@ -9576,6 +9650,10 @@ function syncAgilToExtended() {
     state.aux.dataExpedicao = brExpSync;
     if ($("dataExpedicao")) $("dataExpedicao").value = isoExpSync;
     if ($("agilDataExpedicao")) $("agilDataExpedicao").value = isoExpSync;
+  } else {
+    state.dataExpedicao = "";
+    state.aux.dataExpedicaoIso = "";
+    state.aux.dataExpedicao = "";
   }
 
   const dtDoc = getV("agilDataDocumento");
@@ -9660,6 +9738,19 @@ function syncAgilField(field, value) {
   if (!state.aux) state.aux = {};
   state.aux[field] = value;
   state[field] = value;
+  if (field === "dataExpedicao") {
+    const isoExpSync = value ? toIsoDate(value) : "";
+    const brExpSync = (isoExpSync && /^\d{4}-\d{2}-\d{2}$/.test(isoExpSync)) ? isoExpSync.split("-").reverse().join("/") : (value || "");
+    state.dataExpedicao = isoExpSync;
+    state.aux.dataExpedicaoIso = isoExpSync;
+    state.aux.dataExpedicao = brExpSync;
+  }
+  if (field === "justificativa") {
+    const cleanVal = String(value || "").trim();
+    if (cleanVal && typeof isTextoJustificativaRetroacao === "function" && !isTextoJustificativaRetroacao(cleanVal)) {
+      state.aux._preRetroJustificativa = cleanVal;
+    }
+  }
   const el = $(field);
   if (el && el !== document.activeElement) el.value = value;
   const agilKey = "agil" + field.charAt(0).toUpperCase() + field.slice(1);
@@ -10367,6 +10458,9 @@ function aplicarExameMentalAlterado() {
   
   state.capacidade = "Capacidade parcial e temporariamente prejudicada";
   setRadio("capacidade", "Capacidade parcial e temporariamente prejudicada");
+  if (!state.aux) state.aux = {};
+  state.aux._preRetroJustificativa = TEXTO_JUSTIFICATIVA_ALTERADO;
+  state.aux._preRetroParecer = "FAVORÁVEL";
   
   const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   if (isRetroInv) {
@@ -11125,8 +11219,13 @@ function gerarNarrativaJustificativaMelhoriaContinua(st, v) {
   }
   
   const rawJ = (st.aux?.justificativa || st.justificativa || $("agilJustificativa")?.value || "").trim();
-  if (rawJ && rawJ.length > 70 && !rawJ.includes("não se identificam limitações funcionais em níveis") && !rawJ.includes("Artigos 191 e 193")) {
+  const isRawJRetro = (typeof isTextoJustificativaRetroacao === "function") && isTextoJustificativaRetroacao(rawJ);
+  if (rawJ && !isRawJRetro && rawJ.length > 70 && !rawJ.includes("não se identificam limitações funcionais em níveis") && !rawJ.includes("Artigos 191 e 193")) {
     return rawJ;
+  }
+  const savedPreRetroJ = String(st.aux?._preRetroJustificativa || "").trim();
+  if (savedPreRetroJ && !(typeof isTextoJustificativaRetroacao === "function" && isTextoJustificativaRetroacao(savedPreRetroJ))) {
+    return savedPreRetroJ;
   }
   
   if (isFav) {
@@ -11574,13 +11673,111 @@ function atualizarDiasConcedidosAutomatico() {
   }
 }
 
+function isTextoJustificativaRetroacao(txt) {
+  if (!txt) return false;
+  return /mais\s+de\s+3\s+dias\s+de\s+retroa[çc][ãa]o|expedida\s+fora\s+do\s+prazo|emiss[ãa]o\s+tempestiva\s+da\s+guia|impedimento\s+absoluto\s+do\s+servidor\s+para\s+emiss[ãa]o/i.test(String(txt));
+}
+window.isTextoJustificativaRetroacao = isTextoJustificativaRetroacao;
+
+function restaurarEstadoAposCorrecaoRetroacao() {
+  if (!state.aux) state.aux = {};
+  const curJustDom = ($("agilJustificativa")?.value || $("justificativa")?.value || state.justificativa || state.aux.justificativa || "").trim();
+  const hasRetroText = isTextoJustificativaRetroacao(curJustDom) || isTextoJustificativaRetroacao(state.justificativa) || isTextoJustificativaRetroacao(state.aux.justificativa);
+  if (!state.aux._retroacaoAplicadaAutomaticamente && !hasRetroText) {
+    return;
+  }
+
+  state.aux._retroacaoAplicadaAutomaticamente = false;
+
+  // 1. Restaurar override manual de parecer (limpando o CONTRÁRIO que havia sido forçado pela retroação)
+  const prevOverride = String(state.aux._preRetroParecerManualOverride || "").trim();
+  state.parecerManualOverride = prevOverride;
+
+  // 2. Determinar o parecer clínico restaurado
+  let restoredParecer = String(state.aux._preRetroParecer || "").trim().toUpperCase();
+  if (restoredParecer !== "FAVORÁVEL" && restoredParecer !== "CONTRÁRIO") {
+    const isOsteoNormal = state.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo" && state.osteomuscularResultado === "Normal";
+    const isMentalNormal = state.exameFisicoTipo === "Exame Mental" && state.exameMentalResultado === "Normal";
+    const isOutrosNormal = state.exameFisicoTipo === "Outros" && state.outrosResultado === "Normal";
+    if ((isOsteoNormal || isMentalNormal || isOutrosNormal) && prevOverride !== "FAVORÁVEL") {
+      restoredParecer = "CONTRÁRIO";
+    } else {
+      restoredParecer = "FAVORÁVEL";
+    }
+  }
+
+  state.parecer = restoredParecer;
+  state.aux.parecer = restoredParecer;
+  if ($("parecer")) $("parecer").value = restoredParecer;
+  if ($("agilParecer")) $("agilParecer").value = restoredParecer;
+  setRadio("parecer", restoredParecer);
+  setRadio("agilParecer", restoredParecer);
+
+  // 3. Restaurar a justificativa clínica anterior (ou regenerar a partir do exame físico/mental atual)
+  let restoredJust = String(state.aux._preRetroJustificativa || "").trim();
+  if (!restoredJust || isTextoJustificativaRetroacao(restoredJust)) {
+    restoredJust = "";
+    if (state.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo") {
+      const regMap = state.osteomuscularRegioes || {};
+      const alteradas = Object.keys(regMap).filter(k => regMap[k] === "Alterado" && DADOS_OSTEOMUSCULAR[k]);
+      if (alteradas.length > 0 && typeof agruparRegioesAlteradas === "function") {
+        const grupos = agruparRegioesAlteradas(alteradas);
+        if (grupos.length === 1) {
+          const refKey = grupos[0].keys[0];
+          restoredJust = capitalizeFirstLetter(DADOS_OSTEOMUSCULAR[refKey].justificativa);
+        } else if (typeof formatarLimitacoesOsteo === "function") {
+          const limJustif = formatarLimitacoesOsteo(alteradas.map(k => DADOS_OSTEOMUSCULAR[k].limitacao));
+          restoredJust = `Capacidade parcial e temporariamente prejudicada, ${limJustif}.`;
+        }
+        restoredJust = restoredJust.replace(/\.;/g, ";").replace(/;\./g, ".").replace(/\.\./g, ".");
+      }
+    } else if (state.exameFisicoTipo === "Exame Mental") {
+      if (restoredParecer === "FAVORÁVEL" && typeof TEXTO_JUSTIFICATIVA_ALTERADO !== "undefined") {
+        restoredJust = TEXTO_JUSTIFICATIVA_ALTERADO;
+      } else if (restoredParecer === "CONTRÁRIO" && typeof TEXTO_JUSTIFICATIVA_NORMAL !== "undefined") {
+        restoredJust = TEXTO_JUSTIFICATIVA_NORMAL;
+      }
+    }
+    if (!restoredJust) {
+      state.justificativa = "";
+      state.aux.justificativa = "";
+      if ($("justificativa")) $("justificativa").value = "";
+      if ($("agilJustificativa")) $("agilJustificativa").value = "";
+      if (typeof gerarNarrativaJustificativaMelhoriaContinua === "function") {
+        restoredJust = gerarNarrativaJustificativaMelhoriaContinua(state, typeof values === "function" ? values() : {});
+      }
+    }
+  }
+
+  state.justificativa = restoredJust;
+  state.aux.justificativa = restoredJust;
+  if ($("justificativa")) $("justificativa").value = restoredJust;
+  if ($("agilJustificativa")) $("agilJustificativa").value = restoredJust;
+
+  if (typeof atualizarDiasConcedidosAutomatico === "function") atualizarDiasConcedidosAutomatico();
+  if (typeof ajustarQuesitosPorParecerEReadaptacao === "function") ajustarQuesitosPorParecerEReadaptacao();
+  if (typeof atualizarContadorEsisla === "function") {
+    atualizarContadorEsisla("justificativa");
+    atualizarContadorEsisla("agilJustificativa");
+  }
+  if (typeof atualizarProgressoAgil === "function") atualizarProgressoAgil();
+  autoSave();
+}
+window.restaurarEstadoAposCorrecaoRetroacao = restaurarEstadoAposCorrecaoRetroacao;
+
 function calcularDatasAtestado() {
   const dtDoc = $("agilDataDocumento")?.value || $("dataDocumento")?.value || state.aux?.dataDocumento || state.dataDocumento || "";
   const diasStr = $("agilDiasSolicitados")?.value || $("diasSolicitados")?.value || state.aux?.diasSolicitados || state.diasSolicitados || "";
   const dias = parseInt(diasStr, 10);
   
   // Data de Expedição da Guia (prioridade absoluta sobre a data atual conforme regra DPME)
-  const dtExpRaw = $("agilDataExpedicao")?.value || $("dataExpedicao")?.value || state.aux?.dataExpedicao || state.aux?.dataExpedicaoIso || state.dataExpedicao || "";
+  const agilExpEl = $("agilDataExpedicao");
+  const stdExpEl = $("dataExpedicao");
+  const dtExpRaw = (agilExpEl && document.activeElement === agilExpEl)
+    ? agilExpEl.value
+    : (stdExpEl && document.activeElement === stdExpEl)
+      ? stdExpEl.value
+      : (agilExpEl?.value || stdExpEl?.value || state.aux?.dataExpedicao || state.aux?.dataExpedicaoIso || state.dataExpedicao || "");
   
   const alertBadge = $("retroacaoAlertaBadge");
   const alertExp = $("retroacaoExplicacao");
@@ -11631,6 +11828,9 @@ function calcularDatasAtestado() {
   }
 
   if (!docDate) {
+    if (!state.aux) state.aux = {};
+    state.aux.retroacaoInvalida = false;
+    state.retroacaoInvalida = false;
     if (alertBadge) alertBadge.style.display = "none";
     if (alertExp) alertExp.style.display = "none";
     if (inicioTxt) inicioTxt.textContent = "--/--/----";
@@ -11640,6 +11840,7 @@ function calcularDatasAtestado() {
     if (btnContrario) btnContrario.style.display = "none";
     if ($("agilOpcaoParecerDataAntigaBox")) $("agilOpcaoParecerDataAntigaBox").style.display = "none";
     if ($("sec8OpcaoParecerDataAntigaBox")) $("sec8OpcaoParecerDataAntigaBox").style.display = "none";
+    restaurarEstadoAposCorrecaoRetroacao();
     return;
   }
 
@@ -11737,6 +11938,9 @@ function calcularDatasAtestado() {
     if (avisoIA2G) avisoIA2G.style.display = "none";
     const avisoIA2E = $("ia2RetroacaoAvisoEscrita");
     if (avisoIA2E) avisoIA2E.style.display = "none";
+
+    // Restaurar a justificativa e o parecer clínicos anteriores caso a retroação tenha sido corrigida
+    restaurarEstadoAposCorrecaoRetroacao();
   }
 
   let endDate = null;
@@ -11847,6 +12051,22 @@ function aprimorarJustificativaRetroacaoEsislaJS(st, v, baseJust) {
 window.aprimorarJustificativaRetroacaoEsislaJS = aprimorarJustificativaRetroacaoEsislaJS;
 
 function aplicarParecerContrarioRetroacao(silent = false) {
+  if (!state.aux) state.aux = {};
+  const curJust = ($("agilJustificativa")?.value || $("justificativa")?.value || state.justificativa || state.aux.justificativa || "").trim();
+  if (curJust && !isTextoJustificativaRetroacao(curJust)) {
+    state.aux._preRetroJustificativa = curJust;
+  }
+  if (!state.aux._retroacaoAplicadaAutomaticamente) {
+    const curPar = String(state.parecer || state.aux.parecer || "").trim().toUpperCase();
+    if (curPar === "FAVORÁVEL" || curPar === "CONTRÁRIO") {
+      state.aux._preRetroParecer = curPar;
+    } else if (!state.aux._preRetroParecer) {
+      state.aux._preRetroParecer = "FAVORÁVEL";
+    }
+    state.aux._preRetroParecerManualOverride = state.parecerManualOverride || "";
+  }
+  state.aux._retroacaoAplicadaAutomaticamente = true;
+
   const cargo = state.aux?.cargo || state.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor";
   const justTexto = construirJustificativaRetroacaoSemParentesesJS(state, typeof values === "function" ? values() : {});
 
@@ -11854,7 +12074,6 @@ function aplicarParecerContrarioRetroacao(silent = false) {
   state.parecerManualOverride = "CONTRÁRIO";
   state.justificativa = justTexto;
   state.retroacaoInvalida = true;
-  if (!state.aux) state.aux = {};
   state.aux.parecer = "CONTRÁRIO";
   state.aux.justificativa = justTexto;
   state.aux.retroacaoInvalida = true;
@@ -14447,7 +14666,13 @@ function copiarLaudoEsislaAtendimento() {
     const m = state.fichaEsisla.match(/\(\*\)Justificativa Parecer Médico\s*:\s*([\s\S]*?)(?=\n\s*(?:\(\*\) Parecer Final|$))/i);
     if (m && m[1].trim()) justif = m[1].trim();
   }
+  if (!isRetroInv && typeof isTextoJustificativaRetroacao === "function" && isTextoJustificativaRetroacao(justif)) {
+    justif = '';
+  }
   if (!justif) justif = state.aux?.justificativa || v.justificativa || '';
+  if (!isRetroInv && typeof isTextoJustificativaRetroacao === "function" && isTextoJustificativaRetroacao(justif)) {
+    justif = state.aux?._preRetroJustificativa || '';
+  }
   if (!justif || justif.length < 25) {
     justif = (typeof gerarNarrativaJustificativaMelhoriaContinua === "function") ? gerarNarrativaJustificativaMelhoriaContinua(state, v) : justif;
   }

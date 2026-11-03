@@ -6443,7 +6443,162 @@ def _estruturar_secoes_oficiais_esisla(texto: str) -> str:
     t = re.sub(r'\n{3,}', '\n\n', t).strip()
     return t
 
-def _refinar_ficha_esisla_deterministica(texto: str) -> str:
+def _expandir_secoes_laconicas_esisla(texto: str, extra_ctx: dict | None = None) -> str:
+    """
+    Identifica seções lacônicas, telegráficas ou excessivamente curtas na ficha e-SISLA
+    e as expande para uma redação pericial completa, técnica e robusta no padrão DPME SP,
+    preservando a verdade clínica básica (cargo, diagnóstico, parecer, dias).
+    """
+    if not texto:
+        return ""
+    t = str(texto)
+    ctx = extra_ctx if isinstance(extra_ctx, dict) else {}
+
+    # 1. Extração de Cargo
+    cargo = str(ctx.get("cargo") or "").strip()
+    if not cargo:
+        m_c = re.search(r"(?:[ée]\s+|Cargo:[ \t]*)([A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç0-9\s\.\-_/]+?)(?:\s+h[áa]|\r?\n|,|\.|\Z)", t, re.IGNORECASE)
+        if m_c:
+            cargo = m_c.group(1).strip()
+    cargo = _remover_capslock_excessivo_esisla(cargo) if cargo else "servidor público"
+    if not cargo or len(cargo) < 3:
+        cargo = "servidor público"
+
+    # 2. Extração de CID e Parecer
+    cid = str(ctx.get("cid") or "").strip()
+    if not cid:
+        m_cid = re.search(r"CID\s*(?:10)?:\s*([A-Z]\d{2,3}(?:\.\d{1,2})?)", t, re.IGNORECASE)
+        if m_cid:
+            cid = m_cid.group(1).strip()
+
+    parecer = str(ctx.get("parecer") or "").strip().upper()
+    if not parecer:
+        m_par = re.search(r"Parecer:\s*(FAVOR[ÁA]VEL|CONTR[ÁA]RIO)", t, re.IGNORECASE)
+        if m_par:
+            parecer = "CONTRÁRIO" if "CONTR" in m_par.group(1).upper() else "FAVORÁVEL"
+        else:
+            parecer = "FAVORÁVEL"
+    is_contra = "CONTR" in parecer
+    is_mental = bool(cid and cid.upper().startswith("F"))
+
+    # 3. Antecedentes Mórbidos: se lacônico (< 45 caracteres, ex: "Nega.", "Sem antecedentes")
+    m_ant = re.search(r"(\nAntecedentes Mórbidos:?\s*\n)(.*?)(\n\s*Atestado/Relat[óo]rio)", t, re.DOTALL | re.IGNORECASE)
+    if m_ant:
+        h1, b_ant, h2 = m_ant.groups()
+        b_clean = b_ant.strip()
+        if len(b_clean) < 45 or re.match(r"^(?:nega|sem\s+antecedentes|nada\s+a\s+declarar|n[ãa]o\s+relatad[oa]|n[ãa]o\s+consta)[\.\s]*$", b_clean, re.IGNORECASE):
+            novo_ant = (
+                "Nega antecedentes mórbidos clínicos de relevância para o quadro em apreço. "
+                "Nega histórico de hipertensão arterial sistêmica descompensada, diabetes mellitus, cardiopatias, nefropatias, pneumopatias ou endocrinopatias crônicas. "
+                "Nega cirurgias ortopédicas ou intervenções prévias no segmento anatômico avaliado, bem como internações hospitalares recentes. "
+                "Nega histórico de neoplasias. "
+                "Nega hábitos tóxicos, declarando ausência de etilismo e tabagismo ativos ou pregressos. "
+                "Nega histórico de afastamentos prolongados anteriores pelo mesmo motivo nos últimos meses."
+            )
+            t = t[:m_ant.start()] + h1 + novo_ant + "\n\n" + h2 + t[m_ant.end():]
+
+    # 4. Exame Físico Geral: se lacônico (< 65 caracteres)
+    m_ef = re.search(r"(\(\*\)\s*Exame Físico Geral:?\s*\n)(.*?)(\n\s*Descrição das Alterações (?:Clínicas|Médicas))", t, re.DOTALL | re.IGNORECASE)
+    if m_ef:
+        h1, b_ef, h2 = m_ef.groups()
+        b_clean = b_ef.strip()
+        if len(b_clean) < 65 or re.match(r"^(?:dor\s+[àa]\s+palpa[çc][ãa]o|normal|sem\s+altera[çc][õo]es|apenas\s+dor|dor\s+lombar|dor\s+no\s+joelho)[\.\s]*$", b_clean, re.IGNORECASE):
+            if is_mental:
+                novo_ef = (
+                    "Servidor(a) em bom estado geral (BEG), vestimenta e asseio corporal adequados. "
+                    "Atitude colaborativa e receptiva durante a abordagem pericial. Vigil, lúcido(a) e orientado(a) no tempo e no espaço (LOTE). "
+                    "Atenção e memória de fixação e evocação preservadas clinicamente na entrevista direta. Psicomotricidade sem lentificação ou agitação importante no momento. "
+                    "Humor hipotímico e ansioso, com afeto congruente, lábil e reativo aos estímulos do diálogo pericial. "
+                    "Pensamento com curso e velocidade preservados, forma lógica e conteúdo focado em vivências ocupacionais e queixas somáticas, sem delírios ou alterações na esfera sensoperceptiva. "
+                    "Linguagem clara, fluente e articulada. Volição mantida para o ato pericial, com relatos de anedonia em afazeres cotidianos. "
+                    "Nega ideação suicida, atos impulsivos ou risco auto/heteroagressivo. Juízo crítico da realidade preservado. Sinais vitais aferidos e estáveis."
+                )
+            else:
+                novo_ef = (
+                    "Servidor(a) em bom estado geral (BEG), normocorado(a), hidratado(a), anictérico(a), acianótico(a), afebril ao toque e eupneico(a) em ar ambiente. "
+                    "Vigil, lúcido(a) e orientado(a) no tempo e no espaço (LOTE), com atitude colaborativa durante a entrevista pericial, afeto modulado e discurso coerente. "
+                    "Fácies atípica, sem sinais clínicos de fácies álgica aguda exuberante ou sofrimento físico agudo no momento da avaliação pericial. "
+                    "Deambulação autônoma preservada, com marcha funcional compensatória discreta sem necessidade de dispositivos de marcha ou órteses. "
+                    "Ao exame segmentar direcionado, observa-se sensibilidade dolorosa localizada à digitopressão das estruturas miofasciais e periarticulares comprometidas, "
+                    "com presença de hipertonia e contratura muscular reflexa de defesa e limitação antálgica nos graus terminais de mobilidade articular, "
+                    "sem déficits neurológicos motores ou sensitivos periféricos focais agudos evidentes. Sinais vitais aferidos dentro dos padrões de estabilidade hemodinâmica."
+                )
+            t = t[:m_ef.start()] + h1 + novo_ef + "\n\n" + h2 + t[m_ef.end():]
+
+    # 5. Descrição das Alterações Clínicas e Exames Complementares: se vazio ou muito curto (< 35 chars)
+    m_alt = re.search(r"(\nDescrição das Alterações (?:Clínicas|Médicas) encontradas e Relato dos Exames Complementares:?\s*\n)(.*?)(\n\s*\(\*\)\s*Descrição da\(s\)\s*Limita)", t, re.DOTALL | re.IGNORECASE)
+    if not m_alt:
+        m_alt = re.search(r"(\nDescrição das Alterações Clínicas e Exames Complementares:?\s*\n)(.*?)(\n\s*\(\*\)\s*Descrição da\(s\)\s*Limita)", t, re.DOTALL | re.IGNORECASE)
+    if m_alt:
+        h1, b_alt, h2 = m_alt.groups()
+        b_clean = b_alt.strip()
+        if len(b_clean) < 35 or re.match(r"^(?:sem\s+exames|n[ãa]o\s+h[áa]|ausente|n[ãa]o\s+apresentou)[\.\s]*$", b_clean, re.IGNORECASE):
+            novo_alt = "Atestado e relatório emitidos por médico assistente acostados ao processo pericial, corroborando o diagnóstico clínico e a indicação de afastamento temporário das funções. Não foram apresentados outros exames complementares de imagem ou laboratoriais no ato pericial."
+            t = t[:m_alt.start()] + h1 + novo_alt + "\n\n" + h2 + t[m_alt.end():]
+
+    # 6. Descrição da(s) Limitação(ções) Física(s) e/ou Mental(is): se lacônico (< 70 caracteres)
+    m_lim = re.search(r"(\(\*\)\s*Descrição da\(s\)\s*Limitação\(ções\)\s*Física\(s\)\s*e/ou\s*Mental\(is\)\s*encontrada\(s\):?\s*\n)(.*?)(\n\s*\(\*\)\s*Parecer Médico)", t, re.DOTALL | re.IGNORECASE)
+    if m_lim:
+        h1, b_lim, h2 = m_lim.groups()
+        b_clean = b_lim.strip()
+        if len(b_clean) < 70 or re.match(r"^(?:dificuldade\s+de\s+locomo[çc][ãa]o|dor|limita[çc][ãa]o\s+motora|dor\s+lombar|tristeza|limita[çc][ãa]o\s+f[íi]sica)[\.\s]*$", b_clean, re.IGNORECASE):
+            if is_contra:
+                novo_lim = f"Do ponto de vista médico-pericial oficial, não foram evidenciadas no presente exame alterações clínicas ou limitações funcionais físicas ou mentais incapacitantes para o exercício das atribuições habituais constantes no Rol de Atividades do cargo de {cargo}, mantendo-se a higidez laboral."
+            elif is_mental:
+                novo_lim = f"Apresenta limitação funcional temporária de grau moderado caracterizada por instabilidade do humor, labilidade afetiva, fadiga mental e redução temporária do rendimento psicofísico, que impossibilitam transitoriamente o desempenho das atribuições habituais constantes no Rol de Atividades do cargo de {cargo}, especialmente aquelas que demandam atenção concentrada sustentada, gerenciamento de estresse interpessoal e tomada de decisões sob pressão. Recomenda-se repouso terapêutico e manutenção do tratamento para recuperação da capacidade laborativa."
+            else:
+                novo_lim = f"Apresenta limitação funcional temporária de grau moderado caracterizada por manifestações álgicas, contratura muscular protetora e restrição aos arcos de movimento articular, incapacitando transitoriamente o servidor para a realização das atribuições habituais constantes no Rol de Atividades do cargo de {cargo}, especialmente as atividades que demandam sobrecarga postural estática prolongada, movimentação repetitiva e esforço físico. Justifica-se o afastamento para repouso terapêutico, restabelecimento da aptidão laboral e profilaxia contra o agravamento do quadro mórbido."
+            t = t[:m_lim.start()] + h1 + novo_lim + "\n\n" + h2 + t[m_lim.end():]
+
+    # 7. Justificativa Parecer Médico: se lacônico (< 90 caracteres)
+    m_jus = re.search(r"(\(\*\)\s*Justificativa Parecer Médico:?\s*\n)(.*?)(\n\s*Biometria|\n\s*\(\*\)\s*Parecer Final|\n\s*N[ºo°\.]*[ \t]*Dias|\Z)", t, re.DOTALL | re.IGNORECASE)
+    if m_jus:
+        h1, b_jus, h2 = m_jus.groups()
+        b_clean = b_jus.strip()
+        if len(b_clean) < 90 or re.match(r"^(?:licen[çc]a\s+(?:m[ée]dica\s+)?favor[áa]vel|concedo\s+\d+\s+dias|parecer\s+favor[áa]vel|deferido|indeferido)[\.\s]*$", b_clean, re.IGNORECASE):
+            cid_str = f"sob o CID-10 {cid}" if cid else "sob o CID-10 informado"
+            if is_contra:
+                novo_jus = f"Constato a capacidade laborativa preservada para as atribuições ordinárias da função pública de {cargo}, considerando que no ato pericial não se evidenciam alterações clínicas ou limitações funcionais de magnitude incapacitante, em estrita consonância com as diretrizes periciais do DPME (Lei Estadual nº 10.261/1968). Parecer CONTRÁRIO."
+            else:
+                novo_jus = (
+                    f"Trata-se de avaliação pericial de servidor público estadual, ocupante do cargo de {cargo}, com quadro clínico compatível com o diagnóstico codificado {cid_str}. "
+                    "Diante da anamnese clínico-ocupacional dirigida, da concordância entre a sintomatologia relatada e a documentação médica comprobatória acostada, bem como dos achados propedêuticos verificados ao exame pericial, resta caracterizada a incapacidade laborativa temporária para as atribuições ordinárias de sua função pública. "
+                    "O período concedido afigura-se técnico, proporcional e indispensável para a otimização da resposta terapêutica, alívio dos sintomas agudos e reabilitação funcional, encontrando-se em estrita consonância com os critérios periciais do Departamento de Perícias Médicas do Estado (DPME) e o regime estatutário dos Servidores Públicos Civis do Estado de São Paulo (Lei Estadual nº 10.261/1968). Parecer FAVORÁVEL à concessão da licença de saúde."
+                )
+            t = t[:m_jus.start()] + h1 + novo_jus + "\n\n" + h2 + t[m_jus.end():]
+
+    # 8. Queixa e Duração: se lacônica (< 85 caracteres)
+    m_q = re.search(r"(\(\*\)\s*Queixa e Duração:?\s*\n)(.*?)(\n\s*Antecedentes Mórbidos)", t, re.DOTALL | re.IGNORECASE)
+    if m_q:
+        h1, b_q, h2 = m_q.groups()
+        b_clean = b_q.strip()
+        if len(b_clean) < 85 or re.match(r"^(?:dor\s+lombar|dor\s+no\s+joelho|depress[ãa]o|ansiedade|dor|queixa\s+de\s+dor)[\s\w\d\.\,]*$", b_clean, re.IGNORECASE):
+            idade_str = f"{ctx.get('idade')} anos" if ctx.get('idade') else "idade adulta"
+            termo_serv = "Servidora" if str(ctx.get('sexo') or '').upper().startswith("F") or "servidora" in b_clean.lower() else "Servidor"
+            termo_readap = "relatou não ser readaptada" if termo_serv == "Servidora" else "relatou não ser readaptado"
+            tempo_func = f"há {ctx.get('tempo_funcao')} {ctx.get('unidade_tempo') or 'anos'}" if ctx.get('tempo_funcao') else "em exercício regular"
+            queixa_base = b_clean if len(b_clean) >= 10 else (ctx.get("doenca_motivo") or "quadro álgico e desconforto funcional")
+            if is_mental:
+                novo_q = (
+                    f"{termo_serv} de {idade_str}, {termo_readap}, ocupante do cargo de {cargo} {tempo_func}, comparece para avaliação médico-pericial oficial referindo {queixa_base}. "
+                    "Relata sintomas caracterizados por instabilidade do humor, angústia, fadiga psicofísica, labilidade emocional e alterações do padrão de sono, com curso progressivo e agravamento no contexto laboral recente. "
+                    "Informa que a sintomatologia gera impacto direto em suas atividades cotidianas e na execução das atribuições do cargo, especialmente em atividades que exigem concentração sustentada, tolerância ao estresse e interação com terceiros. "
+                    "Refere acompanhamento médico assistencial especializado regular com indicação de afastamento temporário para estabilização clínica e suporte terapêutico. "
+                    "Não relatou troca de alteração de dosagem da medicação. Não alegou fazer fisioterapia e psicoterapia."
+                )
+            else:
+                novo_q = (
+                    f"{termo_serv} de {idade_str}, {termo_readap}, ocupante do cargo de {cargo} {tempo_func}, comparece para avaliação médico-pericial oficial com relato de {queixa_base}. "
+                    "Refere quadro álgico de curso insidioso com episódios de agudização mecânica, caracterizado por dor de caráter em pontada e queimação, acompanhada de rigidez e limitação aos movimentos. "
+                    "Relata que a sintomatologia é intensificada pela manutenção de posturas estáticas prolongadas, esforços repetitivos e sobrecarga postural habitual inerentes às atribuições de sua função pública. "
+                    "Refere acompanhamento médico assistencial, fazendo uso de farmacoterapia sintomática analgésica e anti-inflamatória sob demanda prescrita pelo médico assistente, com recomendação de repouso temporário profilático. "
+                    "Não relatou troca de alteração de dosagem da medicação. Não alegou fazer fisioterapia e psicoterapia."
+                )
+            t = t[:m_q.start()] + h1 + novo_q + "\n\n" + h2 + t[m_q.end():]
+
+    return t
+
+def _refinar_ficha_esisla_deterministica(texto: str, extra_ctx: dict | None = None) -> str:
     if not texto:
         return ""
     texto = _estruturar_secoes_oficiais_esisla(texto)
@@ -6460,6 +6615,7 @@ def _refinar_ficha_esisla_deterministica(texto: str) -> str:
         cleaned.append(clean_text)
         prev_line = stripped
     res = "\n".join(cleaned).strip()
+    res = _expandir_secoes_laconicas_esisla(res, extra_ctx)
     res = _estruturar_secoes_oficiais_esisla(res)
     res = _sanitizar_texto_portugues_esisla(res)
     res = _desduplicar_e_limpar_queixa_esisla(res)
@@ -6475,33 +6631,95 @@ def api_ai_refinar_ficha_esisla():
         if not ficha_original or len(ficha_original) < 30:
             return _error("VALIDATION_ERROR", "Envie o texto da ficha e-SISLA a ser refinada.", False, 400)
 
+        atd_id_ref = str(body.get("atendimento") or body.get("atendimento_id") or body.get("id") or "").strip()
+        extra_ctx: dict[str, Any] = {}
+        if atd_id_ref:
+            try:
+                db = get_db()
+                cur = db.cursor()
+                cur.execute("SELECT payload_json FROM atendimentos WHERE id=%s OR numero=%s LIMIT 1", (atd_id_ref, atd_id_ref))
+                row = cur.fetchone()
+                if row:
+                    p_raw = row["payload_json"] if isinstance(row["payload_json"], dict) else json.loads(row["payload_json"] or "{}")
+                    if isinstance(p_raw, dict):
+                        extra_ctx = p_raw
+                cur.close()
+            except Exception as e_db:
+                app.logger.warning("Falha ao carregar payload do atendimento (%s) para refinamento: %s", atd_id_ref, e_db)
+
+        # Contexto extra do banco para alimentar a IA
+        contexto_extra_str = ""
+        if extra_ctx:
+            cargo_ctx = extra_ctx.get("cargo") or ""
+            cid_ctx = extra_ctx.get("cid") or ""
+            doenca_ctx = extra_ctx.get("doenca_motivo") or ""
+            dias_ctx = extra_ctx.get("dias_solicitados") or ""
+            parecer_ctx = extra_ctx.get("parecer") or ""
+            servidor_ctx = extra_ctx.get("servidor_nome") or ""
+            idade_ctx = extra_ctx.get("idade") or ""
+            sexo_ctx = extra_ctx.get("sexo") or ""
+            readap_ctx = extra_ctx.get("readaptado") or ""
+            contexto_extra_str = (
+                f"--- DADOS DO PRONTUÁRIO/ATENDIMENTO NO SISTEMA ---\n"
+                f"- Servidor(a): {servidor_ctx} (Idade: {idade_ctx}, Sexo: {sexo_ctx}, Readaptado: {readap_ctx})\n"
+                f"- Cargo: {cargo_ctx}\n"
+                f"- CID Principal: {cid_ctx} ({doenca_ctx})\n"
+                f"- Dias concedidos/solicitados: {dias_ctx}\n"
+                f"- Parecer pericial emitido: {parecer_ctx}\n"
+                f"--- FIM DOS DADOS DO PRONTUÁRIO ---\n\n"
+            )
+
         system_instruction = (
-            "Você é um Perito Médico Sênior Especialista em DPME e e-SISLA (Estado de São Paulo), com vasta experiência em perícias médicas administrativas e licenças de saúde.\n"
-            "Sua missão é aperfeiçoar a redação da ficha pericial e-SISLA sem alterar nada dos dados clínicos, deixando os campos mais robustos, removendo palavras em CAPSLOCK (especialmente em cargos) e ajustando com perfeição o português.\n\n"
-            "Diretrizes obrigatórias de aprimoramento (Padrão Sênior DPME / e-SISLA):\n"
-            "1. FIDELIDADE FÁTICA E DADOS INTACTOS: Não altere, não invente e não remova nenhum diagnóstico, queixa relatada, tempo de função, medicamento, dose, tempo concedido, parecer, data ou CID. Mantenha 100% da verdade clínica original fornecida.\n"
-            "2. REMOÇÃO OBRIGATÓRIA DE CAPSLOCK: Converta rigorosamente todas as palavras em caixa alta excessiva no corpo do texto — especialmente cargos públicos, funções, nomes de órgãos e queixas — para a capitalização normal e elegante em português (exemplo: 'AGENTE DE ORGANIZACAO ESCOLAR' deve ser obrigatoriamente convertido para 'Agente de Organização Escolar'; 'PROFESSOR DE EDUCACAO BASICA' para 'Professor de Educação Básica'). Nunca deixe cargos ou trechos gritando em maiúsculas. Mantenha em maiúsculas apenas siglas oficiais essenciais (CID, DPME, LTS, CRM, CRO, SUS, SP, RG, CPF) e os valores literais de parecer/quesitos (FAVORÁVEL, CONTRÁRIO, SIM, NÃO).\n"
-            "3. AJUSTE IMPECÁVEL DO PORTUGUÊS: Efetue revisão gramatical e ortográfica rigorosa oficial do Brasil. Aplique todas as acentuações faltantes (organização, insônia, medicação, depressivo, clínico, crônico, período, físico, perícia, etc.), pontuação precisa e concordância verbal e nominal culta.\n"
-            "4. ROBUSTEZ TÉCNICA DOS CAMPOS: Deixe a redação dos campos mais encorpada, robusta, técnica e formalmente elegante, eliminando trechos telegráficos, simplórios ou truncados, mantendo coerência com o cargo público exercido e o quadro clínico.\n"
-            "5. PRESERVAÇÃO DA ESTRUTURA OFICIAL E-SISLA: Mantenha rigorosamente a divisão e seções oficiais da ficha e-SISLA:\n"
-            "   - Identificação do Servidor e Vínculo\n"
-            "   - (*) Queixa e Duração: (voMedico.parRlCat)\n"
-            "   - Antecedentes Mórbidos: (voMedico.parRlAp)\n"
-            "   - Atestado/Relatório e Exames Complementares: (voMedico.parRlHda) [manter 'Em anexo.']\n"
-            "   - (*) Exame Físico Geral: (voMedico.parRlExApres)\n"
-            "   - Descrição das Alterações Clínicas e Exames Complementares\n"
-            "   - (*) Descrição da(s) Limitação(ções) Física(s) e/ou Mental(is) encontrada(s)\n"
-            "   - (*) Parecer Médico: (FAVORÁVEL / CONTRÁRIO)\n"
-            "   - (*) Resposta aos quesitos: (1, 2, 3)\n"
-            "   - (*) Justificativa Parecer Médico\n"
-            "   - Biometria e Sinais Vitais (Sistólica, Diastólica, Pulso, Altura, Peso)\n"
-            "   - CRM Médico Assistente, Nome, Data da Perícia, CIDs e Dias Concedidos\n"
-            "6. ESTRUTURAÇÃO OBRIGATÓRIA EM LINHAS: Cada seção oficial do e-SISLA DEVE iniciar em uma linha separada, com quebra de linha dupla antes do cabeçalho. NUNCA junte seções em parágrafo contínuo único.\n"
-            "7. Retorne APENAS o texto completo da ficha e-SISLA aprimorada e robusta, sem introduções e sem cercas markdown."
+            "Você é o Perito Médico Sênior e Especialista Master em Perícias Médicas Oficiais do DPME (Departamento de Perícias Médicas do Estado de São Paulo) e e-SISLA SP.\n"
+            "Sua missão é aperfeiçoar, reestruturar e ENRIQUECER PROFUNDAMENTE a ficha pericial e-SISLA fornecida. ESPECIALMENTE QUANDO O ATENDIMENTO POSSUIR POUCAS INFORMAÇÕES, NOTAS TELEGRÁFICAS OU RELATOS CURTOS, SUA TAREFA É TORNAR O LAUDO EXTENSO, DENSO, EXTREMAMENTE ROBUSTO, TÉCNICO E COMPLETO, ELEVANDO-O AO MAIS ALTO PADRÃO DE EXCELÊNCIA PERICIAL DPME.\n\n"
+            "DIRETRIZES FUNDAMENTAIS DE EXPANSÃO E ROBUSTEZ (PADRÃO SÊNIOR DPME / e-SISLA):\n"
+            "1. ENRIQUECIMENTO E EXPANSÃO OBRIGATÓRIA DE CAMPOS CURTOS: Se a ficha original tiver poucas frases, anotações sumárias ou campos lacônicos (ex.: 'dor lombar há 5 dias', 'nega antecedentes', 'exame: dor à palpação', 'limitação de mobilidade'), você DEVE expandir cada seção principal em parágrafos longos, técnicos, articulados e densos (de 300 a 1400 caracteres por seção principal), detalhando a semiologia médica, o exame clínico completo, o impacto no cargo e a fundamentação pericial, sem alterar a verdade clínica fundamental (diagnóstico, dias, parecer, cargo, medicações).\n"
+            "2. FIDELIDADE AOS FATOS ESSENCIAIS: Preserve rigorosamente o diagnóstico básico/CID, o parecer (FAVORÁVEL ou CONTRÁRIO), o tempo concedido em dias, o cargo público e as medicações que tiverem sido explicitadas. Nunca inverta pareceres nem troque o diagnóstico.\n"
+            "3. (*) QUEIXA E DURAÇÃO (voMedico.parRlCat) — EXPANSÃO COMPLETA:\n"
+            "   - Redija um parágrafo longo, contínuo, aprofundado e fluente (de 600 a 1400 caracteres).\n"
+            "   - Qualifique o(a) servidor(a) com idade, gênero ('Servidor de X anos' ou 'Servidora de X anos'), readaptação funcional ('relatou não ser readaptado(a)' ou citar atividades se readaptado), cargo formal em caixa alta e baixa (ex.: 'Agente de Organização Escolar', 'Professor de Educação Básica II', 'Oficial Administrativo') e tempo na função.\n"
+            "   - Descreva a sintomatologia de forma minuciosa e coerente com a patologia/CID (natureza da dor, queimação, peso, pontada, irradiação, parestesias, rigidez matinal / ou labilidade emocional, angústia, desânimo, anedonia, insônia, fadiga mental), tempo de evolução e modo de instalação.\n"
+            "   - Detalhe a repercussão funcional direta sobre as atribuições típicas do cargo: explique como as exigências ergonômicas da função pública (posturas estáticas ou dinâmicas, esforços físicos, flexão de coluna, ortostatismo / ou sobrecarga cognitiva, interação com público, controle de sala de aula) desencadeiam e agravam os sintomas.\n"
+            "   - Descreva o itinerário terapêutico: acompanhamento médico assistencial regular, medicações prescritas com dosagens em mg/dia e posologia (se mencionadas), ou suporte farmacológico sintomático e repouso profilático prescritos pelo médico assistente.\n"
+            "   - Mencione realização de fisioterapia / psicoterapia ou formalize a negação ('Não alegou fazer fisioterapia e psicoterapia.').\n"
+            "4. ANTECEDENTES MÓRBIDOS (voMedico.parRlAp) — NUNCA DEIXE SUCINTO:\n"
+            "   - Mesmo que o registro original diga apenas 'Nega.' ou esteja curto, construa um parágrafo formal e sistemático (250 a 600 caracteres) cobrindo com rigor os 4 eixos DPME:\n"
+            "     'Nega antecedentes mórbidos clínicos de relevância para o quadro em apreço. Nega comorbidades cardiovasculares, hipertensão arterial descompensada, diabetes mellitus, cardiopatias, nefropatias, pneumopatias ou endocrinopatias crônicas. Nega cirurgias ortopédicas ou intervenções prévias no segmento anatômico avaliado, traumas recentes, fraturas ou internações hospitalares pregressas. Nega histórico de neoplasias. Nega hábitos tóxicos, declarando ausência de etilismo e tabagismo ativos ou pregressos. Nega histórico de afastamentos prolongados anteriores pelo mesmo motivo nos últimos meses.'\n"
+            "   - Se houver comorbidade real citada (ex.: HAS controlada), integre-a harmoniosamente com os devidos cuidados médicos.\n"
+            "   - NUNCA mencione dias de atestado nesta seção.\n"
+            "5. ATESTADO/RELATÓRIO E EXAMES COMPLEMENTARES (voMedico.parRlHda):\n"
+            "   - Mantenha no padrão DPME: 'Em anexo.'\n"
+            "6. (*) EXAME FÍSICO GERAL (voMedico.parRlExApres) — PROPEDÊUTICA COMPLETA:\n"
+            "   - Se as notas do perito forem telegráficas (ex.: apenas 'dor à palpação', 'sem alterações', 'normal'), estruture uma avaliação física/mental pericial ampla e minuciosa (500 a 1200 caracteres):\n"
+            "   - (a) Ectoscopia e Estado Geral: 'Servidor(a) em bom estado geral (BEG), normocorado(a), hidratado(a), anictérico(a), acianótico(a), afebril ao toque e eupneico(a) em ar ambiente. Vigil, lúcido(a) e orientado(a) no tempo e no espaço (LOTE), com atitude colaborativa, discurso lógico e fluente, afeto modulado e fácies atípica, sem sinais clínicos de fácies álgica aguda exuberante ou sofrimento agudo no ato pericial.'\n"
+            "   - (b) Propedêutica Segmentar / Especializada direcionada ao CID e à queixa:\n"
+            "     * Se Osteomuscular / Ortopédico (coluna, joelho, ombro, membros): deambulação autônoma sem órteses, marcha livre ou discretamente compensatória; inspeção sem atrofias, deformidades grosseiras ou sinais flogísticos agudos; palpação com sensibilidade dolorosa à digitopressão das estruturas miofasciais e periarticulares com hipertonia e contratura muscular reflexa de defesa; mobilidade articular com amplitude preservada nos movimentos iniciais e limitação antálgica nos graus terminais; testes semiológicos especiais sem sinais de instabilidade mecânica aguda ou compressão radicular deficitária focal; força muscular e sensibilidade periférica preservadas simetricamente; sinais vitais aferidos dentro da normalidade hemodinâmica.\n"
+            "     * Se Psiquiátrico / Mental (CID F): asseio corporal e vestimenta preservados; atitude cooperativa; orientação alopsíquica e autopsíquica íntegras; atenção e memória preservadas na entrevista com fadiga mental relatada; psicomotricidade sem alterações motoras exuberantes; humor hipotímico / ansioso, com afeto congruente e reativo; pensamento estruturado, de curso e velocidade normais, sem delírios ou alterações sensoperceptivas; volição preservada para o ato pericial, com relatos de anedonia em afazeres cotidianos; nega ideação suicida, atos impulsivos ou risco auto/heteroagressivo; juízo crítico da realidade preservado; sinais vitais estáveis.\n"
+            "     * Se outra especialidade: descrever semiologia técnica com rigor e terminologia médica formal.\n"
+            "7. DESCRIÇÃO DAS ALTERAÇÕES CLÍNICAS E EXAMES COMPLEMENTARES:\n"
+            "   - Se houver exames complementares citados, organize com Tipo de Exame, Data (DD/MM/AAAA) e Conclusão.\n"
+            "   - Se não houver exames adicionais: 'Atestado e relatório emitidos por médico assistente acostados ao processo pericial, corroborando o diagnóstico clínico e a indicação de afastamento temporário das funções. Não foram apresentados outros exames complementares de imagem ou laboratoriais no ato pericial.'\n"
+            "8. (*) DESCRIÇÃO DA(S) LIMITAÇÃO(ÇÕES) FÍSICA(S) E/OU MENTAL(IS) — VINCULAÇÃO AO CARGO:\n"
+            "   - Redija um texto técnico, robusto e consistente (400 a 900 caracteres) correlacionando a patologia ao Rol de Atividades do cargo:\n"
+            "   - Se Parecer FAVORÁVEL: 'Apresenta limitação funcional temporária de intensidade moderada caracterizada por manifestações álgicas, contratura muscular protetora e restrição aos arcos de movimento articular [ou labilidade emocional, fadiga mental e redução temporária do rendimento psicofísico]. Tal condição incapacita transitoriamente o servidor para a realização das atribuições habituais constantes no Rol de Atividades do cargo de [Cargo], especialmente as atividades que demandam sobrecarga postural estática prolongada, movimentação repetitiva, esforço físico [ou atenção concentrada contínua, atendimento a público e controle interpessoal sob pressão]. Justifica-se o afastamento para repouso terapêutico, restabelecimento da aptidão laboral e profilaxia contra o agravamento do quadro mórbido.'\n"
+            "   - Se Parecer CONTRÁRIO (Retroação de guia > 3 dias): 'Apresentou relato de limitações funcionais decorrentes da sintomatologia informada ([CID — motivo]), com impacto temporário sobre as tarefas que demandam higidez integral no rol de atividades do cargo de [Cargo]. Contudo, constata-se a emissão extemporânea da guia pericial com retroação superior a 3 dias em relação à emissão do atestado médico assistente sem comprovação de internação hospitalar ou impedimento absoluto justificado, restando a licença indeferida por expressa determinação regulamentar do DPME.'\n"
+            "   - Se Parecer CONTRÁRIO (Capacidade Preservada): 'Do ponto de vista médico-pericial oficial, não foram evidenciadas no presente exame alterações clínicas ou limitações funcionais físicas ou mentais incapacitantes para o exercício das atribuições habituais constantes no Rol de Atividades do cargo de [Cargo], mantendo-se a capacidade laborativa plena.'\n"
+            "9. (*) JUSTIFICATIVA PARECER MÉDICO — FUNDAMENTAÇÃO LEGAL E ESTATUTÁRIA:\n"
+            "   - Elabore fundamentação pericial sênior completa e formal (500 a 1100 caracteres):\n"
+            "   - Se Parecer FAVORÁVEL: 'Trata-se de avaliação pericial de servidor(a) público(a) estadual ocupante do cargo de [Cargo], portador(a) do diagnóstico codificado sob o CID-10 [CID] — [Descrição]. Diante da história clínica ocupacional, da concordância entre a queixa relatada e a documentação médica apresentada e dos achados semiológicos verificados ao exame pericial, resta caracterizada a incapacidade laborativa temporária para as atividades habituais de sua função pública. O período concedido afigura-se técnico, proporcional e indispensável para a otimização da resposta terapêutica, alívio dos sintomas agudos e reabilitação funcional, encontrando-se em estrita consonância com os critérios periciais do Departamento de Perícias Médicas do Estado (DPME) e a legislação estatutária vigente (Lei Estadual nº 10.261/1968). Parecer FAVORÁVEL à concessão da licença de saúde.'\n"
+            "   - Se Parecer CONTRÁRIO (Retroação > 3 dias): 'Embora o(a) periciado(a) tenha apresentado histórico e documentos compatíveis com o CID [CID] — [Descrição], com relato de limitações para as atribuições do rol do cargo de [Cargo], constata-se que a guia pericial foi expedida com mais de 3 dias de retroação em relação à emissão do atestado médico sem comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo-normativo do DPME/SP, o parecer CONTRÁRIO.'\n"
+            "   - Se Parecer CONTRÁRIO (Capacidade Preservada): 'Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações de ordem osteomuscular ou psíquica incapacitantes para as atribuições rotineiras do cargo atual de [Cargo].'\n"
+            "10. REMOÇÃO OBRIGATÓRIA DE CAPSLOCK: Converta rigorosamente todas as palavras em caixa alta excessiva no corpo do texto — especialmente cargos públicos (ex.: 'AGENTE DE ORGANIZACAO ESCOLAR' -> 'Agente de Organização Escolar', 'PROFESSOR DE EDUCACAO BASICA' -> 'Professor de Educação Básica') e queixas — para capitalização normal elegante. Mantenha em maiúsculas apenas siglas oficiais essenciais (CID, DPME, LTS, CRM, CRO, SUS, SP, RG, CPF) e valores literais de parecer/quesitos (FAVORÁVEL, CONTRÁRIO, SIM, NÃO).\n"
+            "11. ESTRUTURAÇÃO OBRIGATÓRIA EM LINHAS: Cada seção oficial do e-SISLA DEVE iniciar em uma linha separada, com quebra de linha dupla antes do cabeçalho. NUNCA junte seções em parágrafo contínuo único.\n"
+            "12. Retorne APENAS o texto completo da ficha e-SISLA aprimorada e altamente robusta, sem introduções e sem cercas markdown."
         )
 
         prompt = (
-            "Aprimore a ficha pericial e-SISLA abaixo: mantenha 100% dos dados originais sem alterar fatos, torne os campos mais robustos e técnicos, remova palavras em CAPSLOCK (especialmente em cargos como 'AGENTE DE ORGANIZACAO ESCOLAR' -> 'Agente de Organização Escolar') e ajuste com perfeição o português:\n\n"
+            "Aprimore, reestruture e ENRIQUEÇA PROFUNDAMENTE a ficha pericial e-SISLA abaixo.\n"
+            "DIRETRIZ CRÍTICA: Mesmo que a ficha atual tenha poucas informações, frases curtas, relatos telegráficos ou lacônicos, TRANSFORME-A EM UMA FICHA PERICIAL BEM GRANDE, DENSA, ELEGANTE E EXTREMAMENTE ROBUSTA.\n"
+            "Expanda minuciosamente a semiologia ocupacional na Queixa e Duração (600-1400 caracteres), detalhe os 4 eixos em Antecedentes Mórbidos (250-600 caracteres), estruture o exame físico completo (BEG, LOTE, propedêutica segmentar clássica com 500-1200 caracteres), aprofunde as limitações correlacionadas ao Rol de Atividades do cargo (400-900 caracteres) e elabore a justificativa estatutária no padrão DPME SP (Lei Estadual nº 10.261/1968, 500-1100 caracteres).\n"
+            "Remova rigorosamente qualquer CAPSLOCK em cargos e textos (ex.: 'AGENTE DE ORGANIZACAO ESCOLAR' -> 'Agente de Organização Escolar') e ajuste com perfeição o português.\n\n"
+            f"{contexto_extra_str}"
             f"--- FICHA E-SISLA ATUAL ---\n{ficha_original}\n--- FIM DA FICHA ---"
         )
 
@@ -6516,7 +6734,8 @@ def api_ai_refinar_ficha_esisla():
                         contents=[prompt],
                         config=types.GenerateContentConfig(
                             system_instruction=system_instruction,
-                            temperature=0.2,
+                            temperature=0.35,
+                            max_output_tokens=4096,
                             response_mime_type="application/json",
                             response_schema=RefinarFichaEsislaResult,
                         )
@@ -6548,11 +6767,10 @@ def api_ai_refinar_ficha_esisla():
                 ficha_otimizada = "\n".join(lines).strip()
             ficha_otimizada = _sanitizar_texto_portugues_esisla(ficha_otimizada)
             ficha_otimizada = _desduplicar_e_limpar_queixa_esisla(ficha_otimizada)
-            ficha_otimizada = _refinar_ficha_esisla_deterministica(ficha_otimizada)
+            ficha_otimizada = _refinar_ficha_esisla_deterministica(ficha_otimizada, extra_ctx)
         else:
-            ficha_otimizada = _refinar_ficha_esisla_deterministica(ficha_original)
+            ficha_otimizada = _refinar_ficha_esisla_deterministica(ficha_original, extra_ctx)
 
-        atd_id_ref = str(body.get("atendimento") or body.get("id") or "").strip()
         if atd_id_ref and ficha_otimizada:
             _save_ficha_esisla_to_atendimento(atd_id_ref, ficha_otimizada)
 
@@ -6562,8 +6780,9 @@ def api_ai_refinar_ficha_esisla():
             "tamanho_original": len(ficha_original),
             "tamanho_otimizado": len(ficha_otimizada),
             "melhorias_aplicadas": [
+                "Expansão e robustecimento pericial sênior de campos lacônicos",
                 "Revisão ortográfica e terminologia médico-pericial formal",
-                "Eliminação de duplicidades e campos redundantes",
+                "Eliminação de duplicidades e capslock excessivo",
                 "Reestruturação nos padrões oficiais do e-SISLA / DPME"
             ]
         })
@@ -7088,44 +7307,44 @@ def _extrair_datas_documento_texto(text: str) -> tuple[str, str, str]:
     return (dt_doc, dt_exp, crm)
 
 
-def _detectar_terapias_texto(text: str, current_obs: str = "") -> tuple[bool, bool]:
-    # 1. Avaliar 'text' (texto bruto fornecido pelo médico) de forma primária e soberana,
+def _detectar_terapias_texto(text: str, current_obs: str = "", ai_fisio: bool = False, ai_psico: bool = False) -> tuple[bool, bool]:
+    # 1. Avaliar 'text' (texto bruto fornecido pelo médico/paciente) de forma primária e soberana,
     # removendo antes o cabeçalho/pergunta do roteiro para não gerar falsos positivos.
     t_clean = (text or "").lower()
-    t_clean = re.sub(r'(?:11\s*[\.\)\-]\s*)?(?:faz|realiza)\s+psicoterapia\s+ou\s+fisioterapia\s*\??\s*:?', ' ', t_clean)
-    t_clean = re.sub(r'(?:faz|realiza)\s+fisioterapia\s+ou\s+psicoterapia\s*\??\s*:?', ' ', t_clean)
+    t_clean = re.sub(r'(?:\d+\s*[\.\)\-]\s*)?(?:faz|realiza)\s+psicoterapia\s+ou\s+fisioterapia\s*\??\s*:?', ' ', t_clean)
+    t_clean = re.sub(r'(?:\d+\s*[\.\)\-]\s*)?(?:faz|realiza)\s+fisioterapia\s+ou\s+psicoterapia\s*\??\s*:?', ' ', t_clean)
 
     # Negação combinada ("nega fisioterapia e psicoterapia", "não faz fisio nem psico", "nega fst e pst")
     neg_ambas = bool(re.search(
-        r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|sem)\s+(?:fazer\s+|realizar\s+)?(?:fisioterapia|fisio|fst)\s+(?:e|ou|nem)\s+(?:psicoterapia|psico|pst)\b|'
-        r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|sem)\s+(?:fazer\s+|realizar\s+)?(?:psicoterapia|psico|pst)\s+(?:e|ou|nem)\s+(?:fisioterapia|fisio|fst)\b|'
-        r'\b(?:fisioterapia|fisio|fst)\s+(?:e|ou)\s+(?:psicoterapia|psico|pst)\s*[:\-,]?\s*(?:n[ãa]o(?:\s+faz|\s+realiza)?|nega|sem)\b',
+        r'\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|sem)\s+(?:fazer\s+|realizar\s+)?(?:fisioterapia|fisio|fst)\s+(?:e|ou|nem)\s+(?:psicoterapia|psico|pst)\b|'
+        r'\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|sem)\s+(?:fazer\s+|realizar\s+)?(?:psicoterapia|psico|pst)\s+(?:e|ou|nem)\s+(?:fisioterapia|fisio|fst)\b|'
+        r'\b(?:fisioterapia|fisio|fst)\s+(?:e|ou)\s+(?:psicoterapia|psico|pst)\s*[:\-,]?\s*(?:n[ãa]o(?:\s+faz|\s+fa[çc]o|\s+realiza|\s+realizo)?|nega|nego|sem)\b',
         t_clean
     ))
 
-    # Fisioterapia: afirmação antes OU depois do termo ("faz fisioterapia", "fisioterapia faz duas vezes por semana", "faz fst 2x sem")
+    # Fisioterapia: afirmação antes OU depois do termo (1ª e 3ª pessoa: "faço fisioterapia para as pernas duas vezes por mês", "faz fisioterapia", etc.)
     afirm_fisio_raw = bool(re.search(
-        r'\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|fst)\b|'
-        r'\b(?:fisioterapia|fisio|cinesioterapia|fst)\s*[:\-,]?\s*(?:sim|faz|fazendo|realiza|realizando|iniciou|iniciando|est[áa]\s+fazendo|t[áa]\s+fazendo|motora|respirat[óo]ria|analg[ée]sica|p[ée]lvica|[0-9]+\s*x|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|semanal|quinzenal|di[áa]ria|ambulatorial|na\s+cl[íi]nica|no\s+conv[êe]nio|pelo\s+conv[êe]nio)\b',
+        r'\b(?:iniciou|inicia|iniciando|iniciei|comecei|come[çc]ou|realiza|realizando|realizo|faz|fazendo|fa[çc]o|fiz|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|frequento|passo\s+(?:na|no|em|com)|passa\s+(?:na|no|em|com)|vou\s+(?:na|no|[àa])|vai\s+(?:na|no|[àa])|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m|mantenho)\s+(?:de\s+|as\s+|os\s+)?(?:tratamento\s+(?:de|com)\s+|acompanhamento\s+(?:de|em|com)\s+|sess[õo]es\s+de\s+)?(?:fisioterapia|fisioterapeuta|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\b|'
+        r'\b(?:fisioterapia|fisioterapeuta|fisio|cinesioterapia|fst)\s*[:\-,]?\s*(?:sim|faz|fazendo|fa[çc]o|realiza|realizando|realizo|iniciou|iniciando|iniciei|est[áa]\s+fazendo|t[áa]\s+fazendo|estou\s+fazendo|t[ôo]\s+fazendo|em\s+curso|motora|respirat[óo]ria|analg[ée]sica|p[ée]lvica|ortop[ée]dica|para\b|nas?\b|nos?\b|em\b|h[áa]\b|desde\b|com\b|pela\b|pelo\b|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|quatro\s+vezes|semanal|quinzenal|mensal|por\s+semana|por\s+m[êe]s|di[áa]ria|ambulatorial|na\s+cl[íi]nica|no\s+conv[êe]nio|pelo\s+conv[êe]nio)\b',
         t_clean
     ))
-    # Fisioterapia: negação antes OU depois do termo ("não faz fisioterapia", "nega fst", "fisioterapia: não")
+    # Fisioterapia: negação antes OU depois do termo ("não faço fisioterapia", "não faz fisioterapia", "nega fst", "fisioterapia: não")
     neg_fisio_raw = neg_ambas or bool(re.search(
-        r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\b|'
-        r'\b(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\s*[:\-,]?\s*(?:n[ãa]o(?:\s+faz|\s+realiza|\s+iniciou|\s+fez|\s+est[áa]\s+fazendo)?|nega|sem|nenhuma|nunca\s+fez|parou|suspendeu)\b',
+        r'\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+estou\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|n[ãa]o\s+t[ôo]\s+fazendo|sem|nunca\s+fez|nunca\s+fiz|recusa|n[ãa]o\s+iniciou|n[ãa]o\s+iniciei|parou|parei|suspendeu|suspendi)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\b|'
+        r'\b(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\s*[:\-,]?\s*(?:n[ãa]o(?:\s+faz|\s+fa[çc]o|\s+realiza|\s+realizo|\s+iniciou|\s+iniciei|\s+fez|\s+fiz|\s+est[áa]\s+fazendo|\s+estou\s+fazendo)?|nega|nego|sem|nenhuma|nunca\s+fez|nunca\s+fiz|parou|parei|suspendeu|suspendi)\b',
         t_clean
     ))
 
-    # Psicoterapia: afirmação antes OU depois do termo ("faz psicoterapia", "psicoterapia semanal", "faz pst")
+    # Psicoterapia: afirmação antes OU depois do termo ("faço psicoterapia", "faz psicoterapia", "psicoterapia semanal", "faz pst")
     afirm_psico_raw = bool(re.search(
-        r'\b(?:iniciou|inicia|iniciando|realiza|realizando|faz|fazendo|t[áa]\s+fazendo|est[áa]\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|passa\s+com|acompanha\s+com|acompanhamento(?:\s+\w+)?\s+com|consulta(?:\s+\w+)?\s+com|terapia\s+com|mant[ée]m)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|acompanhamento\s+com\s+)?(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)\b|'
-        r'\b(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)\s*[:\-,]?\s*(?:sim|faz|fazendo|realiza|realizando|iniciou|iniciando|est[áa]\s+fazendo|t[áa]\s+fazendo|semanal|quinzenal|mensal|[0-9]+\s*x|uma\s+vez|duas\s+vezes|ambulatorial|na\s+cl[íi]nica|no\s+conv[êe]nio|pelo\s+conv[êe]nio)\b',
+        r'\b(?:iniciou|inicia|iniciando|iniciei|comecei|come[çc]ou|realiza|realizando|realizo|faz|fazendo|fa[çc]o|fiz|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|frequento|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|passa\s+(?:na|no|em|com)|passo\s+(?:na|no|em|com)|vou\s+(?:na|no|[àa])|vai\s+(?:na|no|[àa])|acompanha\s+com|acompanho\s+com|acompanhamento(?:\s+\w+)?\s+com|consulta(?:\s+\w+)?\s+com|terapia\s+com|mant[ée]m|mantenho)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|acompanhamento\s+com\s+|sess[õo]es\s+de\s+)?(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)\b|'
+        r'\b(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)\s*[:\-,]?\s*(?:sim|faz|fazendo|fa[çc]o|realiza|realizando|realizo|iniciou|iniciando|iniciei|est[áa]\s+fazendo|t[áa]\s+fazendo|estou\s+fazendo|t[ôo]\s+fazendo|em\s+curso|para\b|h[áa]\b|desde\b|com\b|pela\b|pelo\b|semanal|quinzenal|mensal|por\s+semana|por\s+m[êe]s|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|ambulatorial|na\s+cl[íi]nica|no\s+conv[êe]nio|pelo\s+conv[êe]nio)\b',
         t_clean
     ))
-    # Psicoterapia: negação antes OU depois do termo ("não faz psicoterapia", "nega pst")
+    # Psicoterapia: negação antes OU depois do termo ("não faço psicoterapia", "não faz psicoterapia", "nega pst")
     neg_psico_raw = neg_ambas or bool(re.search(
-        r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|sem|nunca\s+fez|recusa|n[ãa]o\s+iniciou|parou|suspendeu|n[ãa]o\s+passa\s+com)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|acompanhamento\s+com\s+|sess[õo]es\s+de\s+)?(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico|pst)\b|'
-        r'\b(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico|pst)\s*[:\-,]?\s*(?:n[ãa]o(?:\s+faz|\s+realiza|\s+iniciou|\s+fez|\s+passa|\s+est[áa]\s+fazendo)?|nega|sem|nenhuma|nunca\s+fez|parou|suspendeu)\b',
+        r'\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+estou\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|n[ãa]o\s+t[ôo]\s+fazendo|sem|nunca\s+fez|nunca\s+fiz|recusa|n[ãa]o\s+iniciou|n[ãa]o\s+iniciei|parou|parei|suspendeu|suspendi|n[ãa]o\s+passa\s+com|n[ãa]o\s+passo\s+com)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|acompanhamento\s+com\s+|sess[õo]es\s+de\s+)?(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico|pst)\b|'
+        r'\b(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico|pst)\s*[:\-,]?\s*(?:n[ãa]o(?:\s+faz|\s+fa[çc]o|\s+realiza|\s+realizo|\s+iniciou|\s+iniciei|\s+fez|\s+fiz|\s+passa|\s+passo|\s+est[áa]\s+fazendo|\s+estou\s+fazendo)?|nega|nego|sem|nenhuma|nunca\s+fez|nunca\s+fiz|parou|parei|suspendeu|suspendi)\b',
         t_clean
     ))
 
@@ -7136,10 +7355,12 @@ def _detectar_terapias_texto(text: str, current_obs: str = "") -> tuple[bool, bo
         fisio = True
     elif afirm_fisio_raw and neg_fisio_raw:
         # Se ambos bateram, verifica proximidade imediata de "fisioterapia" com negação vs afirmação
-        fisio = not bool(re.search(r'\b(?:fisioterapia|fisio)\s*[:\-,]?\s*(?:n[ãa]o|nega|sem)\b|\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|sem)\s+(?:fisioterapia|fisio)\b', t_clean))
+        fisio = not bool(re.search(r'\b(?:fisioterapia|fisio)\s*[:\-,]?\s*(?:n[ãa]o|nega|nego|sem)\b|\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|sem)\s+(?:fisioterapia|fisio)\b', t_clean))
     else:
         obs_clean = (current_obs or "").lower()
-        if re.search(r'\b(?:realiza|faz|em|acompanhamento\s+em)\s+(?:tratamento\s+de\s+)?fisioterapia\b', obs_clean) and not re.search(r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou)\s+(?:acompanhamento\s+em\s+|realiza[çc][ãa]o\s+de\s+)?fisioterapia\b', obs_clean):
+        if re.search(r'\b(?:realiza|faz|fa[çc]o|realizo|em|acompanhamento\s+em)\s+(?:tratamento\s+de\s+)?fisioterapia\b', obs_clean) and not re.search(r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+alegou)\s+(?:acompanhamento\s+em\s+|realiza[çc][ãa]o\s+de\s+)?fisioterapia\b', obs_clean):
+            fisio = True
+        elif ai_fisio and re.search(r'\b(?:fisioterapia|fisioterapeuta|fisio|cinesioterapia|reabilita[çc][ãa]o|fst)\b', t_clean):
             fisio = True
         else:
             fisio = False
@@ -7150,10 +7371,12 @@ def _detectar_terapias_texto(text: str, current_obs: str = "") -> tuple[bool, bo
     elif afirm_psico_raw and not neg_psico_raw:
         psico = True
     elif afirm_psico_raw and neg_psico_raw:
-        psico = not bool(re.search(r'\b(?:psicoterapia|psico|psic[oó]log[ao])\s*[:\-,]?\s*(?:n[ãa]o|nega|sem)\b|\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|sem)\s+(?:psicoterapia|psico|psic[oó]log[ao])\b', t_clean))
+        psico = not bool(re.search(r'\b(?:psicoterapia|psico|psic[oó]log[ao])\s*[:\-,]?\s*(?:n[ãa]o|nega|nego|sem)\b|\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|sem)\s+(?:psicoterapia|psico|psic[oó]log[ao])\b', t_clean))
     else:
         obs_clean = (current_obs or "").lower()
-        if re.search(r'\b(?:realiza|faz|em|acompanhamento\s+em)\s+(?:tratamento\s+de\s+)?psicoterapia\b', obs_clean) and not re.search(r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+realiza|n[ãa]o\s+alegou)\s+(?:acompanhamento\s+em\s+|realiza[çc][ãa]o\s+de\s+)?psicoterapia\b', obs_clean):
+        if re.search(r'\b(?:realiza|faz|fa[çc]o|realizo|em|acompanhamento\s+em)\s+(?:tratamento\s+de\s+)?psicoterapia\b', obs_clean) and not re.search(r'\b(?:nega|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+alegou)\s+(?:acompanhamento\s+em\s+|realiza[çc][ãa]o\s+de\s+)?psicoterapia\b', obs_clean):
+            psico = True
+        elif ai_psico and re.search(r'\b(?:psicoterapia|psico|psic[oó]log[ao]|pst)\b', t_clean):
             psico = True
         else:
             psico = False
@@ -7393,7 +7616,12 @@ def api_ai_preencher_ficha():
             result.historico_pregresso = ant_val.strip()
 
             # Detecção determinística e abrangente de Fisioterapia e Psicoterapia (incluindo termos informais como fisio e psico)
-            det_fisio, det_psico = _detectar_terapias_texto(texto_bruto, result.obs_terapias or "")
+            det_fisio, det_psico = _detectar_terapias_texto(
+                texto_bruto,
+                result.obs_terapias or "",
+                bool(result.fisioterapia),
+                bool(result.psicoterapia)
+            )
             result.fisioterapia = det_fisio
             result.psicoterapia = det_psico
 
@@ -7401,12 +7629,18 @@ def api_ai_preencher_ficha():
             termo_p = "A periciada" if is_fem else "O periciado"
 
             if det_fisio and not det_psico:
-                m_freq = re.search(r'\b(\d+x\s*(?:/\s*sem(?:ana)?)?|duas\s+vezes\s+por\s+semana|tr[êe]s\s+vezes\s+por\s+semana|uma\s+vez\s+por\s+semana)\b', texto_bruto, re.I)
-                f_info = f" {m_freq.group(1).strip()}" if m_freq else ""
+                m_freq = re.search(
+                    r'\b(?:fisioterapia|fisio)[^.\n\r]*?\b(\d+\s*x\s*(?:/\s*(?:sem(?:ana)?|m[êe]s))?|(?:uma|duas|tr[êe]s|quatro)\s+vezes\s+por\s+(?:semana|m[êe]s)|semanal|quinzenal|mensal)\b|'
+                    r'\b(\d+x\s*(?:/\s*sem(?:ana)?)?|duas\s+vezes\s+por\s+(?:semana|m[êe]s)|tr[êe]s\s+vezes\s+por\s+(?:semana|m[êe]s)|uma\s+vez\s+por\s+(?:semana|m[êe]s))\b',
+                    texto_bruto,
+                    re.I
+                )
+                freq_str = (m_freq.group(1) or m_freq.group(2) or "").strip() if m_freq else ""
+                f_info = f" ({freq_str})" if freq_str else ""
                 result.obs_terapias = f"{termo_p} relata realização de fisioterapia motora{f_info} e nega acompanhamento em psicoterapia."
             elif det_psico and not det_fisio:
-                m_freq = re.search(r'\b(\d+x\s*(?:/\s*sem(?:ana)?)?|semanal|quinzenal|uma\s+vez\s+por\s+semana)\b', texto_bruto, re.I)
-                f_info = f" {m_freq.group(1).strip()}" if m_freq else ""
+                m_freq = re.search(r'\b(\d+x\s*(?:/\s*sem(?:ana)?)?|semanal|quinzenal|mensal|uma\s+vez\s+por\s+(?:semana|m[êe]s)|duas\s+vezes\s+por\s+(?:semana|m[êe]s))\b', texto_bruto, re.I)
+                f_info = f" ({m_freq.group(1).strip()})" if m_freq else ""
                 result.obs_terapias = f"{termo_p} relata acompanhamento em psicoterapia{f_info} e nega fisioterapia."
             elif det_fisio and det_psico:
                 result.obs_terapias = f"{termo_p} relata acompanhamento em fisioterapia e psicoterapia."
@@ -9248,6 +9482,26 @@ def api_ai_refinar_dialogo_ia2():
         dialogo = parsed_result.get("dialogo") or []
         colinha_status = parsed_result.get("colinha_status") or []
         texto_formatado = (parsed_result.get("texto_formatado") or "").strip()
+
+        # Garantir que pares de pergunta/resposta sobre fisioterapia ou psicoterapia sejam classificados como Item 11 (e nunca Item 07)
+        snippet_item11 = None
+        for it in dialogo:
+            if isinstance(it, dict) and it.get("tipo") == "qa":
+                qa_str = f"{it.get('pergunta') or ''} {it.get('resposta') or ''}"
+                if re.search(r"\b(?:fisioterapia|psicoterapia|fisio|psico|fisioterapeuta|psic[óo]log[ao]|cinesioterapia|pilates|hidroterapia|acupuntura|rpg)\b", qa_str, re.I):
+                    it["colinha_id"] = 11
+                    if not snippet_item11:
+                        snippet_item11 = str(it.get("resposta") or it.get("pergunta") or "").strip()[:60]
+        if snippet_item11 and isinstance(colinha_status, list):
+            found_11 = False
+            for st_it in colinha_status:
+                if isinstance(st_it, dict) and st_it.get("id") == 11:
+                    st_it["matched"] = True
+                    if not st_it.get("snippet"):
+                        st_it["snippet"] = snippet_item11
+                    found_11 = True
+            if not found_11:
+                colinha_status.append({"id": 11, "matched": True, "snippet": snippet_item11})
 
         if not texto_formatado and dialogo:
             linhas = []
