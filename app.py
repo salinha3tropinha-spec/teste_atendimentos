@@ -3820,6 +3820,7 @@ def _clean_queixa_duracao_text(text: str) -> str:
     t = re.sub(r"\s*Exames apresentados:\s*(?:Aus[êeē]ncia|N[ãa]o foram|Sem exames)[^\n\r]*[\.\,]?", "", t, flags=re.IGNORECASE)
     t = re.sub(r"\s*Aus[êeē]ncia de exames complementares[^\n\r]*[\.\,]?", "", t, flags=re.IGNORECASE)
     t = re.sub(r"\s*N[ãa]o foram apresentados exames complementares[^\n\r]*[\.\,]?", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"[\r\n\s]*Exames apresentados:\s*[\s\S]*?(?=\n\n|\Z)", "", t, flags=re.IGNORECASE)
 
     # 6. Elimina prefixos anômalos e redundâncias: "Queixa-se de A periciada refere que", "Queixa-se de Relata que", etc.
     t = re.sub(
@@ -4898,10 +4899,70 @@ def _expandir_abreviacoes_medicas_texto(texto: str) -> str:
     return t
 
 
+def _transferir_exames_queixa_para_atestados(texto: str) -> str:
+    """
+    Localiza relatos de 'Exames apresentados:' ou descrição de documentos/laudos
+    indevidamente posicionados dentro de 'Queixa e Duração' e os transfere para
+    a seção 'Atestado/Relatório e Exames Complementares: (voMedico.parRlHda)'
+    logo após 'Em anexo.', mantendo a Queixa limpa e puramente semiológica.
+    """
+    if not texto:
+        return ""
+    t = str(texto)
+
+    # 1. Procura ocorrência de "Exames apresentados:" ou relatos documentais dentro de Queixa e Duração
+    m_queixa = re.search(
+        r"(\(\*\)\s*Queixa e Dura[çc][ãa]o:?\s*\n)(.*?)(\n\s*Antecedentes Mórbidos)",
+        t,
+        re.DOTALL | re.IGNORECASE
+    )
+    if not m_queixa:
+        return t
+
+    h1, b_q, h2 = m_queixa.groups()
+    m_ex = re.search(r"[\r\n\s]*Exames apresentados:\s*([\s\S]*?)(?=\n\n|\Z)", b_q, flags=re.IGNORECASE)
+    if not m_ex:
+        return t
+
+    conteudo_exames = m_ex.group(1).strip()
+    # Remove de Queixa e Duração
+    b_q_novo = b_q[:m_ex.start()] + b_q[m_ex.end():]
+    b_q_novo = re.sub(r"[\r\n\s]*Exames apresentados:\s*$", "", b_q_novo, flags=re.MULTILINE | re.IGNORECASE)
+    b_q_novo = re.sub(r"\n{2,}", "\n\n", b_q_novo).strip()
+    t = t[:m_queixa.start()] + h1 + b_q_novo + "\n\n" + h2 + t[m_queixa.end():]
+
+    # 2. Transfere para Atestado/Relatório e Exames Complementares: (voMedico.parRlHda)
+    if conteudo_exames and not re.match(r"^(?:Aus[êe]ncia|N[ãa]o foram|Sem exames)[\.\s]*$", conteudo_exames, re.IGNORECASE):
+        m_atest = re.search(
+            r"(\nAtestado/Relat[óo]rio(?:[^\n\r]*?)?:?\s*\n)(.*?)(\n\s*(?:Press[ãa]o Arterial|Sist[óo]lica|Altura|\(\*\)\s*Exame F[íi]sico))",
+            t,
+            re.DOTALL | re.IGNORECASE
+        )
+        if m_atest:
+            a_h1, a_body, a_h2 = m_atest.groups()
+            a_clean = a_body.strip()
+            texto_restante = re.sub(r"^\s*Em anexo\.?\s*", "", a_clean, flags=re.IGNORECASE).strip()
+            if conteudo_exames not in texto_restante:
+                if texto_restante:
+                    novo_corpo = f"Em anexo. {conteudo_exames} {texto_restante}".strip()
+                else:
+                    novo_corpo = f"Em anexo. {conteudo_exames}"
+            else:
+                novo_corpo = f"Em anexo. {texto_restante}" if not a_clean.lower().startswith("em anexo") else a_clean
+            t = t[:m_atest.start()] + a_h1 + novo_corpo + "\n\n" + a_h2 + t[m_atest.end():]
+        else:
+            # Se não localizou o cabeçalho Atestado/Relatório, insere após Antecedentes Mórbidos
+            m_ant = re.search(r"(\nAntecedentes Mórbidos:?\s*\n.*?\n\n)", t, re.DOTALL | re.IGNORECASE)
+            if m_ant:
+                sec_atest = f"Atestado/Relatório e Exames Complementares: (voMedico.parRlHda)\nEm anexo. {conteudo_exames}\n\n"
+                t = t[:m_ant.end()] + sec_atest + t[m_ant.end():]
+    return t
+
 def _desduplicar_e_limpar_queixa_esisla(texto: str) -> str:
     if not texto:
         return ""
     t = str(texto)
+    t = _transferir_exames_queixa_para_atestados(t)
     m_alt = re.search(
         r'(\nDescrição das Alterações (?:Clínicas|Médicas) encontradas e Relato dos Exames Complementares:?\s*\n)(.*?)(\n\s*\(\*\)\s*Descrição da\(s\)\s*Limitação|\Z)',
         t,
@@ -4922,6 +4983,7 @@ def _desduplicar_e_limpar_queixa_esisla(texto: str) -> str:
         b_q = re.sub(r"[\r\n\s]*Exames apresentados:\s*$", "", b_q, flags=re.MULTILINE | re.IGNORECASE)
         b_q = re.sub(r"[\r\n\s]*Aus[êe]ncia de exames complementares[^\n\r]*(\.|\n|$)?", "", b_q, flags=re.IGNORECASE)
         b_q = re.sub(r"[\r\n\s]*N[ãa]o foram apresentados exames complementares[^\n\r]*(\.|\n|$)?", "", b_q, flags=re.IGNORECASE)
+        b_q = re.sub(r"[\r\n\s]*Exames apresentados:\s*[\s\S]*?(?=\n\n|\Z)", "", b_q, flags=re.IGNORECASE)
         b_q = re.sub(r"\n{2,}", "\n\n", b_q).strip()
         t = t[:m_queixa.start()] + h1 + b_q + "\n\n" + h2 + t[m_queixa.end():]
     return t
@@ -6452,6 +6514,7 @@ def _expandir_secoes_laconicas_esisla(texto: str, extra_ctx: dict | None = None)
     if not texto:
         return ""
     t = str(texto)
+    t = _transferir_exames_queixa_para_atestados(t)
     ctx = extra_ctx if isinstance(extra_ctx, dict) else {}
 
     # 1. Extração de Cargo
@@ -6682,13 +6745,14 @@ def api_ai_refinar_ficha_esisla():
             "   - Detalhe a repercussão funcional direta sobre as atribuições típicas do cargo: explique como as exigências ergonômicas da função pública (posturas estáticas ou dinâmicas, esforços físicos, flexão de coluna, ortostatismo / ou sobrecarga cognitiva, interação com público, controle de sala de aula) desencadeiam e agravam os sintomas.\n"
             "   - Descreva o itinerário terapêutico: acompanhamento médico assistencial regular, medicações prescritas com dosagens em mg/dia e posologia (se mencionadas), ou suporte farmacológico sintomático e repouso profilático prescritos pelo médico assistente.\n"
             "   - Mencione realização de fisioterapia / psicoterapia ou formalize a negação ('Não alegou fazer fisioterapia e psicoterapia.').\n"
+            "   - É EXPRESSAMENTE PROIBIDO colocar 'Exames apresentados:' ou descrição de atestados/laudos acostados dentro de 'Queixa e Duração'. Todo esse relato documental pertence exclusivamente a 'Atestado/Relatório e Exames Complementares: (voMedico.parRlHda)'.\n"
             "4. ANTECEDENTES MÓRBIDOS (voMedico.parRlAp) — NUNCA DEIXE SUCINTO:\n"
             "   - Mesmo que o registro original diga apenas 'Nega.' ou esteja curto, construa um parágrafo formal e sistemático (250 a 600 caracteres) cobrindo com rigor os 4 eixos DPME:\n"
             "     'Nega antecedentes mórbidos clínicos de relevância para o quadro em apreço. Nega comorbidades cardiovasculares, hipertensão arterial descompensada, diabetes mellitus, cardiopatias, nefropatias, pneumopatias ou endocrinopatias crônicas. Nega cirurgias ortopédicas ou intervenções prévias no segmento anatômico avaliado, traumas recentes, fraturas ou internações hospitalares pregressas. Nega histórico de neoplasias. Nega hábitos tóxicos, declarando ausência de etilismo e tabagismo ativos ou pregressos. Nega histórico de afastamentos prolongados anteriores pelo mesmo motivo nos últimos meses.'\n"
             "   - Se houver comorbidade real citada (ex.: HAS controlada), integre-a harmoniosamente com os devidos cuidados médicos.\n"
             "   - NUNCA mencione dias de atestado nesta seção.\n"
             "5. ATESTADO/RELATÓRIO E EXAMES COMPLEMENTARES (voMedico.parRlHda):\n"
-            "   - Mantenha no padrão DPME: 'Em anexo.'\n"
+            "   - Inicie obrigatoriamente com 'Em anexo.' na frente, acompanhado da síntese de documentos e relatórios médicos/multidisciplinares apresentados (exemplo: 'Em anexo. Atestado e relatório emitidos por médico assistente e equipe multidisciplinar do Caps acostados ao processo pericial, corroborando o diagnóstico clínico psiquiátrico de dependência alcoólica em abstinência recente e a comorbidade hepática associada, fundamentando a indicação de afastamento temporário das funções. Não foram apresentados exames complementares adicionais de imagem ou laboratoriais no ato pericial.'). Se não houver detalhamento documental acostado, mantenha apenas 'Em anexo.'.\n"
             "6. (*) EXAME FÍSICO GERAL (voMedico.parRlExApres) — PROPEDÊUTICA COMPLETA:\n"
             "   - Se as notas do perito forem telegráficas (ex.: apenas 'dor à palpação', 'sem alterações', 'normal'), estruture uma avaliação física/mental pericial ampla e minuciosa (500 a 1200 caracteres):\n"
             "   - (a) Ectoscopia e Estado Geral: 'Servidor(a) em bom estado geral (BEG), normocorado(a), hidratado(a), anictérico(a), acianótico(a), afebril ao toque e eupneico(a) em ar ambiente. Vigil, lúcido(a) e orientado(a) no tempo e no espaço (LOTE), com atitude colaborativa, discurso lógico e fluente, afeto modulado e fácies atípica, sem sinais clínicos de fácies álgica aguda exuberante ou sofrimento agudo no ato pericial.'\n"
@@ -6718,6 +6782,7 @@ def api_ai_refinar_ficha_esisla():
             "Aprimore, reestruture e ENRIQUEÇA PROFUNDAMENTE a ficha pericial e-SISLA abaixo.\n"
             "DIRETRIZ CRÍTICA: Mesmo que a ficha atual tenha poucas informações, frases curtas, relatos telegráficos ou lacônicos, TRANSFORME-A EM UMA FICHA PERICIAL BEM GRANDE, DENSA, ELEGANTE E EXTREMAMENTE ROBUSTA.\n"
             "Expanda minuciosamente a semiologia ocupacional na Queixa e Duração (600-1400 caracteres), detalhe os 4 eixos em Antecedentes Mórbidos (250-600 caracteres), estruture o exame físico completo (BEG, LOTE, propedêutica segmentar clássica com 500-1200 caracteres), aprofunde as limitações correlacionadas ao Rol de Atividades do cargo (400-900 caracteres) e elabore a justificativa estatutária no padrão DPME SP (Lei Estadual nº 10.261/1968, 500-1100 caracteres).\n"
+            "DOCUMENTOS E ATESTADOS: NUNCA coloque 'Exames apresentados:' ou descrição de atestados/laudos acostados dentro de 'Queixa e Duração'! Transfira todo esse relato documental exclusivamente para 'Atestado/Relatório e Exames Complementares: (voMedico.parRlHda)' logo após 'Em anexo.' (ex.: 'Em anexo. Atestado e relatório emitidos por médico assistente e equipe multidisciplinar do Caps acostados ao processo pericial...').\n"
             "Remova rigorosamente qualquer CAPSLOCK em cargos e textos (ex.: 'AGENTE DE ORGANIZACAO ESCOLAR' -> 'Agente de Organização Escolar') e ajuste com perfeição o português.\n\n"
             f"{contexto_extra_str}"
             f"--- FICHA E-SISLA ATUAL ---\n{ficha_original}\n--- FIM DA FICHA ---"

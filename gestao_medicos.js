@@ -978,9 +978,26 @@
     const cpf = String(p.cpfPaciente || a.cpfPaciente || r.cpfPaciente || r.paciente_cpf || '').trim();
     const ni = String(a.ni || p.ni || r.ni || '').trim();
 
-    const queixa = extractSectionDoctorEsisla(str, ['(*) Queixa e Duração', 'Queixa e Duração'], ['Antecedentes Mórbidos']) || p.queixaDuracao || a.queixaDuracao || p.queixa || a.queixa || '';
+    let queixa = extractSectionDoctorEsisla(str, ['(*) Queixa e Duração', 'Queixa e Duração'], ['Antecedentes Mórbidos']) || p.queixaDuracao || a.queixaDuracao || p.queixa || a.queixa || '';
+    let examesTransfDoc = '';
+    const mExQ = queixa.match(/[\r\n\s]*Exames apresentados:\s*([\s\S]*?)(?=\n\n|\Z)/i);
+    if (mExQ) {
+      examesTransfDoc = mExQ[1].trim();
+      queixa = queixa.replace(mExQ[0], '').trim();
+    }
+    queixa = queixa.replace(/Exames apresentados:\s*[\s\S]*?(?=\n\n|\Z)/gi, '').trim();
+
     const antecedentes = extractSectionDoctorEsisla(str, ['Antecedentes Mórbidos'], ['Atestado/Relatório/Exames Complementares', 'Atestado/Relatório e Exames Complementares', 'Atestado/Relatório', 'Pressão Arterial']) || p.historicoPregresso || a.historicoPregresso || 'Nega';
-    const atestado = extractSectionDoctorEsisla(str, ['Atestado/Relatório/Exames Complementares', 'Atestado/Relatório e Exames Complementares', 'Atestado/Relatório'], ['Pressão Arterial', 'Sistólica', 'Altura', '(*) Exame Físico Geral', '(*)Exame Físico Geral']) || 'Em anexo.';
+    let atestado = extractSectionDoctorEsisla(str, ['Atestado/Relatório e Exames Complementares', 'Atestado/Relatório/Exames Complementares', 'Atestado/Relatório'], ['Pressão Arterial', 'Sistólica', 'Altura', '(*) Exame Físico Geral', '(*)Exame Físico Geral']) || '';
+    atestado = atestado.replace(/^Em anexo\.?\s*/i, '').trim();
+    let finalAtestDoc = examesTransfDoc || atestado || '';
+    if (finalAtestDoc && !finalAtestDoc.toLowerCase().startsWith('em anexo')) {
+      atestado = 'Em anexo. ' + finalAtestDoc;
+    } else if (finalAtestDoc) {
+      atestado = finalAtestDoc;
+    } else {
+      atestado = 'Em anexo.';
+    }
     const exameFisico = extractSectionDoctorEsisla(str, ['(*) Exame Físico Geral', '(*)Exame Físico Geral', 'Exame Físico Geral'], [
       'Descrição das Alterações Clínicas e Exames Complementares',
       'Descrição das Alterações Clínicas encontradas e Relato dos Exames Complementares',

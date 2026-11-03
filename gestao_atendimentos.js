@@ -2233,14 +2233,22 @@ function renderEsislaBlocos(textoFicha) {
     ];
 
     let queixa = cleanQueixaDuracao(ext(str, '(*) Queixa e Duração', 'Antecedentes Mórbidos') || st.queixaDuracao || aux.queixaDuracao || '');
-    const antecedentes = cleanAntecedentesMorbidos(ext(str, 'Antecedentes Mórbidos', headersFimAntecedentes) || st.historicoPregresso || aux.historicoPregresso || st.antecedentes || aux.antecedentes || '') || 'Nega';
-    let atestado = ext(str, 'Atestado/Relatório/Exames Complementares', 'Pressão Arterial') || ext(str, 'Atestado', 'Pressão Arterial') || st.documentosApresentados || aux.documentosApresentados || '';
-    if (atestado) {
-        atestado = atestado.replace(/^\s*\(?\s*Tipo-Data-Resultado\s*\)?\s*:?\s*/i, '').trim();
+    let examesTxtQueixa = '';
+    const mExamesQ = queixa.match(/[\r\n\s]*Exames apresentados:\s*([\s\S]*?)(?=\n\n|\Z)/i);
+    if (mExamesQ) {
+        examesTxtQueixa = mExamesQ[1].trim();
+        queixa = queixa.replace(mExamesQ[0], '').trim();
     }
-    // Diretriz e-SISLA: Atestados e Exames Complementares sempre sucinto como "Em anexo."
-    atestado = 'Em anexo.';
+    queixa = queixa.replace(/Exames apresentados:\s*[\s\S]*?(?=\n\n|\Z)/gi, '').trim();
+
+    const antecedentes = cleanAntecedentesMorbidos(ext(str, 'Antecedentes Mórbidos', headersFimAntecedentes) || st.historicoPregresso || aux.historicoPregresso || st.antecedentes || aux.antecedentes || '') || 'Nega';
     
+    let atestadoRaw = ext(str, ['Atestado/Relatório e Exames Complementares', 'Atestado/Relatório/Exames Complementares', 'Atestado/Relatório', 'Atestado'], headersFimAntecedentes.slice(6)) || st.documentosApresentados || aux.documentosApresentados || '';
+    if (atestadoRaw) {
+        atestadoRaw = atestadoRaw.replace(/^\s*\(?\s*Tipo-Data-Resultado\s*\)?\s*:?\s*/i, '').trim();
+    }
+    let cleanAtestadoCorpo = (atestadoRaw || '').replace(/^Em anexo\.?\s*/i, '').trim();
+
     // Sinais Vitais e Biometria
     const paSis = ext(str, 'Sistólica (mmHg)', 'Diastólica') || ext(str, 'Sistólica', 'Diastólica') || st.pressaoSistolica || aux.pressaoSistolica || '';
     const paDia = ext(str, 'Diastólica (mmHg)', 'Pulso') || ext(str, 'Diastólica', 'Pulso') || st.pressaoDiastolica || aux.pressaoDiastolica || '';
@@ -2273,16 +2281,17 @@ function renderEsislaBlocos(textoFicha) {
         ], headersFimAlteracoes) 
         || st.alteracoesClinicasExames || aux.alteracoesClinicasExames || '';
 
-    // Se houver relatos reais de exames complementares (não boilerplates nem "Em anexo"), integra em queixas e não duplica em bloco isolado
+    // Documentos / Atestados / Exames Complementares: transfere para "Atestados e Exames Complementares Documentos anexados" logo após "Em anexo."
     const cleanAlt = String(alteracoes || '').replace(/^(?:em\s+anexo\.?|não\s+foram\s+apresentados[^\n\r]*|nao\s+foram\s+apresentados[^\n\r]*|aus[êeē]ncia\s+de\s+exames[^\n\r]*|nada\s+consta[^\n\r]*|sem\s+exames[^\n\r]*)\s*$/i, '').trim();
     const isSemExames = /^(?:em\s+anexo\.?|não\s+foram\s+apresentados|nao\s+foram\s+apresentados|aus[êeē]ncia\s+de\s+exames|nada\s+consta|sem\s+exames|n[ãa]o\s+h[áa]\s+exames|n[ãa]o\s+apresentou)/i.test(cleanAlt) || /aus[êeē]ncia\s+de\s+exames/i.test(cleanAlt);
-    if (cleanAlt && !cleanAlt.toLowerCase().includes('em anexo') && !isSemExames && cleanAlt.length > 5) {
-        if (!queixa.includes(cleanAlt)) {
-            queixa = (queixa ? queixa + '\n\n' : '') + 'Exames apresentados: ' + cleanAlt;
-        }
+    
+    let docExamesTransferir = examesTxtQueixa || cleanAtestadoCorpo || (!isSemExames && cleanAlt.length > 5 ? cleanAlt : '');
+    let atestado = 'Em anexo.';
+    if (docExamesTransferir && !docExamesTransferir.toLowerCase().startsWith('em anexo')) {
+        atestado = 'Em anexo. ' + docExamesTransferir;
+    } else if (docExamesTransferir) {
+        atestado = docExamesTransferir;
     }
-    queixa = queixa.replace(/Exames apresentados:\s*Aus[êeē]ncia[^\n\r]*[\.\,]?/gi, '').trim();
-    queixa = queixa.replace(/Exames apresentados:\s*N[ãa]o foram[^\n\r]*[\.\,]?/gi, '').trim();
 
     const sistemaEscolhido = detectarSistemaExameFisico(st, aux, str, st.cid || aux.cid);
     const sistemaNome = MAPA_NOMES_ESISLA[sistemaEscolhido] || (sistemaEscolhido === 'outro' ? 'Outros' : 'Aparelho Osteomuscular e Tecido Conjuntivo');
@@ -3242,10 +3251,19 @@ function gerarJsonEsisla(textoFicha, enc) {
     ];
 
     let cat = cleanQueixaDuracao(ext(texto, '(*) Queixa e Duração', 'Antecedentes Mórbidos') || aux.queixaDuracao || st.queixaDuracao || aux.queixa || st.queixa || '');
+    let textoExamesTransferir = '';
+    const mExamesCat = cat.match(/[\r\n\s]*Exames apresentados:\s*([\s\S]*?)(?=\n\n|\Z)/i);
+    if (mExamesCat) {
+        textoExamesTransferir = mExamesCat[1].trim();
+        cat = cat.replace(mExamesCat[0], '').trim();
+    }
+    cat = cat.replace(/Exames apresentados:\s*[\s\S]*?(?=\n\n|\Z)/gi, '').trim();
+
     const ap = cleanAntecedentesMorbidos(ext(texto, 'Antecedentes Mórbidos', headersFimAntecedentes) || aux.historicoPregresso || st.historicoPregresso || aux.antecedentes || st.antecedentes || '') || 'Nega';
-    // Diretriz e-SISLA: Atestados e Exames Complementares sempre sucinto como "Em anexo."
-    let hda = 'Em anexo.';
     
+    let rawHda = ext(texto, ['Atestado/Relatório e Exames Complementares', 'Atestado/Relatório/Exames Complementares', 'Atestado/Relatório', 'Atestado'], headersFimAntecedentes.slice(6));
+    rawHda = (rawHda || '').replace(/^\s*\(?\s*Tipo-Data-Resultado\s*\)?\s*:?\s*/i, '').replace(/^Em anexo\.?\s*/i, '').trim();
+
     const exameFisicoTexto = ext(texto, '(*)Exame Físico Geral', headersFimExameFisico)
         || ext(texto, 'Exame Físico Geral', headersFimExameFisico)
         || st.exameFisicoDescricao || aux.exameFisicoDescricao || st.agilExameFisicoDescricao || aux.agilExameFisicoDescricao || '';
@@ -3259,6 +3277,16 @@ function gerarJsonEsisla(textoFicha, enc) {
         ], headersFimAlteracoes)
         || aux.alteracoesClinicas || st.alteracoesClinicas || aux.alteracoesClinicasExames || st.alteracoesClinicasExames || '';
 
+    const cleanAltJson = String(alteracoesTexto || '').replace(/^(?:em\s+anexo\.?|não\s+foram\s+apresentados[^\n\r]*|nada\s+consta[^\n\r]*|sem\s+exames[^\n\r]*)\s*$/i, '').trim();
+    
+    let hdaContent = textoExamesTransferir || rawHda || (cleanAltJson && !cleanAltJson.toLowerCase().includes('em anexo') && cleanAltJson.length > 5 ? cleanAltJson : '');
+    let hda = 'Em anexo.';
+    if (hdaContent && !hdaContent.toLowerCase().startsWith('em anexo')) {
+        hda = 'Em anexo. ' + hdaContent;
+    } else if (hdaContent) {
+        hda = hdaContent;
+    }
+
     // No e-SISLA o campo voMedico.parRlExApres (idExameApres) deve conter exclusivamente os achados do Exame Físico Geral direto
     const docExame = (st.exameFisicoDescricao || aux.exameFisicoDescricao || st.agilExameFisicoDescricao || aux.agilExameFisicoDescricao || '').trim();
     let exApres = (docExame || exameFisicoTexto).trim();
@@ -3267,14 +3295,6 @@ function gerarJsonEsisla(textoFicha, enc) {
     }
     exApres = exApres.replace(/\n\s*Em anexo\.?\s*$/gi, '').trim();
     exApres = exApres.replace(/^\s*(?:Aparelho\s+)?(?:E\s+)?Outros\s*:\s*/i, '').trim();
-
-    // Se houver relatos reais de exames complementares (não boilerplates nem "Em anexo"), integra em queixas conforme solicitado
-    const cleanAltJson = String(alteracoesTexto || '').replace(/^(?:em\s+anexo\.?|não\s+foram\s+apresentados[^\n\r]*|nada\s+consta[^\n\r]*|sem\s+exames[^\n\r]*)\s*$/i, '').trim();
-    if (cleanAltJson && !cleanAltJson.toLowerCase().includes('em anexo') && !cleanAltJson.toLowerCase().includes('não foram apresentados') && cleanAltJson.length > 5) {
-        if (!cat.includes(cleanAltJson)) {
-            cat = (cat ? cat + '\n\n' : '') + 'Exames apresentados: ' + cleanAltJson;
-        }
-    }
 
     const reqExComp = ext(texto, [
             '(*)Descrição da(s) Limitação(ções) Física(s) e/ou Mental(is) encontrada(s)',
