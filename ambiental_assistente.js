@@ -1331,11 +1331,13 @@ const COLINHA_IA2_CONFIG = [
     pergunta: "Qual é a sua idade ?",
     subtexto: "Idade ou ano de nascimento do servidor",
     validar: (text) => {
-      const m = text.match(/\b(?:idade(?:\s*[:=]|\s+(?:é|de))?|tenho|tem|estou\s+com)\s*(\d{1,2})\b/i) ||
+      const m = text.match(/\b(?:idade(?:\s*[:=]|\s+(?:é|de))?|tenho|tem|estou\s+com)\s*(\d{1,2}(?:\s*anos)?)\b/i) ||
                 text.match(/\b(\d{1,2})\s*anos(?:\s+de\s+idade)?\b/i) ||
+                text.match(/\b(?:tenho|com)\s+((?:vinte|trinta|quarenta|cinquenta|sessenta|setenta)(?:\s+e\s+(?:um|dois|tr[êe]s|quatro|cinco|seis|sete|oito|nove))?)\s*anos?\b/i) ||
                 text.match(/\bnascid[oa]\s+em\s+(\d{4})\b/i) ||
-                text.match(/\bano\s+de\s+nascimento\s*[:=]?\s*(\d{4})\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+                text.match(/\bano\s+de\s+nascimento\s*[:=]?\s*(\d{4})\b/i) ||
+                text.match(/\b(?:qual\s+(?:é\s+)?a\s+sua\s+idade|qual\s+sua\s+idade|quantos\s+anos\s+(?:voc[êe]\s+)?tem)\b/i);
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   },
   {
@@ -1345,9 +1347,10 @@ const COLINHA_IA2_CONFIG = [
     subtexto: "Função ou ocupação exercida no Estado",
     validar: (text) => {
       const m = text.match(/\b(?:cargo|fun[çc][ãa]o|profiss[ãa]o|trabalho\s+como|exer[çc]o|ocupo\s+o\s+cargo)\s*[:=]?\s*([a-zà-ú\s]{3,35})\b/i) ||
-                text.match(/\b(?:sou|é)\s+(professora?|docente|agente|policial|investigador[a]?|diretor[a]?|secret[áa]ri[oa]|escriv[ãa][oa]|auxiliar|t[ée]cnic[oa]|m[ée]dic[oa]|enfermeir[oa]|motorista|oficial|servidor[a]?|analista|operador[a]?|inspetor[a]?|atendente|coordenador[a]?|merendeir[ao]|cuidador[ao]|gestor[ao]|especialista|peb\s*(?:i|ii|1|2)?)\b/i) ||
-                text.match(/\b(?:peb\s*(?:i|ii|1|2)?|professor[a]?\s+de\s+educa[çc][ãa]o\s+b[áa]sica|policial\s+militar|policial\s+civil|agente\s+de\s+seguran[çc]a|agente\s+penitenci[áa]ri[oa]|oficial\s+administrativ[oa]|auxiliar\s+de\s+servi[çc]os?|merendeir[ao])\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+                text.match(/\b(?:sou|é|atua\s+como)\s+(professora?|docente|agente|policial|investigador[a]?|diretor[a]?|secret[áa]ri[oa]|escriv[ãa][oa]|auxiliar|t[ée]cnic[oa]|m[ée]dic[oa]|enfermeir[oa]|motorista|oficial|servidor[a]?|analista|operador[a]?|inspetor[a]?|atendente|coordenador[a]?|merendeir[ao]|cuidador[ao]|gestor[ao]|especialista|peb\s*(?:i|ii|1|2)?)\b/i) ||
+                text.match(/\b(?:peb\s*(?:i|ii|1|2)?|professor[a]?\s+de\s+educa[çc][ãa]o\s+b[áa]sica|policial\s+militar|policial\s+civil|agente\s+de\s+seguran[çc]a|agente\s+penitenci[áa]ri[oa]|oficial\s+administrativ[oa]|auxiliar\s+de\s+servi[çc]os?|merendeir[ao])\b/i) ||
+                text.match(/\b(?:qual\s+(?:é\s+)?o\s+seu\s+cargo|qual\s+a\s+sua\s+fun[çc][ãa]o|qual\s+sua\s+profiss[ãa]o)\b/i);
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   },
   {
@@ -1357,10 +1360,11 @@ const COLINHA_IA2_CONFIG = [
     subtexto: "Tempo de serviço na função ou no Estado",
     validar: (text) => {
       const m = text.match(/\b(?:tempo\s+(?:no|de|do)\s+cargo|tempo\s+de\s+servi[çc]o|trabalho\s+h[áa]|estou\s+h[áa]|no\s+cargo\s+h[áa]|admiss[ãa]o\s+em)\s*[:=]?\s*([^\.\,\;\n]+)/i) ||
-                text.match(/\bh[áa]\s+(\d+|um|dois|tr[êe]s|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|quinze|vinte|trinta)\s+(?:anos|meses)\b/i) ||
+                text.match(/\b(?:h[áa]|faz)\s+(\d+|um|uma|dois|duas|tr[êe]s|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|quinze|vinte|trinta)\s+(?:anos|meses)\b/i) ||
                 text.match(/\bdesde\s+(?:o\s+ano\s+de\s+)?(19\d{2}|20\d{2})\b/i) ||
-                text.match(/\b(\d+)\s+anos\s+(?:de\s+casa|de\s+servi[çc]o|no\s+estado|no\s+cargo|de\s+prefeitura|de\s+concurso)\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+                text.match(/\b(\d+)\s+anos\s+(?:de\s+casa|de\s+servi[çc]o|no\s+estado|no\s+cargo|de\s+prefeitura|de\s+concurso|de\s+estado)\b/i) ||
+                text.match(/\b(?:quanto\s+tempo\s+(?:voc[êe]\s+)?est[áa]\s+no\s+cargo|quanto\s+tempo\s+de\s+servi[çc]o|quanto\s+tempo\s+no\s+estado)\b/i);
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   },
   {
@@ -1377,7 +1381,7 @@ const COLINHA_IA2_CONFIG = [
                 text.match(/\batividades\s+(?:que\s+)?exerce\s*[:=]?\s*([^\.\,\;\n]+)/i) ||
                 text.match(/\btrabalhando\s+no\s+(?:setor|desvio|administrativo|secretaria|biblioteca)\b/i) ||
                 text.match(/\batribui[çc][õo]es\s+atuais\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   },
   {
@@ -1390,9 +1394,10 @@ const COLINHA_IA2_CONFIG = [
                 text.match(/\b(?:desde|em)\s+(?:janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:\s+(?:de\s+)?\d{4})?\b/i) ||
                 text.match(/\bdesde\s+(\d{4})\b/i) ||
                 text.match(/\b(?:ano|m[êe]s|semana)\s+passad[oa]\b/i) ||
-                text.match(/\b(?:in[íi]cio|come[çc]ou|iniciou)\s+h[áa]\s+(\d+|poucos?|muitos?)\s+(?:dias|semanas|meses|anos)\b/i) ||
-                text.match(/\blaudo\s+de\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+                text.match(/\b(?:in[íi]cio|come[çc]ou|iniciou|descobri)\s+h[áa]\s+(\d+|um|uma|dois|duas|tr[êe]s|quatro|cinco|seis|poucos?|muitos?)\s+(?:dias|semanas|meses|anos)\b/i) ||
+                text.match(/\blaudo\s+de\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\b/i) ||
+                text.match(/\b(?:qual\s+(?:foi\s+)?a\s+data\s+do\s+diagn[óo]stico|quando\s+come[çc]ou\s+(?:a\s+doen[çc]a|o\s+quadro|os\s+sintomas)|quando\s+foi\s+diagnosticad[oa])\b/i);
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   },
   {
@@ -1403,8 +1408,9 @@ const COLINHA_IA2_CONFIG = [
     validar: (text) => {
       const m = text.match(/\b(?:doen[çc]a|patologia|motivo\s+do\s+afastamento|afastament[oa]|afastad[oa]\s+por|tratando\s+de|quadro\s+de)\s*[:=]?\s*([^\.\;\n]+)/i) ||
                 text.match(/\b(?:cid\b|diagn[óo]stico\s+de|hip[óo]tese\s+diagn[óo]stica)\b/i) ||
-                text.match(/\b(?:depress[ãa]o|ansiedade|burnout|bipolar|p[âa]nico|estresse|transtorno|lombalgia|lombociatalgia|discopatia|h[ée]rnia|t[úu]nel\s+do\s+carpo|tendinite|tendinose|bursite|manguito|fibromialgia|artrose|artrite|sinovite|espondilo|cefaleia|enxaqueca|fratura|les[ãa]o|cirurgia|dor\s+lombar|coluna)\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+                text.match(/\b(?:depress[ãa]o|ansiedade|burnout|bipolar|p[âa]nico|estresse|transtorno|lombalgia|lombociatalgia|discopatia|h[ée]rnia|t[úu]nel\s+do\s+carpo|tendinite|tendinose|bursite|manguito|fibromialgia|artrose|artrite|sinovite|espondilo|cefaleia|enxaqueca|fratura|les[ãa]o|cirurgia|dor\s+lombar|coluna|cervicalgia|ci[áa]tica|gripe|dengue|covid|sinusite|pneumonia)\b/i) ||
+                text.match(/\b(?:qual\s+(?:a\s+)?doen[çc]a\s+est[áa]\s+tratando|qual\s+o\s+motivo\s+do\s+afastamento|o\s+que\s+motivou\s+o\s+afastamento)\b/i);
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   },
   {
@@ -1415,12 +1421,13 @@ const COLINHA_IA2_CONFIG = [
     validar: (text) => {
       const m = text.match(/\b(?:frequ[êe]ncia|periodicidade|consultas?|retornos?|comparece|acompanhamento)\s*[:=]?\s*([^\.\;\n]+)/i) ||
                 text.match(/\b(?:mensal(?:mente)?|quinzenal(?:mente)?|semanal(?:mente)?|bimestral|trimestral|semestral)\b/i) ||
-                text.match(/\ba\s+cada\s+(\d+|um|dois|tr[êe]s|quinze)\s+(?:dias|semanas|meses)\b/i) ||
+                text.match(/\ba\s+cada\s+(\d+|um|uma|dois|duas|tr[êe]s|quinze|vinte|trinta)\s+(?:dias|semanas|meses)\b/i) ||
                 text.match(/\bde\s+(\d+|um|dois|tr[êe]s|dez|quinze|vinte|trinta)\s+em\s+\d+\s+dias\b/i) ||
                 text.match(/\b(?:todo\s+m[êe]s|toda\s+semana|uma\s+vez\s+por\s+m[êe]s|duas\s+vezes\s+por\s+m[êe]s|1x\s+ao\s+m[êe]s|1x\/m[êe]s)\b/i) ||
                 text.match(/\b(?:passo|vou)\s+no\s+m[ée]dico\b/i) ||
-                text.match(/\bconsultas?\s+regulares\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+                text.match(/\bconsultas?\s+regulares\b/i) ||
+                text.match(/\b(?:com\s+que\s+frequ[êe]ncia\s+(?:voc[êe]\s+)?(?:comparece|vai)|de\s+quanto\s+em\s+quanto\s+tempo\s+vai\s+ao\s+m[ée]dico)\b/i);
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   },
   {
@@ -1430,8 +1437,9 @@ const COLINHA_IA2_CONFIG = [
     subtexto: "Sintomatologia e impactos no trabalho",
     validar: (text) => {
       const m = text.match(/\b(?:sintomas?|limita[çc][ãa]o|limita[çc][õo]es|dificuldade\s+(?:para|de)|n[ãa]o\s+consig[ou]|impossibilitad[oa]|impede)\s*[:=]?\s*([^\.\;\n]+)/i) ||
-                text.match(/\b(?:dor|dores|dor\s+lombar|parestesia|formigamento|fraqueza|perda\s+de\s+for[çc]a|irradia[çc][ãa]o|irradiada|limita[çc][ãa]o\s+de\s+movimento|rigidez|edema|incha[çc]o|fadiga|cansa[çc]o|ins[ôo]nia|choro|tristeza|ang[úu]stia|desespero|falta\s+de\s+concentra[çc][ãa]o|crise|p[âa]nico|ortost[áa]tic[ao]|sentad[ao]|carregamento|deambula[çc][ãa]o|andar|ficar\s+em\s+p[ée])\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+                text.match(/\b(?:dor|dores|dor\s+lombar|parestesia|formigamento|fraqueza|perda\s+de\s+for[çc]a|irradia[çc][ãa]o|irradiada|limita[çc][ãa]o\s+de\s+movimento|rigidez|edema|incha[çc]o|fadiga|cansa[çc]o|ins[ôo]nia|choro|tristeza|ang[úu]stia|desespero|falta\s+de\s+concentra[çc][ãa]o|crise|p[âa]nico|ortost[áa]tic[ao]|sentad[ao]|carregamento|deambula[çc][ãa]o|andar|ficar\s+em\s+p[ée]|falta\s+de\s+ar|tontura|vertigem|tremor)\b/i) ||
+                text.match(/\b(?:quais\s+(?:os\s+)?sintomas\s+causam\s+limita[çc][õo]es|o\s+que\s+voc[êe]\s+sente|quais\s+as\s+limita[çc][õo]es\s+para\s+o\s+trabalho)\b/i);
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   },
   {
@@ -1440,11 +1448,12 @@ const COLINHA_IA2_CONFIG = [
     pergunta: "Faz o uso de quais medicações?",
     subtexto: "Medicações em uso contínuo ou temporário",
     validar: (text) => {
-      const m = text.match(/\b(?:medica[çc][ãa]o|medica[çc][õo]es|rem[ée]dios?|medicamentos?|prescri[çc][ãa]o|uso\s+de|tomo|toma)\s*[:=]?\s*([^\.\;\n]+)/i) ||
-                text.match(/\b(?:fluoxetina|sertralina|escitalopram|citalopram|venlafaxina|desvenlafaxina|duloxetina|paroxetina|clonazepam|rivotril|alprazolam|diazepam|quetiapina|risperidona|olanzapina|aripiprazol|pregabalina|gabapentina|amitriptilina|nortriptilina|ibuprofeno|cetoprofeno|dipirona|paracetamol|tramadol|code[íi]na|toragesic|torsilax|mioflex|anti-inflamat[óo]rio|cortic[óo]ide|prednisona|dexametasona|losartana|atenolol|metformina)\b/i) ||
+      const m = text.match(/\b(?:medica[çc][ãa]o|medica[çc][õo]es|rem[ée]dios?|medicamentos?|prescri[çc][ãa]o|uso\s+de|tomo|toma|tomando)\s*[:=]?\s*([^\.\;\n]+)/i) ||
+                text.match(/\b(?:fluoxetina|sertralina|escitalopram|citalopram|venlafaxina|desvenlafaxina|duloxetina|paroxetina|clonazepam|rivotril|alprazolam|diazepam|quetiapina|risperidona|olanzapina|aripiprazol|pregabalina|gabapentina|amitriptilina|nortriptilina|ibuprofeno|cetoprofeno|dipirona|paracetamol|tramadol|code[íi]na|toragesic|torsilax|mioflex|anti-inflamat[óo]rio|cortic[óo]ide|prednisona|dexametasona|losartana|atenolol|metformina|omeprazol|ciclobenzaprina|zolpidem|bupropiona)\b/i) ||
                 text.match(/\bn[ãa]o\s+tomo\s+(?:nenhum|rem[ée]dio|medica[çc][ãa]o)\b/i) ||
-                text.match(/\bsem\s+medica[çc][ãa]o\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+                text.match(/\bsem\s+medica[çc][ãa]o\b/i) ||
+                text.match(/\b(?:faz\s+uso\s+de\s+qual\s+medica[çc][ãa]o|quais\s+rem[ée]dios\s+voc[êe]\s+toma|toma\s+algum\s+medicamento)\b/i);
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   },
   {
@@ -1454,11 +1463,12 @@ const COLINHA_IA2_CONFIG = [
     subtexto: "Posologia (mg/dia) e histórico de troca ou alteração de dose",
     validar: (text) => {
       const m = text.match(/\b(?:dosagem|dose|posologia|mg\/dia|miligramas)\s*[:=]?\s*([^\.\;\n]+)/i) ||
-                text.match(/\b\d+\s*mg\b/i) ||
-                text.match(/\b(\d+)\s+(?:comprimidos?|gotas?|c[áa]psulas?)\b/i) ||
-                text.match(/\b(?:troca|trocou|altera[çc][ãa]o|alterou|mudou|aumentou|diminuiu|ajuste\s+de\s+dose|substitui[çc][ãa]o)\b/i) ||
-                text.match(/\b(?:pela\s+manh[ãa]|de\s+manh[ãa]|[àa]\s+noite|ao\s+deitar|12\/12|8\/8|de\s+resgate|se\s+dor)\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+                text.match(/\b\d+\s*(?:mg|miligramas?|mcg|ml)\b/i) ||
+                text.match(/\b(\d+|um|uma|dois|duas|tr[êe]s)\s+(?:comprimidos?|gotas?|c[áa]psulas?)\b/i) ||
+                text.match(/\b(?:troca|trocou|altera[çc][ãa]o|alterou|mudou|aumentou|diminuiu|ajuste\s+de\s+dose|substitui[çc][ãa]o|mesma\s+dose|manteve\s+a\s+dose)\b/i) ||
+                text.match(/\b(?:pela\s+manh[ãa]|de\s+manh[ãa]|[àa]\s+noite|ao\s+deitar|12\/12|8\/8|de\s+resgate|se\s+dor|uma\s+vez\s+ao\s+dia|duas\s+vezes\s+ao\s+dia)\b/i) ||
+                text.match(/\b(?:qual\s+(?:é\s+)?a\s+dosagem|quantos\s+miligramas|houve\s+troca\s+de\s+dose)\b/i);
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   },
   {
@@ -1467,12 +1477,12 @@ const COLINHA_IA2_CONFIG = [
     pergunta: "Faz psicoterapia ou fisioterapia?",
     subtexto: "Psicoterapia, fisioterapia ou reabilitação",
     validar: (text) => {
-      const m = text.match(/\b(?:psicoterapia|fisioterapia|terapia|psic[óo]log[ao]|fisio\b|psico\b|pilates|hidroterapia|reabilita[çc][ãa]o)\b/i) ||
-                text.match(/\bfa[çc]o\s+(?:fisio|psico|terapia)\b/i) ||
+      const m = text.match(/\b(?:psicoterapia|fisioterapia|terapia|psic[óo]log[ao]|fisio\b|psico\b|pilates|hidroterapia|reabilita[çc][ãa]o|acupuntura|rpg)\b/i) ||
+                text.match(/\bfa[çc]o\s+(?:fisio|psico|terapia|acompanhamento\s+psicol[óo]gico)\b/i) ||
                 text.match(/\bn[ãa]o\s+fa[çc]o\s+(?:fisio|psico|terapia|fisioterapia|psicoterapia)\b/i) ||
                 text.match(/\bsem\s+(?:fisioterapia|psicoterapia)\b/i) ||
                 text.match(/\b\d+\s*x(?:\s+por\s+semana|\/semana)\b/i);
-      return m ? { matched: true, snippet: m[0] } : { matched: false };
+      return m ? { matched: true, snippet: m[0].trim() } : { matched: false };
     }
   }
 ];
@@ -2556,28 +2566,33 @@ function renderizarColinhaIA2() {
   let validadas = 0;
   let html = "";
   const jaTranscreveu = Boolean(window.__ia2JaTranscreveuOuRefinou);
+  const now = Date.now();
 
   COLINHA_IA2_CONFIG.forEach(q => {
     const st = ia2ColinhaStatus[q.id] || { matched: false, snippet: "", manualState: null };
     const isChecked = (st.manualState !== undefined && st.manualState !== null) ? st.manualState : st.matched;
     if (isChecked) validadas++;
 
+    const isRecentLiveHit = Boolean(isChecked && st.justMatchedAt && (now - st.justMatchedAt < 1800));
+
     let statusPill = "";
     if (isChecked) {
-      statusPill = `<span style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px">✓ Respondido</span>`;
+      statusPill = st.liveVoiceMatched && !jaTranscreveu
+        ? `<span style="background:#DCFCE7;color:#047857;border:1px solid #6EE7B7;font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px;white-space:nowrap">🎙️ Captado na fala</span>`
+        : `<span style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;white-space:nowrap">✓ Respondido</span>`;
     } else if (jaTranscreveu) {
-      statusPill = `<span style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px">⚠️ Não perguntado</span>`;
+      statusPill = `<span style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;white-space:nowrap">⚠️ Não perguntado</span>`;
     }
 
     html += `
-      <div class="ia2-colinha-item ${isChecked ? 'checked' : (jaTranscreveu ? 'unanswered' : '')}" onclick="toggleColinhaItemManual(${q.id})" id="ia2ColItem_${q.id}" title="Clique para alternar validação manual deste item">
+      <div class="ia2-colinha-item ${isChecked ? 'checked' : (jaTranscreveu ? 'unanswered' : '')} ${isRecentLiveHit ? 'ia2-colinha-live-pulse' : ''}" onclick="toggleColinhaItemManual(${q.id})" id="ia2ColItem_${q.id}" title="Clique para alternar validação manual deste item">
         <div class="ia2-colinha-badge">${isChecked ? '✓' : q.numero}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px">
             <span class="ia2-colinha-text">${esc(q.pergunta)}</span>
             ${statusPill}
           </div>
-          ${st.snippet ? `<div class="ia2-colinha-snippet">Detectado: "${esc(st.snippet)}"</div>` : ''}
+          ${st.snippet ? `<div class="ia2-colinha-snippet">🎙️ "${esc(st.snippet)}"</div>` : ''}
         </div>
         <div style="margin-left:6px">
           ${isChecked ? '<span style="color:#10B981;font-size:16px;font-weight:900">✅</span>' : '<span style="color:#CBD5E1;font-size:16px">○</span>'}
@@ -2605,17 +2620,27 @@ function renderizarColinhaIA2() {
   }
 }
 
-function analisarColinhaEmTempoReal(texto) {
+let _ia2AutoCheckPillTimeout = null;
+function analisarColinhaEmTempoReal(texto, isLiveVoice = false) {
   let mudou = false;
+  let ultimoItemCaptado = null;
   const t = (texto || "").trim();
 
   COLINHA_IA2_CONFIG.forEach(q => {
     const st = ia2ColinhaStatus[q.id];
     if (!st) return;
     const res = t ? q.validar(t) : { matched: false };
-    // Preserva validação semântica da IA caso já tenha sido validada por áudio/IA
-    const novoMatched = Boolean((res && res.matched) || st.aiMatched);
-    const novoSnippet = (res && res.snippet) ? res.snippet : (st.aiSnippet || "");
+    // Preserva validação semântica da IA ou detecção ao vivo anterior
+    const novoMatched = Boolean((res && res.matched) || st.aiMatched || (isLiveVoice && st.matched));
+    const novoSnippet = (res && res.snippet) ? res.snippet : (st.aiSnippet || st.snippet || "");
+
+    if (!st.matched && novoMatched) {
+      st.justMatchedAt = Date.now();
+      if (isLiveVoice) {
+        st.liveVoiceMatched = true;
+        ultimoItemCaptado = q;
+      }
+    }
 
     if (st.matched !== novoMatched || st.snippet !== novoSnippet) {
       st.matched = novoMatched;
@@ -2627,6 +2652,103 @@ function analisarColinhaEmTempoReal(texto) {
   if (mudou) {
     renderizarColinhaIA2();
     atualizarBannerCamposNaoPerguntadosIA2();
+
+    if (ultimoItemCaptado) {
+      const pill = $("ia2ColinhaLiveAutoCheckBadge");
+      const pillTxt = $("ia2ColinhaLiveAutoCheckText");
+      if (pill && pillTxt) {
+        pill.classList.add("listening");
+        pillTxt.textContent = `✓ Item ${ultimoItemCaptado.numero} captado na fala!`;
+        if (_ia2AutoCheckPillTimeout) clearTimeout(_ia2AutoCheckPillTimeout);
+        _ia2AutoCheckPillTimeout = setTimeout(() => {
+          if (pillTxt) pillTxt.textContent = ia2Gravando ? "Escuta Ativa • Check Automático" : "Check Automático ao Vivo";
+        }, 2400);
+      }
+    }
+  }
+}
+
+function iniciarEscutaSilenciosaColinhaIA2() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) return;
+
+  if (ia2SpeechRecognition) {
+    try { ia2SpeechRecognition.abort(); } catch (_) {}
+    ia2SpeechRecognition = null;
+  }
+
+  try {
+    const rec = new SpeechRec();
+    rec.lang = "pt-BR";
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onstart = () => {
+      const pill = $("ia2ColinhaLiveAutoCheckBadge");
+      const pillTxt = $("ia2ColinhaLiveAutoCheckText");
+      if (pill) pill.classList.add("listening");
+      if (pillTxt) pillTxt.textContent = "Escuta Ativa • Check Automático";
+    };
+
+    rec.onresult = (event) => {
+      if (!ia2Gravando) return;
+      let finalChunk = "";
+      let interimChunk = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i];
+        const transcript = (res[0]?.transcript || "").trim();
+        if (!transcript) continue;
+        if (res.isFinal) {
+          finalChunk += (finalChunk ? " " : "") + transcript;
+          if (typeof res[0].confidence === "number" && res[0].confidence > 0 && res[0].confidence < 0.80) {
+            const words = transcript.split(/\s+/).filter(w => w.length >= 4);
+            if (words.length > 0) {
+              window._ia2DuvidasLowConfidence = window._ia2DuvidasLowConfidence || [];
+              window._ia2DuvidasLowConfidence.push(words[words.length - 1]);
+            }
+          }
+        } else {
+          interimChunk += (interimChunk ? " " : "") + transcript;
+        }
+      }
+
+      if (finalChunk) {
+        window._ia2BaseTextGravacao = ((window._ia2BaseTextGravacao || "") + " " + finalChunk).trim();
+        const tArea = $("ia2GravacaoTranscricao");
+        if (tArea && !window.__ia2DialogoRevelado) {
+          tArea.value = window._ia2BaseTextGravacao;
+          atualizarContadorGravacaoIA2();
+        }
+      }
+
+      const combinedLive = `${window._ia2BaseTextGravacao || ""} ${interimChunk}`.trim();
+      if (combinedLive) {
+        analisarColinhaEmTempoReal(combinedLive, true);
+      }
+    };
+
+    rec.onerror = (ev) => {
+      if (ev && ev.error !== "no-speech" && ev.error !== "aborted") {
+        console.warn("Aviso no check automático silencioso:", ev.error);
+      }
+    };
+
+    rec.onend = () => {
+      if (ia2Gravando) {
+        clearTimeout(ia2RestartTimeout);
+        ia2RestartTimeout = setTimeout(() => {
+          if (ia2Gravando) {
+            try { rec.start(); } catch (_) {}
+          }
+        }, 250);
+      }
+    };
+
+    ia2SpeechRecognition = rec;
+    rec.start();
+  } catch (err) {
+    console.warn("Não foi possível iniciar escuta silenciosa da colinha:", err);
   }
 }
 
@@ -2803,6 +2925,9 @@ async function iniciarGravacaoIA2() {
   const tArea = $("ia2GravacaoTranscricao");
   window._ia2BaseTextGravacao = (tArea?.value || "").trim();
 
+  // Iniciar reconhecimento silencioso em segundo plano para dar check automático na Colinha conforme fala
+  iniciarEscutaSilenciosaColinhaIA2();
+
   // Iniciar timer visual
   clearInterval(ia2TimerInterval);
   ia2TimerInterval = setInterval(atualizarTimerDisplayIA2, 1000);
@@ -2840,7 +2965,7 @@ async function iniciarGravacaoIA2() {
   const pendBanner = $("ia2CamposNaoPerguntadosContainer");
   if (pendBanner) pendBanner.style.display = "none";
 
-  toast("🎙️ Colinha gerada e microfone ativo! Conduza o atendimento com tranquilidade.");
+  toast("🎙️ Colinha gerada e check automático ativo! Conduza o atendimento com tranquilidade.");
 }
 
 function pausarGravacaoIA2(skipAutoRefine = false) {
@@ -2851,6 +2976,11 @@ function pausarGravacaoIA2(skipAutoRefine = false) {
     cancelAnimationFrame(ia2AnimFrame);
     ia2AnimFrame = null;
   }
+
+  const pill = $("ia2ColinhaLiveAutoCheckBadge");
+  const pillTxt = $("ia2ColinhaLiveAutoCheckText");
+  if (pill) pill.classList.remove("listening");
+  if (pillTxt) pillTxt.textContent = "Check Automático Pausado";
 
   const btnText = $("ia2BtnGravacaoText");
   const btnIcon = $("ia2BtnGravacaoIcon");
@@ -2975,6 +3105,8 @@ function limparTranscricaoIA2() {
     COLINHA_IA2_CONFIG.forEach(q => {
       ia2ColinhaStatus[q.id].matched = false;
       ia2ColinhaStatus[q.id].aiMatched = false;
+      ia2ColinhaStatus[q.id].liveVoiceMatched = false;
+      ia2ColinhaStatus[q.id].justMatchedAt = 0;
       ia2ColinhaStatus[q.id].snippet = "";
       ia2ColinhaStatus[q.id].aiSnippet = "";
       ia2ColinhaStatus[q.id].manualState = null;

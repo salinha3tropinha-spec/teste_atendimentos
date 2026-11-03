@@ -3886,4 +3886,57 @@ body:not(.mode-agil-active) #containerModoAgil {
   background: #FFFFFF !important;
 }
 
+/* =========================================================
+   CHECK AUTOMÁTICO AO VIVO NA COLINHA (ESCUTA SILENCIOSA)
+   ========================================================= */
+.ia2-live-autocheck-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  transition: all 0.25s ease;
+}
 
+.ia2-live-autocheck-pill.listening {
+  background: #DCFCE7;
+  border-color: #34D399;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.ia2-live-autocheck-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.28);
+  animation: ia2DotPulse 1.4s infinite ease-in-out;
+}
+
+@keyframes ia2ColinhaLiveHit {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+    background: #D1FAE5;
+  }
+  45% {
+    transform: scale(1.022);
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+    background: #A7F3D0;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.14);
+    background: #ECFDF5;
+  }
+}
+
+.ia2-colinha-item.ia2-colinha-live-pulse {
+  animation: ia2ColinhaLiveHit 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+  border-color: #059669 !important;
+}

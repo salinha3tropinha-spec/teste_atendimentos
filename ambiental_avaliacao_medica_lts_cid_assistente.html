@@ -9,7 +9,7 @@
 
 <title>Ambiental — Avaliação Médica Pericial LTS</title>
 <!-- v15: validação determinística dos quesitos baseada diretamente nos radio buttons + sincronização de estado -->
-<link rel="stylesheet" href="/ambiental_assistente.css?v=2.1.0">
+<link rel="stylesheet" href="/ambiental_assistente.css?v=2.1.1">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/auth.js"></script><script src="/api.js"></script></head>
 <body><div id="authLoading" style="position:fixed;inset:0;background:#F2F6FA;z-index:999999;display:grid;place-items:center;font-family:Inter,system-ui,sans-serif;color:#073F87"><div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DDE6EF;border-radius:14px;padding:13px 16px;box-shadow:0 12px 35px rgba(10,30,55,.1);font-size:12px;font-weight:800"><img src="/logo.png" alt="" style="width:28px;height:28px;object-fit:contain"><span>Verificando sessão...</span></div></div>
 <script>
@@ -429,20 +429,26 @@
                   <strong style="font-size:15px;color:#0F172A;display:flex;align-items:center;gap:7px">
                     <span>📋</span> Roteiro de Perguntas (Colinha Pericial)
                   </strong>
-                  <span class="ia2-colinha-subhint">Acompanhe os tópicos essenciais durante a conversa com o servidor</span>
+                  <span class="ia2-colinha-subhint">Os tópicos são marcados automaticamente em verde conforme você conversa com o servidor</span>
                 </div>
-                <span id="ia2ColinhaCountBadge" class="badge" style="background:#EFF6FF;color:#1D4ED8;font-weight:800;font-size:12px;padding:5px 12px;border-radius:12px;border:1px solid #BFDBFE">
-                  <span id="ia2ColinhaValidadasCount">0</span> de 11 respondidas
-                </span>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <span id="ia2ColinhaLiveAutoCheckBadge" class="ia2-live-autocheck-pill" title="Reconhecimento silencioso ativo: marca os itens da colinha automaticamente sem poluir a tela com texto">
+                    <span class="ia2-live-autocheck-dot"></span>
+                    <span id="ia2ColinhaLiveAutoCheckText">Check Automático ao Vivo</span>
+                  </span>
+                  <span id="ia2ColinhaCountBadge" class="badge" style="background:#EFF6FF;color:#1D4ED8;font-weight:800;font-size:12px;padding:5px 12px;border-radius:12px;border:1px solid #BFDBFE">
+                    <span id="ia2ColinhaValidadasCount">0</span> de 11 respondidas
+                  </span>
+                </div>
               </div>
               <!-- Barra de Progresso da Colinha -->
               <div style="height:7px;background:#E2E8F0;border-radius:4px;overflow:hidden;margin-bottom:12px">
                 <div id="ia2ColinhaProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg, #10B981, #059669);transition:width 0.3s ease"></div>
               </div>
               <div class="ia2-colinha-tip-box">
-                <span>💡</span>
-                <div>
-                  <strong>Condução limpa e sem distrações:</strong> Utilize este roteiro para guiar suas perguntas. Você pode <strong>clicar em qualquer item</strong> para marcá-lo manualmente ou deixar que a IA identifique tudo ao finalizar a gravação.
+                <span>🎙️</span>
+                <div id="ia2ColinhaTipText">
+                  <strong>Escuta inteligente silenciosa ativa:</strong> Conduza a conversa normalmente. Os itens abaixo <strong>acendem em verde sozinhos</strong> assim que cada pergunta ou resposta é falada (ou clique manualmente em qualquer item).
                 </div>
               </div>
 
@@ -2723,7 +2729,7 @@ Atestado de 15 dias do dia 29/09 por Z98.8 favorável."></textarea>
   </div>
 </div>
 
-<script src="/ambiental_assistente.js?v=2.1.0"></script>
+<script src="/ambiental_assistente.js?v=2.1.1"></script>
 </div> <!-- Fecha a div .app -->
 
 <script>window.addEventListener("pageshow",()=>{AmbientalAuth.me().then(p=>{if(!p) location.replace("/login.html?reason=expired");}).catch(()=>{});});</script></body>
