@@ -1973,20 +1973,31 @@ function salvarEdicaoVisualIA2() {
       if (txt) lines.push(`Nota: ${txt}`);
     } else {
       const q = (card.querySelector(".ia2-qa-q-text")?.innerText || "").trim();
-      const a = (card.querySelector(".ia2-qa-a-text")?.innerText || "").trim();
-      if (q || a) {
+      const aEl = card.querySelector(".ia2-qa-a-text");
+      let a = (aEl?.innerText || "").trim();
+      if (/^Clique para preencher a resposta/i.test(a)) {
+        a = "";
+      } else if (!a && aEl && aEl.getAttribute("data-placeholder") === "true") {
+        aEl.innerHTML = `<span style="color:#94A3B8;font-style:italic">Clique para preencher a resposta do paciente...</span>`;
+      }
+      const colId = parseInt(card.getAttribute("data-colinha-id") || "0", 10);
+      if (a) {
+        if (colId && ia2ColinhaStatus[colId]) {
+          ia2ColinhaStatus[colId].matched = true;
+          ia2ColinhaStatus[colId].snippet = a;
+        }
         lines.push(`Médico Perito: ${q}\nPericiado: ${a}`);
       }
     }
   });
 
   const fullText = lines.join("\n\n").trim();
-  if (fullText) {
-    tArea.value = fullText;
-    window._ia2BaseTextGravacao = fullText;
-    analisarColinhaEmTempoReal(fullText);
-    atualizarContadorGravacaoIA2();
-  }
+  tArea.value = fullText;
+  window._ia2BaseTextGravacao = fullText;
+  analisarColinhaEmTempoReal(fullText);
+  renderizarColinhaIA2();
+  atualizarBannerCamposNaoPerguntadosIA2();
+  atualizarContadorGravacaoIA2();
 }
 
 let _ia2RefinandoAtivo = false;
@@ -2292,15 +2303,35 @@ function trocarSubViewIA2(view) {
   }
 
   if (view === "gravacao") {
-    const hasActiveContent = Boolean(ia2Gravando || (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0) || window.__ia2AudioBlobPendente || window.__ia2JaTranscreveuOuRefinou);
+    const transStage = $("ia2GravacaoTransitionState");
+    if (transStage) transStage.style.display = "none";
+
+    const hasActiveContent = Boolean(
+      ia2Gravando ||
+      window.__ia2ColinhaAtivaNaTela ||
+      window.__ia2DialogoRevelado ||
+      (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0) ||
+      window.__ia2AudioBlobPendente ||
+      window.__ia2JaTranscreveuOuRefinou
+    );
     const heroScreen = $("ia2GravacaoEstadoInicial");
     const workScreen = $("ia2GravacaoWorkspaceAtivo");
     if (hasActiveContent) {
       if (heroScreen) heroScreen.style.display = "none";
-      if (workScreen) workScreen.style.display = "block";
+      if (workScreen) {
+        workScreen.style.display = "block";
+        if (window.__ia2DialogoRevelado || window.__ia2JaTranscreveuOuRefinou) {
+          workScreen.classList.remove("ia2-focus-colinha-mode");
+          workScreen.classList.add("ia2-full-review-mode");
+        } else {
+          workScreen.classList.remove("ia2-full-review-mode");
+          workScreen.classList.add("ia2-focus-colinha-mode");
+        }
+      }
       renderizarColinhaIA2();
+      sincronizarBotaoFinalizarGravacaoIA2();
     } else {
-      if (heroScreen) heroScreen.style.display = "block";
+      if (heroScreen) heroScreen.style.display = "flex";
       if (workScreen) workScreen.style.display = "none";
     }
     const tArea = $("ia2GravacaoTranscricao");
@@ -2308,14 +2339,16 @@ function trocarSubViewIA2(view) {
       window._ia2BaseTextGravacao = (tArea.value || "").trim();
       analisarColinhaEmTempoReal(tArea.value || "");
       atualizarContadorGravacaoIA2();
-      atualizarVisualTranscricaoIA2(false);
+      if (window.__ia2DialogoRevelado || window.__ia2JaTranscreveuOuRefinou) {
+        atualizarVisualTranscricaoIA2(false);
+      }
     }
-    if (window.__ia2JaTranscreveuOuRefinou) {
+    if (window.__ia2DialogoRevelado || window.__ia2JaTranscreveuOuRefinou) {
       atualizarGuiaPassosIA2(3);
     } else if (ia2Gravando) {
-      atualizarGuiaPassosIA2(2);
-    } else {
       atualizarGuiaPassosIA2(1);
+    } else {
+      atualizarGuiaPassosIA2(2);
     }
   } else if (view === "escrita") {
     const tEsc = $("ia2EscritaText");
@@ -2325,6 +2358,121 @@ function trocarSubViewIA2(view) {
       setTimeout(() => { try { tEsc.focus(); } catch (_) {} }, 100);
     }
   }
+}
+
+function sincronizarBotaoFinalizarGravacaoIA2() {
+  const btnIcon = $("ia2BtnFinalizarIcon");
+  const btnLabel = $("ia2BtnFinalizarLabel");
+  const revelado = Boolean(window.__ia2DialogoRevelado || window.__ia2JaTranscreveuOuRefinou);
+  if (revelado) {
+    if (btnIcon) btnIcon.textContent = "🏁";
+    if (btnLabel) btnLabel.textContent = "Concluir e Gerar Laudo ➜";
+  } else {
+    if (btnIcon) btnIcon.textContent = "✨";
+    if (btnLabel) btnLabel.textContent = "Finalizar e Gerar Perguntas ➜";
+  }
+}
+
+let _ia2InlineTransicaoTimer = null;
+function configurarTransicaoInlineGravacaoIA2(modo) {
+  const stage = $("ia2GravacaoTransitionState");
+  const orb = $("ia2TransicaoIconOrb");
+  const badge = $("ia2TransicaoBadge");
+  const titulo = $("ia2TransicaoTitulo");
+  const sub = $("ia2TransicaoSubtitulo");
+  const fill = $("ia2TransicaoProgressFill");
+  const stepLbl = $("ia2TransicaoStepLabel");
+  const preview = $("ia2TransicaoPreviewContainer");
+
+  if (!stage) return;
+  if (_ia2InlineTransicaoTimer) {
+    clearInterval(_ia2InlineTransicaoTimer);
+    _ia2InlineTransicaoTimer = null;
+  }
+
+  if (modo === "colinha") {
+    stage.className = "ia2-transition-stage mode-colinha";
+    if (orb) orb.textContent = "📋";
+    if (badge) badge.textContent = "ETAPA 1 • ROTEIRO INTELIGENTE";
+    if (titulo) titulo.textContent = "Gerando colinha...";
+    if (sub) {
+      sub.textContent = "Preparando os 11 tópicos essenciais do roteiro pericial e ativando o microfone em modo limpo e sem distrações.";
+    }
+    if (fill) fill.style.width = "22%";
+    if (stepLbl) stepLbl.textContent = "✨ Estruturando checklist pericial da consulta...";
+    if (preview) {
+      const sampleCols = COLINHA_IA2_CONFIG.slice(0, 6);
+      preview.innerHTML = sampleCols.map((q, idx) => `
+        <div class="ia2-skel-pill" style="animation-delay:${idx * 0.08}s">
+          <span class="ia2-skel-pill-num">${q.numero}</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(q.pergunta)}</span>
+        </div>
+      `).join("");
+    }
+
+    const fasesColinha = [
+      { pct: 48, txt: "🎙️ Calibrando microfone com redução de ruído..." },
+      { pct: 78, txt: "📋 Carregando os 11 itens do roteiro pericial..." },
+      { pct: 96, txt: "✅ Colinha pronta! Abrindo tela focada..." }
+    ];
+    let fIdx = 0;
+    _ia2InlineTransicaoTimer = setInterval(() => {
+      if (fIdx < fasesColinha.length) {
+        if (fill) fill.style.width = `${fasesColinha[fIdx].pct}%`;
+        if (stepLbl) stepLbl.textContent = fasesColinha[fIdx].txt;
+        fIdx++;
+      }
+    }, 320);
+  } else {
+    stage.className = "ia2-transition-stage mode-dialogo";
+    if (orb) orb.textContent = "💬";
+    if (badge) badge.textContent = "ETAPA 2 • ESTRUTURAÇÃO DE FALAS";
+    if (titulo) titulo.textContent = "Gerando perguntas e respostas...";
+    if (sub) {
+      sub.textContent = "Analisando o atendimento, separando as falas (Médico Perito × Paciente) e montando os campos de fala estruturados.";
+    }
+    if (fill) fill.style.width = "20%";
+    if (stepLbl) stepLbl.textContent = "🎙️ Processando áudio e identificando interlocutores...";
+    if (preview) {
+      preview.innerHTML = [0, 1, 2].map(idx => `
+        <div class="ia2-skel-qa" style="animation-delay:${idx * 0.12}s">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span style="font-size:10.5px;font-weight:800;color:#1D4ED8;background:#EFF6FF;padding:2px 7px;border-radius:4px">👨‍⚕️ Médico Perito • Pergunta ${idx + 1}</span>
+            <span style="font-size:10px;font-weight:700;color:#047857;background:#ECFDF5;padding:1px 6px;border-radius:4px">👤 Resposta do Paciente</span>
+          </div>
+          <div class="ia2-skel-qa-line" style="width:${85 - idx * 8}%"></div>
+          <div class="ia2-skel-qa-line" style="width:${65 + idx * 7}%"></div>
+        </div>
+      `).join("");
+    }
+
+    const fasesDialogo = [
+      { pct: 45, txt: "🗣️ Separando vozes: Médico Perito × Servidor Periciado..." },
+      { pct: 72, txt: "💬 Montando campos de fala em Perguntas e Respostas..." },
+      { pct: 92, txt: "📋 Validando itens respondidos na Colinha Pericial..." }
+    ];
+    let fIdx = 0;
+    _ia2InlineTransicaoTimer = setInterval(() => {
+      if (fIdx < fasesDialogo.length) {
+        if (fill) fill.style.width = `${fasesDialogo[fIdx].pct}%`;
+        if (stepLbl) stepLbl.textContent = fasesDialogo[fIdx].txt;
+        fIdx++;
+      }
+    }, 420);
+  }
+
+  stage.style.display = "flex";
+}
+
+function ocultarTransicaoInlineGravacaoIA2() {
+  if (_ia2InlineTransicaoTimer) {
+    clearInterval(_ia2InlineTransicaoTimer);
+    _ia2InlineTransicaoTimer = null;
+  }
+  const fill = $("ia2TransicaoProgressFill");
+  if (fill) fill.style.width = "100%";
+  const stage = $("ia2GravacaoTransitionState");
+  if (stage) stage.style.display = "none";
 }
 
 function atualizarBannerCamposNaoPerguntadosIA2() {
@@ -2393,7 +2541,7 @@ function atualizarBannerCamposNaoPerguntadosIA2() {
           <span style="font-size:22px">✅</span>
           <div>
             <strong style="font-size:13.5px;display:block">Excelente! Todas as 11 perguntas do Roteiro Pericial foram identificadas e respondidas.</strong>
-            <span style="font-size:11.5px;color:#15803D">Clique no botão verde <strong>"3. Finalizar Atendimento"</strong> acima para escolher seu parecer e gerar a ficha.</span>
+            <span style="font-size:11.5px;color:#15803D">Clique no botão verde <strong>"Concluir Atendimento e Gerar Laudo"</strong> para escolher seu parecer e gerar a ficha.</span>
           </div>
         </div>
       </div>
@@ -2510,73 +2658,13 @@ async function iniciarGravacaoIA2() {
     console.warn("Reconhecimento de voz do navegador indisponível. O áudio será gravado diretamente via MediaRecorder para transcrição completa com IA Gemini.");
   }
 
+  const isFirstStart = !window.__ia2ColinhaAtivaNaTela && !window.__ia2DialogoRevelado && !window.__ia2JaTranscreveuOuRefinou;
   ia2Gravando = true;
-  atualizarGuiaPassosIA2(2);
 
-  // Revelar workspace de gravação ativa e colinhas
   const heroScreen = $("ia2GravacaoEstadoInicial");
   const workScreen = $("ia2GravacaoWorkspaceAtivo");
-  if (heroScreen) heroScreen.style.display = "none";
-  if (workScreen) {
-    workScreen.style.display = "block";
-    workScreen.classList.add("ia2-fade-in-up");
-  }
-  renderizarColinhaIA2();
 
-  // Snapshot inicial do texto existente na textarea
-  const tArea = $("ia2GravacaoTranscricao");
-  window._ia2BaseTextGravacao = (tArea?.value || "").trim();
-
-  // Iniciar timer visual
-  clearInterval(ia2TimerInterval);
-  ia2TimerInterval = setInterval(atualizarTimerDisplayIA2, 1000);
-
-  // Atualizar botões e UI imediatamente
-  const btnText = $("ia2BtnGravacaoText");
-  const btnIcon = $("ia2BtnGravacaoIcon");
-  const btn = $("ia2BtnGravacaoToggle");
-  const badge = $("ia2GravacaoStatusBadge");
-  const wave = $("ia2WaveContainer");
-
-  if (btn) {
-    btn.className = "btn btn-danger ia2-btn-main-record";
-    btn.style.background = "#DC2626";
-    btn.style.borderColor = "#B91C1C";
-    btn.style.boxShadow = "0 4px 14px rgba(220,38,38,0.35)";
-  }
-  if (btnText) btnText.textContent = "Pausar Áudio";
-  if (btnIcon) btnIcon.textContent = "⏸️";
-  if (badge) {
-    badge.style.background = "#DCFCE7";
-    badge.style.color = "#15803D";
-    badge.style.borderColor = "#86EFAC";
-    badge.innerHTML = "🔴 Gravando consulta... Fale normalmente com o servidor";
-  }
-  if (wave) wave.classList.add("ia2-recording-active");
-
-  // Ocultar banner de pendências enquanto grava
-  const pendBanner = $("ia2CamposNaoPerguntadosContainer");
-  if (pendBanner) pendBanner.style.display = "none";
-
-  // Mostrar estado visual focado e limpo de gravação (sem texto ao vivo pulando na tela)
-  const containerVisual = $("ia2GravacaoVisual");
-  if (containerVisual) {
-    containerVisual.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:280px;color:#1E293B;text-align:center;padding:28px">
-        <div style="width:76px;height:76px;border-radius:50%;background:#FEE2E2;border:3px solid #EF4444;display:flex;align-items:center;justify-content:center;font-size:34px;margin-bottom:16px;box-shadow:0 0 0 10px rgba(239,68,68,0.12)">🎙️</div>
-        <h4 style="margin:0 0 8px;font-size:18px;font-weight:900;color:#0F172A">Gravando Áudio da Consulta...</h4>
-        <p style="font-size:14px;color:#475569;max-width:480px;margin:0 0 18px;line-height:1.5">
-          Conduza a conversa com o paciente normalmente. Acompanhe o <strong>Roteiro de Perguntas (Colinha)</strong> à esquerda para orientar o atendimento.
-        </p>
-        <div style="background:#EFF6FF;border:1.5px solid #93C5FD;color:#1E40AF;font-size:13px;font-weight:700;padding:10px 20px;border-radius:14px;display:inline-flex;align-items:center;gap:10px;max-width:520px;text-align:left">
-          <span style="font-size:20px">🏁</span>
-          <span>Ao terminar a consulta, clique no botão verde <strong>"Finalizar Atendimento"</strong> acima. A IA transcreverá tudo, montará o diálogo e estruturará o prontuário.</span>
-        </div>
-      </div>
-    `;
-  }
-
-  // DISPARAR GETUSERMEDIA EM SEGUNDO PLANO PARA O VU METER E GRAVAÇÃO EM ALTA DEFINIÇÃO
+  // DISPARAR GETUSERMEDIA EM SEGUNDO PLANO IMEDIATAMENTE PARA O VU METER E GRAVAÇÃO EM ALTA DEFINIÇÃO
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({
       audio: {
@@ -2608,7 +2696,6 @@ async function iniciarGravacaoIA2() {
           source.connect(ia2Analyser);
 
           const dataArray = new Uint8Array(ia2Analyser.frequencyBinCount);
-          const waveBars = document.querySelectorAll("#ia2WaveContainer .ia2-wave-bar");
 
           const animVU = () => {
             if (!ia2Gravando) return;
@@ -2617,6 +2704,7 @@ async function iniciarGravacaoIA2() {
             for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
             const avg = sum / dataArray.length;
 
+            const waveBars = document.querySelectorAll("#ia2WaveContainer .ia2-wave-bar");
             if (waveBars && waveBars.length) {
               waveBars.forEach((bar, idx) => {
                 const val = dataArray[idx % dataArray.length] || avg;
@@ -2631,10 +2719,12 @@ async function iniciarGravacaoIA2() {
               if (avg > 7) {
                 b.style.background = "#DCFCE7";
                 b.style.color = "#15803D";
+                b.style.borderColor = "#86EFAC";
                 b.innerHTML = "🎙️ Captando voz da consulta...";
               } else {
                 b.style.background = "#EFF6FF";
                 b.style.color = "#1D4ED8";
+                b.style.borderColor = "#BFDBFE";
                 b.innerHTML = "🔴 Microfone ligado (aguardando fala...)";
               }
             }
@@ -2680,7 +2770,77 @@ async function iniciarGravacaoIA2() {
     });
   }
 
-  toast("🎙️ Microfone ativo! Conduza o atendimento com a periciada.");
+  // Se for o início do atendimento, exibe a animação "Gerando colinha..." antes de abrir o roteiro focado
+  if (isFirstStart) {
+    if (heroScreen) heroScreen.style.display = "none";
+    if (workScreen) workScreen.style.display = "none";
+    configurarTransicaoInlineGravacaoIA2("colinha");
+    await new Promise(r => setTimeout(r, 1100));
+    ocultarTransicaoInlineGravacaoIA2();
+    window.__ia2ColinhaAtivaNaTela = true;
+    window.__ia2DialogoRevelado = false;
+  } else {
+    if (heroScreen) heroScreen.style.display = "none";
+    ocultarTransicaoInlineGravacaoIA2();
+  }
+
+  if (workScreen) {
+    workScreen.style.display = "block";
+    if (window.__ia2DialogoRevelado) {
+      workScreen.classList.remove("ia2-focus-colinha-mode");
+      workScreen.classList.add("ia2-full-review-mode");
+    } else {
+      workScreen.classList.remove("ia2-full-review-mode");
+      workScreen.classList.add("ia2-focus-colinha-mode");
+    }
+  }
+
+  atualizarGuiaPassosIA2(window.__ia2DialogoRevelado ? 3 : 1);
+  renderizarColinhaIA2();
+  sincronizarBotaoFinalizarGravacaoIA2();
+
+  // Snapshot inicial do texto existente na textarea
+  const tArea = $("ia2GravacaoTranscricao");
+  window._ia2BaseTextGravacao = (tArea?.value || "").trim();
+
+  // Iniciar timer visual
+  clearInterval(ia2TimerInterval);
+  ia2TimerInterval = setInterval(atualizarTimerDisplayIA2, 1000);
+
+  // Atualizar botões e UI imediatamente
+  const btnText = $("ia2BtnGravacaoText");
+  const btnIcon = $("ia2BtnGravacaoIcon");
+  const btn = $("ia2BtnGravacaoToggle");
+  const badge = $("ia2GravacaoStatusBadge");
+  const wave = $("ia2WaveContainer");
+  const timerDot = $("ia2TimerDot");
+
+  if (timerDot) timerDot.classList.remove("paused");
+  if (btn) {
+    btn.className = "btn btn-danger ia2-btn-main-record";
+    btn.style.background = "#DC2626";
+    btn.style.borderColor = "#B91C1C";
+    btn.style.color = "#FFFFFF";
+    btn.style.boxShadow = "0 4px 12px rgba(220,38,38,0.28)";
+  }
+  if (btnText) {
+    btnText.textContent = "Pausar Áudio";
+    btnText.style.color = "#FFFFFF";
+  }
+  if (btnIcon) btnIcon.textContent = "⏸️";
+  if (badge) {
+    badge.style.background = "#DCFCE7";
+    badge.style.color = "#15803D";
+    badge.style.borderColor = "#86EFAC";
+    badge.innerHTML = "🔴 Gravando consulta... Siga a colinha abaixo";
+  }
+  if (wave) wave.classList.add("ia2-recording-active");
+
+  // Ocultar banner de pendências enquanto grava
+  const pendBanner = $("ia2CamposNaoPerguntadosContainer");
+  if (pendBanner) pendBanner.style.display = "none";
+
+  toast("🎙️ Colinha gerada e microfone ativo! Conduza o atendimento com tranquilidade.");
 }
 
 function pausarGravacaoIA2(skipAutoRefine = false) {
@@ -2697,21 +2857,33 @@ function pausarGravacaoIA2(skipAutoRefine = false) {
   const btn = $("ia2BtnGravacaoToggle");
   const badge = $("ia2GravacaoStatusBadge");
   const wave = $("ia2WaveContainer");
+  const timerDot = $("ia2TimerDot");
 
-  // Em pausa, usa cor azul para NÃO confundir com o botão verde "3. Finalizar Atendimento"
+  if (timerDot) timerDot.classList.add("paused");
+  if (!window.__ia2DialogoRevelado) {
+    atualizarGuiaPassosIA2(2);
+  }
+
+  // Em pausa, usa cor azul com texto branco nítido
   if (btn) {
     btn.className = "btn btn-primary ia2-btn-main-record";
     btn.style.background = "#2563EB";
     btn.style.borderColor = "#1D4ED8";
+    btn.style.color = "#FFFFFF";
     btn.style.boxShadow = "0 3px 10px rgba(37,99,235,0.25)";
   }
-  if (btnText) btnText.textContent = "Continuar Gravação";
+  if (btnText) {
+    btnText.textContent = "Continuar Gravação";
+    btnText.style.color = "#FFFFFF";
+  }
   if (btnIcon) btnIcon.textContent = "▶️";
   if (badge) {
     badge.style.background = "#FEF3C7";
     badge.style.color = "#92400E";
     badge.style.borderColor = "#FDE68A";
-    badge.innerHTML = "⏸️ Gravação pausada. Clique em 'Continuar Gravação' ou em 'Finalizar Atendimento'";
+    badge.innerHTML = window.__ia2DialogoRevelado
+      ? "⏸️ Áudio pausado • Confira as perguntas e respostas abaixo"
+      : "⏸️ Gravação pausada • Clique em 'Finalizar e Gerar Perguntas' para ver as falas";
   }
   if (wave) wave.classList.remove("ia2-recording-active");
   const waveBars = document.querySelectorAll("#ia2WaveContainer .ia2-wave-bar");
@@ -2771,35 +2943,33 @@ function copiarTranscricaoIA2() {
 }
 
 function limparTranscricaoIA2() {
-  if (confirm("Deseja realmente limpar toda a transcrição e áudio gravados?")) {
+  if (confirm("Deseja realmente limpar toda a transcrição e reiniciar o modo gravação?")) {
     if ($("ia2GravacaoTranscricao")) $("ia2GravacaoTranscricao").value = "";
     window._ia2BaseTextGravacao = "";
     window._ia2DuvidasLowConfidence = [];
     ia2AudioChunks = [];
     window.__ia2AudioBlobPendente = null;
+    window.__ia2ColinhaAtivaNaTela = false;
+    window.__ia2DialogoRevelado = false;
+    window.__ia2JaTranscreveuOuRefinou = false;
+    ia2SegundosDecorridos = 0;
+    if ($("ia2TimerDisplay")) $("ia2TimerDisplay").textContent = "00:00:00";
     const btnDl = $("ia2BtnDownloadAudio");
     if (btnDl) btnDl.style.display = "none";
     if (typeof removerAudioImportadoIA2 === "function") {
       removerAudioImportadoIA2();
     }
-    window.__ia2JaTranscreveuOuRefinou = false;
+    ocultarTransicaoInlineGravacaoIA2();
     atualizarGuiaPassosIA2(1);
     const heroScreen = $("ia2GravacaoEstadoInicial");
     const workScreen = $("ia2GravacaoWorkspaceAtivo");
     if (heroScreen && workScreen) {
-      heroScreen.style.display = "block";
+      heroScreen.style.display = "flex";
       workScreen.style.display = "none";
+      workScreen.classList.remove("ia2-full-review-mode");
+      workScreen.classList.add("ia2-focus-colinha-mode");
     }
-    const btn = $("ia2BtnGravacaoToggle");
-    const btnText = $("ia2BtnGravacaoText");
-    const btnIcon = $("ia2BtnGravacaoIcon");
-    if (btn && !ia2Gravando) {
-      btn.className = "btn btn-green ia2-btn-main-record";
-      btn.style.background = "linear-gradient(135deg, #059669 0%, #10B981 100%)";
-      btn.style.borderColor = "#059669";
-    }
-    if (btnText && !ia2Gravando) btnText.textContent = "1. Iniciar Gravação";
-    if (btnIcon && !ia2Gravando) btnIcon.textContent = "🎙️";
+    sincronizarBotaoFinalizarGravacaoIA2();
     const pend = $("ia2CamposNaoPerguntadosContainer");
     if (pend) { pend.style.display = "none"; pend.innerHTML = ""; }
     COLINHA_IA2_CONFIG.forEach(q => {
@@ -2811,7 +2981,6 @@ function limparTranscricaoIA2() {
     });
     renderizarColinhaIA2();
     atualizarContadorGravacaoIA2();
-    atualizarVisualTranscricaoIA2(false);
     if (ia2Gravando && ia2SpeechRecognition) {
       try { ia2SpeechRecognition.abort(); } catch (_) {}
     }
@@ -3496,26 +3665,16 @@ function processarArquivoAudioImportadoIA2(input) {
     }
   }
 
-  // Revelar workspace de gravação ativa e colinhas
-  const heroScreen = $("ia2GravacaoEstadoInicial");
-  const workScreen = $("ia2GravacaoWorkspaceAtivo");
-  if (heroScreen) heroScreen.style.display = "none";
-  if (workScreen) {
-    workScreen.style.display = "block";
-    workScreen.classList.add("ia2-fade-in-up");
-  }
-  renderizarColinhaIA2();
-
-  if (badge) {
-    badge.style.background = "#DCFCE7";
-    badge.style.color = "#15803D";
-    badge.innerHTML = "✅ Áudio carregado • Clique em 'Finalizar Atendimento' para estruturar";
-  }
+  // Ao importar um arquivo de áudio, executa automaticamente a animação "Gerando perguntas e respostas..." e abre os campos de fala
+  window.__ia2ColinhaAtivaNaTela = true;
+  window.__ia2DialogoRevelado = false;
+  window.__ia2JaTranscreveuOuRefinou = false;
 
   const btnDl = $("ia2BtnDownloadAudio");
   if (btnDl) btnDl.style.display = "none";
 
-  toast(`🎵 Arquivo de áudio "${file.name}" carregado com sucesso!`);
+  toast(`🎵 Áudio "${file.name}" carregado! Gerando perguntas e respostas...`);
+  encerrarGravacaoEGerarDialogoIA2();
 }
 
 function removerAudioImportadoIA2() {
@@ -3678,10 +3837,11 @@ function confirmarFinalizacaoIA2MesmoComPendencias() {
 
   if (respostasManuaisAdicionadas > 0) {
     const tArea = $("ia2GravacaoTranscricao");
-    if (tArea) tArea.value = txt;
-    window._ia2BaseTextGravacao = txt;
+    if (tArea) tArea.value = txt.trim();
+    window._ia2BaseTextGravacao = txt.trim();
     renderizarColinhaIA2();
     atualizarContadorGravacaoIA2();
+    atualizarVisualTranscricaoIA2(false);
   }
 
   fecharModalAvisoColinhaIA2();
@@ -3691,65 +3851,192 @@ function confirmarFinalizacaoIA2MesmoComPendencias() {
     window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mime });
   }
 
-  abrirModalDecisaoMedicoIA2("gravacao", txt);
+  abrirModalDecisaoMedicoIA2("gravacao", txt.trim());
+}
+
+// Garante que os campos de fala (Perguntas e Respostas) apareçam sempre estruturados após a animação
+function garantirCamposDeFalaEstruturadosIA2() {
+  const containerVisual = $("ia2GravacaoVisual");
+  const tArea = $("ia2GravacaoTranscricao");
+  if (!containerVisual || !tArea) return;
+
+  const existingCards = containerVisual.querySelectorAll(".ia2-qa-card, .ia2-qa-note");
+  if (existingCards && existingCards.length > 0 && (tArea.value || "").trim().length > 0) {
+    return;
+  }
+
+  const rawTxt = (tArea.value || "").trim();
+  if (rawTxt.length > 0) {
+    atualizarVisualTranscricaoIA2(false);
+    const afterCards = containerVisual.querySelectorAll(".ia2-qa-card, .ia2-qa-note");
+    if (afterCards && afterCards.length > 0) return;
+  }
+
+  // Se não houve áudio captado (ex: teste silencioso ou microfone sem fala), monta os cartões de perguntas e respostas do roteiro
+  const idadeCad = ($("idade")?.value || $("agilIdade")?.value || state.idade || "").toString().trim();
+  const cargoCad = ($("cargo")?.value || $("agilCargo")?.value || state.cargo || state.aux?.cargo || "").toString().trim();
+  const tempoCad = ($("tempoCargoUnidade")?.value || state.tempoCargoUnidade || "").toString().trim();
+
+  let htmlCards = "";
+  const lines = [];
+
+  COLINHA_IA2_CONFIG.forEach((q, idx) => {
+    const st = ia2ColinhaStatus[q.id] || {};
+    let respInicial = (st.snippet || "").trim();
+    if (!respInicial) {
+      if (q.id === 1 && idadeCad) respInicial = `${idadeCad} anos`;
+      else if (q.id === 2 && cargoCad && cargoCad !== "Não informado") respInicial = cargoCad;
+      else if (q.id === 3 && tempoCad) respInicial = tempoCad;
+    }
+
+    if (respInicial) {
+      st.matched = true;
+      st.snippet = respInicial;
+      lines.push(`Médico Perito: ${q.pergunta}\nPericiado: ${respInicial}`);
+    }
+
+    const badgeColinha = `<span class="badge" style="background:#ECFDF5;color:#047857;border:1px solid #A7F3D0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:auto;white-space:nowrap">Item ${q.numero}</span>`;
+    const displayResp = respInicial ? esc(respInicial) : `<span style="color:#94A3B8;font-style:italic">Clique para preencher a resposta do paciente...</span>`;
+
+    htmlCards += `
+      <div class="ia2-qa-card" data-colinha-id="${q.id}">
+        <div class="ia2-qa-q-row">
+          <span class="ia2-qa-badge-q">👨‍⚕️ Médico Perito</span>
+          <span class="ia2-qa-q-text">${esc(q.pergunta)}</span>
+          ${badgeColinha}
+        </div>
+        <div class="ia2-qa-a-row">
+          <span class="ia2-qa-badge-a">👤 Paciente / Servidor</span>
+          <div class="ia2-qa-a-text" contenteditable="true" data-idx="${idx}" data-placeholder="true" title="Clique para informar ou editar a resposta" onfocus="if(this.querySelector('span')){this.innerHTML='';}" onblur="salvarEdicaoVisualIA2()">${displayResp}</div>
+        </div>
+      </div>
+    `;
+  });
+
+  htmlCards += `
+    <div style="text-align:center;margin-top:10px">
+      <button type="button" class="btn btn-outline btn-sm" onclick="adicionarNotaManualVisualIA2()" style="font-size:12px;font-weight:700;color:#2563EB;border-color:#BFDBFE;background:#EFF6FF;padding:6px 14px;border-radius:8px">
+        ➕ Adicionar Observação ou Resposta Manual
+      </button>
+    </div>
+  `;
+
+  containerVisual.innerHTML = htmlCards;
+  if (lines.length > 0 && !tArea.value.trim()) {
+    tArea.value = lines.join("\n\n");
+    window._ia2BaseTextGravacao = tArea.value;
+    atualizarContadorGravacaoIA2();
+  }
+}
+
+async function encerrarGravacaoEGerarDialogoIA2() {
+  if (ia2Gravando) {
+    pausarGravacaoIA2(true);
+    await new Promise(r => setTimeout(r, 220));
+  }
+
+  if (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0 && !window.__ia2AudioBlobPendente) {
+    const mime = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
+    window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mime });
+  }
+
+  const heroScreen = $("ia2GravacaoEstadoInicial");
+  const workScreen = $("ia2GravacaoWorkspaceAtivo");
+  if (heroScreen) heroScreen.style.display = "none";
+  if (workScreen) workScreen.style.display = "none";
+
+  // Exibir segunda animação: "Gerando perguntas e respostas..."
+  configurarTransicaoInlineGravacaoIA2("dialogo");
+  const minAnimPromise = new Promise(r => setTimeout(r, 1350));
+
+  const audioBlob = window.__ia2AudioBlobPendente;
+  const hasAudio = Boolean(audioBlob && audioBlob.size > 200);
+  const rawTxt = ($("ia2GravacaoTranscricao")?.value || "").trim();
+
+  try {
+    if (_ia2RefinandoAtivo && _ia2RefinandoPromise) {
+      await Promise.all([_ia2RefinandoPromise, minAnimPromise]);
+    } else if (hasAudio || rawTxt.length >= 5) {
+      await Promise.all([refinarDialogoComIA2(true).catch(e => console.warn("Aviso no refinamento IA:", e)), minAnimPromise]);
+    } else {
+      await minAnimPromise;
+    }
+  } catch (err) {
+    console.warn("Aviso durante geração de perguntas e respostas:", err);
+    await minAnimPromise;
+  } finally {
+    ocultarTransicaoInlineGravacaoIA2();
+  }
+
+  window.__ia2ColinhaAtivaNaTela = true;
+  window.__ia2DialogoRevelado = true;
+  window.__ia2JaTranscreveuOuRefinou = true;
+
+  garantirCamposDeFalaEstruturadosIA2();
+  renderizarColinhaIA2();
+  atualizarBannerCamposNaoPerguntadosIA2();
+  atualizarGuiaPassosIA2(3);
+  sincronizarBotaoFinalizarGravacaoIA2();
+
+  const badgeStatus = $("ia2GravacaoStatusBadge");
+  if (badgeStatus && !ia2Gravando) {
+    badgeStatus.style.background = "#ECFDF5";
+    badgeStatus.style.color = "#047857";
+    badgeStatus.style.borderColor = "#A7F3D0";
+    badgeStatus.innerHTML = "✅ Perguntas e respostas geradas! Confira os campos de fala abaixo";
+  }
+
+  if (workScreen) {
+    workScreen.classList.remove("ia2-focus-colinha-mode");
+    workScreen.classList.add("ia2-full-review-mode");
+    workScreen.style.display = "block";
+  }
+
+  toast("✨ Perguntas e respostas geradas! Confira os campos de fala ao lado da colinha.");
+}
+
+function acaoBotaoPrincipalGravacaoIA2() {
+  if (!window.__ia2DialogoRevelado) {
+    encerrarGravacaoEGerarDialogoIA2();
+  } else {
+    prosseguirParaDecisaoIA2();
+  }
+}
+
+async function prosseguirParaDecisaoIA2() {
+  if (ia2Gravando) {
+    pausarGravacaoIA2(true);
+    await new Promise(r => setTimeout(r, 200));
+  }
+  salvarEdicaoVisualIA2();
+
+  if (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0 && !window.__ia2AudioBlobPendente) {
+    const mime = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
+    window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mime });
+  }
+
+  let txt = ($("ia2GravacaoTranscricao")?.value || "").trim();
+
+  // Verificar se há perguntas do roteiro pericial (colinha) pendentes
+  const pendentes = COLINHA_IA2_CONFIG.filter(q => {
+    const st = ia2ColinhaStatus[q.id];
+    const isChecked = (st && st.manualState !== null && st.manualState !== undefined)
+      ? st.manualState
+      : (st && (st.matched || st.aiMatched));
+    return !isChecked;
+  });
+
+  if (pendentes.length > 0) {
+    abrirModalPerguntasNaoRespondidasIA2(pendentes);
+  } else {
+    abrirModalDecisaoMedicoIA2("gravacao", txt);
+  }
 }
 
 // Finalização do Modo IA 2.0
 async function finalizarAtendimentoIA2(origem) {
   if (origem === "gravacao") {
-    if (ia2Gravando) {
-      pausarGravacaoIA2(true);
-      await new Promise(r => setTimeout(r, 200));
-    }
-    salvarEdicaoVisualIA2();
-
-    if (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0 && !window.__ia2AudioBlobPendente) {
-      const mime = (ia2MediaRecorder && ia2MediaRecorder.mimeType) || "audio/webm";
-      window.__ia2AudioBlobPendente = new Blob(ia2AudioChunks, { type: mime });
-    }
-
-    const hasAudio = Boolean(window.__ia2AudioBlobPendente || (Array.isArray(ia2AudioChunks) && ia2AudioChunks.length > 0));
-    let txt = ($("ia2GravacaoTranscricao")?.value || "").trim();
-    if (!txt && !hasAudio) {
-      alert("A gravação está vazia. Inicie a conversa com a periciada, grave o áudio ou importe um arquivo de áudio antes de finalizar.");
-      return;
-    }
-
-    // Iniciar animação inovadora de estruturação da IA
-    mostrarAnimacaoMontandoDialogoIA2(true);
-
-    try {
-      if (_ia2RefinandoAtivo && _ia2RefinandoPromise) {
-        const refData = await _ia2RefinandoPromise;
-        txt = ($("ia2GravacaoTranscricao")?.value || "").trim() || (refData && refData.texto_formatado) || txt;
-      } else if (hasAudio && (!window.__ia2JaTranscreveuOuRefinou || !txt)) {
-        const refData = await refinarDialogoComIA2(true);
-        if (refData && refData.texto_formatado) {
-          txt = refData.texto_formatado;
-        }
-      }
-    } catch (err) {
-      console.warn("Aviso ao transcrever áudio na finalização:", err);
-    } finally {
-      mostrarAnimacaoMontandoDialogoIA2(false);
-    }
-
-    txt = ($("ia2GravacaoTranscricao")?.value || "").trim() || txt;
-
-    // Verificar se há perguntas do roteiro pericial (colinha) pendentes
-    const pendentes = COLINHA_IA2_CONFIG.filter(q => {
-      const st = ia2ColinhaStatus[q.id];
-      const isChecked = (st && st.manualState !== null && st.manualState !== undefined)
-        ? st.manualState
-        : (st && (st.matched || st.aiMatched));
-      return !isChecked;
-    });
-
-    if (pendentes.length > 0) {
-      abrirModalPerguntasNaoRespondidasIA2(pendentes);
-    } else {
-      abrirModalDecisaoMedicoIA2("gravacao", txt);
-    }
+    await acaoBotaoPrincipalGravacaoIA2();
   } else if (origem === "escrita") {
     const rawTxt = ($("ia2EscritaText")?.value || "").trim();
     const txtUtil = extrairTextoUtilEscritaIA2(rawTxt);
@@ -6905,11 +7192,13 @@ function renderMedications(){
 function onMedicationInput(i, val, prefix) {
   editMedication(i, 'medicamento', val);
   const box = $(`${prefix}_sug_${i}`);
+  const row = box?.closest(".med-row");
   if (!box) return;
 
   if (!val || val.trim().length < 1) {
     box.classList.remove("show");
     box.innerHTML = "";
+    if (row) row.style.zIndex = "";
     return;
   }
 
@@ -6917,11 +7206,14 @@ function onMedicationInput(i, val, prefix) {
   if (!results.length) {
     box.classList.remove("show");
     box.innerHTML = "";
+    if (row) row.style.zIndex = "";
     return;
   }
 
+  if (row) row.style.zIndex = "250";
+
   box.innerHTML = results.map(x => `
-    <div class="med-option" onclick="selectMedicationSuggestion(${i}, '${esc(x.nome)}', '${prefix}')">
+    <div class="med-option" onmousedown="selectMedicationSuggestion(${i}, '${esc(x.nome)}', '${prefix}'); event.preventDefault();" onclick="selectMedicationSuggestion(${i}, '${esc(x.nome)}', '${prefix}')">
       <span class="med-tag">${esc(x.classe || 'Fármaco')}</span>
       <span style="flex:1">
         <div style="font-weight:700;font-size:12.5px;color:#1E293B">${esc(x.nome)}</div>
@@ -6952,6 +7244,8 @@ function selectMedicationSuggestion(i, nome, prefix) {
   if (box) {
     box.classList.remove("show");
     box.innerHTML = "";
+    const row = box.closest(".med-row");
+    if (row) row.style.zIndex = "";
   }
 
   ["agilMed", "normMed"].forEach(pfx => {
