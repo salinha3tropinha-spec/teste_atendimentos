@@ -3252,16 +3252,24 @@ body.modal-lock { overscroll-behavior: none; }
   z-index: 2;
 }
 .esisla-core-symbol {
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
-  background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
-  color: #fff;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1.5px solid #E2E8F0;
   display: grid;
   place-items: center;
-  font-size: 19px;
-  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.28), 0 0 0 3px rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.2), 0 0 0 3px rgba(255, 255, 255, 0.95);
   animation: corePulse 1.8s ease-in-out infinite;
+  overflow: hidden;
+  padding: 6px;
+}
+.esisla-core-symbol img,
+.esisla-core-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 @keyframes corePulse {
   0%, 100% { transform: scale(0.96); box-shadow: 0 6px 16px rgba(2, 132, 199, 0.24); }

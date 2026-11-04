@@ -2130,7 +2130,7 @@ function resolverLimitacaoFavoravelGestao(st, aux, cargo, cid) {
 function renderEsislaBlocos(textoFicha) {
     const container = document.getElementById('esislaBlocosContainer');
     if (!container) return;
-    const str = String(textoFicha || '');
+    const str = String(textoFicha || '').replace(/\r\n/g, '\n').replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
     if (!str.trim()) {
         container.innerHTML = '<div style="padding:28px;text-align:center;color:#64748B;font-size:13px">Nenhum dado gerado para exibição em blocos.</div>';
         return;
@@ -3025,7 +3025,7 @@ function onEsislaTextInput() {
 
 function updateEsislaStats(text){
     const chip=document.getElementById('esislaStatsChip');
-    const str=String(text||'');
+    const str=String(text||'').replace(/\r\n/g, '\n').replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
     const chars=str.length;
     const lines=str?str.split('\n').length:0;
     if(chip) chip.textContent=`${chars.toLocaleString('pt-BR')} caracteres · ${lines} linhas`;
@@ -5637,10 +5637,11 @@ async function refinarFichaEsislaIA() {
       if (!resp.ok) throw new Error(resData?.error?.message || resData?.detail || 'Erro ao otimizar ficha.');
     }
 
-    const textoOtimizado = resData?.data?.ficha_esisla_otimizada || resData?.data?.texto_otimizado || resData?.ficha_esisla_otimizada || resData?.texto_otimizado;
+    let textoOtimizado = resData?.data?.ficha_esisla_otimizada || resData?.data?.texto_otimizado || resData?.ficha_esisla_otimizada || resData?.texto_otimizado;
     if (!textoOtimizado) {
       throw new Error(resData?.error?.message || "Não foi possível gerar a ficha otimizada.");
     }
+    textoOtimizado = String(textoOtimizado).replace(/\r\n/g, '\n').replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
 
     el.value = textoOtimizado;
     updateEsislaStats(textoOtimizado);

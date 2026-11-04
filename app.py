@@ -84,7 +84,7 @@ else:
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 ESISLA_PROMPT_VERSION = "esisla-v11-readaptado-sem-parenteses-antecedentes-robusto"
 GEMINI_FALLBACK_MODELS = [
-    m.strip() for m in os.getenv("GEMINI_FALLBACK_MODELS", "gemini-3.5-flash-lite,gemini-3.6-flash,gemini-3.5-flash").split(",")
+    m.strip() for m in os.getenv("GEMINI_FALLBACK_MODELS", "gemini-3.5-flash-lite,gemini-flash-lite-latest,gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash").split(",")
     if m.strip() and m.strip() != GEMINI_MODEL
 ]
 GEMINI_RETRIES = max(1, int(os.getenv("GEMINI_RETRIES", "2")))
@@ -4990,6 +4990,8 @@ def _desduplicar_e_limpar_queixa_esisla(texto: str) -> str:
 
 def _clean_esisla_text(text: str) -> str:
     text = str(text or "").strip()
+    if "\\r\\n" in text or "\\n" in text:
+        text = text.replace("\\r\\n", "\n").replace("\\n", "\n")
     text = re.sub(r"^```(?:text|txt|plaintext)?\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\s*```$", "", text)
     text = text.strip()
@@ -6431,7 +6433,7 @@ def _estruturar_secoes_oficiais_esisla(texto: str) -> str:
     if not texto:
         return ""
     t = str(texto).strip()
-    if "\\n" in t and "\n" not in t:
+    if "\\r\\n" in t or "\\n" in t:
         t = t.replace("\\r\\n", "\n").replace("\\n", "\n")
 
     # Recompõe frase caso tenha sofrido quebra acidental antes de "antecedentes mórbidos" no meio do parágrafo
@@ -6544,12 +6546,12 @@ def _expandir_secoes_laconicas_esisla(texto: str, extra_ctx: dict | None = None)
     is_contra = "CONTR" in parecer
     is_mental = bool(cid and cid.upper().startswith("F"))
 
-    # 3. Antecedentes Mórbidos: se lacônico (< 45 caracteres, ex: "Nega.", "Sem antecedentes")
+    # 3. Antecedentes Mórbidos: se lacônico (< 200 caracteres, ex: "Nega.", "Sem antecedentes")
     m_ant = re.search(r"(\nAntecedentes Mórbidos:?\s*\n)(.*?)(\n\s*Atestado/Relat[óo]rio)", t, re.DOTALL | re.IGNORECASE)
     if m_ant:
         h1, b_ant, h2 = m_ant.groups()
         b_clean = b_ant.strip()
-        if len(b_clean) < 45 or re.match(r"^(?:nega|sem\s+antecedentes|nada\s+a\s+declarar|n[ãa]o\s+relatad[oa]|n[ãa]o\s+consta)[\.\s]*$", b_clean, re.IGNORECASE):
+        if len(b_clean) < 200 or re.match(r"^(?:nega|sem\s+antecedentes|nada\s+a\s+declarar|n[ãa]o\s+relatad[oa]|n[ãa]o\s+consta)[\.\s]*$", b_clean, re.IGNORECASE):
             novo_ant = (
                 "Nega antecedentes mórbidos clínicos de relevância para o quadro em apreço. "
                 "Nega histórico de hipertensão arterial sistêmica descompensada, diabetes mellitus, cardiopatias, nefropatias, pneumopatias ou endocrinopatias crônicas. "
@@ -6560,12 +6562,12 @@ def _expandir_secoes_laconicas_esisla(texto: str, extra_ctx: dict | None = None)
             )
             t = t[:m_ant.start()] + h1 + novo_ant + "\n\n" + h2 + t[m_ant.end():]
 
-    # 4. Exame Físico Geral: se lacônico (< 65 caracteres)
+    # 4. Exame Físico Geral: se lacônico (< 350 caracteres)
     m_ef = re.search(r"(\(\*\)\s*Exame Físico Geral:?\s*\n)(.*?)(\n\s*Descrição das Alterações (?:Clínicas|Médicas))", t, re.DOTALL | re.IGNORECASE)
     if m_ef:
         h1, b_ef, h2 = m_ef.groups()
         b_clean = b_ef.strip()
-        if len(b_clean) < 65 or re.match(r"^(?:dor\s+[àa]\s+palpa[çc][ãa]o|normal|sem\s+altera[çc][õo]es|apenas\s+dor|dor\s+lombar|dor\s+no\s+joelho)[\.\s]*$", b_clean, re.IGNORECASE):
+        if len(b_clean) < 350 or re.match(r"^(?:dor\s+[àa]\s+palpa[çc][ãa]o|normal|sem\s+altera[çc][õo]es|apenas\s+dor|dor\s+lombar|dor\s+no\s+joelho)[\.\s]*$", b_clean, re.IGNORECASE):
             if is_mental:
                 novo_ef = (
                     "Servidor(a) em bom estado geral (BEG), vestimenta e asseio corporal adequados. "
@@ -6599,12 +6601,12 @@ def _expandir_secoes_laconicas_esisla(texto: str, extra_ctx: dict | None = None)
             novo_alt = "Atestado e relatório emitidos por médico assistente acostados ao processo pericial, corroborando o diagnóstico clínico e a indicação de afastamento temporário das funções. Não foram apresentados outros exames complementares de imagem ou laboratoriais no ato pericial."
             t = t[:m_alt.start()] + h1 + novo_alt + "\n\n" + h2 + t[m_alt.end():]
 
-    # 6. Descrição da(s) Limitação(ções) Física(s) e/ou Mental(is): se lacônico (< 70 caracteres)
+    # 6. Descrição da(s) Limitação(ções) Física(s) e/ou Mental(is): se lacônico (< 250 caracteres)
     m_lim = re.search(r"(\(\*\)\s*Descrição da\(s\)\s*Limitação\(ções\)\s*Física\(s\)\s*e/ou\s*Mental\(is\)\s*encontrada\(s\):?\s*\n)(.*?)(\n\s*\(\*\)\s*Parecer Médico)", t, re.DOTALL | re.IGNORECASE)
     if m_lim:
         h1, b_lim, h2 = m_lim.groups()
         b_clean = b_lim.strip()
-        if len(b_clean) < 70 or re.match(r"^(?:dificuldade\s+de\s+locomo[çc][ãa]o|dor|limita[çc][ãa]o\s+motora|dor\s+lombar|tristeza|limita[çc][ãa]o\s+f[íi]sica)[\.\s]*$", b_clean, re.IGNORECASE):
+        if len(b_clean) < 250 or re.match(r"^(?:dificuldade\s+de\s+locomo[çc][ãa]o|dor|limita[çc][ãa]o\s+motora|dor\s+lombar|tristeza|limita[çc][ãa]o\s+f[íi]sica)[\.\s]*$", b_clean, re.IGNORECASE):
             if is_contra:
                 novo_lim = f"Do ponto de vista médico-pericial oficial, não foram evidenciadas no presente exame alterações clínicas ou limitações funcionais físicas ou mentais incapacitantes para o exercício das atribuições habituais constantes no Rol de Atividades do cargo de {cargo}, mantendo-se a higidez laboral."
             elif is_mental:
@@ -6613,12 +6615,12 @@ def _expandir_secoes_laconicas_esisla(texto: str, extra_ctx: dict | None = None)
                 novo_lim = f"Apresenta limitação funcional temporária de grau moderado caracterizada por manifestações álgicas, contratura muscular protetora e restrição aos arcos de movimento articular, incapacitando transitoriamente o servidor para a realização das atribuições habituais constantes no Rol de Atividades do cargo de {cargo}, especialmente as atividades que demandam sobrecarga postural estática prolongada, movimentação repetitiva e esforço físico. Justifica-se o afastamento para repouso terapêutico, restabelecimento da aptidão laboral e profilaxia contra o agravamento do quadro mórbido."
             t = t[:m_lim.start()] + h1 + novo_lim + "\n\n" + h2 + t[m_lim.end():]
 
-    # 7. Justificativa Parecer Médico: se lacônico (< 90 caracteres)
+    # 7. Justificativa Parecer Médico: se lacônico (< 350 caracteres)
     m_jus = re.search(r"(\(\*\)\s*Justificativa Parecer Médico:?\s*\n)(.*?)(\n\s*Biometria|\n\s*\(\*\)\s*Parecer Final|\n\s*N[ºo°\.]*[ \t]*Dias|\Z)", t, re.DOTALL | re.IGNORECASE)
     if m_jus:
         h1, b_jus, h2 = m_jus.groups()
         b_clean = b_jus.strip()
-        if len(b_clean) < 90 or re.match(r"^(?:licen[çc]a\s+(?:m[ée]dica\s+)?favor[áa]vel|concedo\s+\d+\s+dias|parecer\s+favor[áa]vel|deferido|indeferido)[\.\s]*$", b_clean, re.IGNORECASE):
+        if len(b_clean) < 350 or re.match(r"^(?:licen[çc]a\s+(?:m[ée]dica\s+)?favor[áa]vel|concedo\s+\d+\s+dias|parecer\s+favor[áa]vel|deferido|indeferido)[\.\s]*$", b_clean, re.IGNORECASE):
             cid_str = f"sob o CID-10 {cid}" if cid else "sob o CID-10 informado"
             if is_contra:
                 novo_jus = f"Constato a capacidade laborativa preservada para as atribuições ordinárias da função pública de {cargo}, considerando que no ato pericial não se evidenciam alterações clínicas ou limitações funcionais de magnitude incapacitante, em estrita consonância com as diretrizes periciais do DPME (Lei Estadual nº 10.261/1968). Parecer CONTRÁRIO."
@@ -6630,12 +6632,12 @@ def _expandir_secoes_laconicas_esisla(texto: str, extra_ctx: dict | None = None)
                 )
             t = t[:m_jus.start()] + h1 + novo_jus + "\n\n" + h2 + t[m_jus.end():]
 
-    # 8. Queixa e Duração: se lacônica (< 85 caracteres)
+    # 8. Queixa e Duração: se lacônica (< 550 caracteres)
     m_q = re.search(r"(\(\*\)\s*Queixa e Duração:?\s*\n)(.*?)(\n\s*Antecedentes Mórbidos)", t, re.DOTALL | re.IGNORECASE)
     if m_q:
         h1, b_q, h2 = m_q.groups()
         b_clean = b_q.strip()
-        if len(b_clean) < 85 or re.match(r"^(?:dor\s+lombar|dor\s+no\s+joelho|depress[ãa]o|ansiedade|dor|queixa\s+de\s+dor)[\s\w\d\.\,]*$", b_clean, re.IGNORECASE):
+        if len(b_clean) < 550 or re.match(r"^(?:dor\s+lombar|dor\s+no\s+joelho|depress[ãa]o|ansiedade|dor|queixa\s+de\s+dor)[\s\w\d\.\,]*$", b_clean, re.IGNORECASE):
             idade_str = f"{ctx.get('idade')} anos" if ctx.get('idade') else "idade adulta"
             termo_serv = "Servidora" if str(ctx.get('sexo') or '').upper().startswith("F") or "servidora" in b_clean.lower() else "Servidor"
             termo_readap = "relatou não ser readaptada" if termo_serv == "Servidora" else "relatou não ser readaptado"
@@ -6643,17 +6645,17 @@ def _expandir_secoes_laconicas_esisla(texto: str, extra_ctx: dict | None = None)
             queixa_base = b_clean if len(b_clean) >= 10 else (ctx.get("doenca_motivo") or "quadro álgico e desconforto funcional")
             if is_mental:
                 novo_q = (
-                    f"{termo_serv} de {idade_str}, {termo_readap}, ocupante do cargo de {cargo} {tempo_func}, comparece para avaliação médico-pericial oficial referindo {queixa_base}. "
-                    "Relata sintomas caracterizados por instabilidade do humor, angústia, fadiga psicofísica, labilidade emocional e alterações do padrão de sono, com curso progressivo e agravamento no contexto laboral recente. "
-                    "Informa que a sintomatologia gera impacto direto em suas atividades cotidianas e na execução das atribuições do cargo, especialmente em atividades que exigem concentração sustentada, tolerância ao estresse e interação com terceiros. "
-                    "Refere acompanhamento médico assistencial especializado regular com indicação de afastamento temporário para estabilização clínica e suporte terapêutico. "
+                    f"{termo_serv} de {idade_str}, {termo_readap}, ocupante do cargo de {cargo} {tempo_func}, comparece para avaliação médico-pericial oficial com relato clínico de {queixa_base}. "
+                    "Relata sintomatologia caracterizada por episódios recorrentes de apreensão difusa, instabilidade do humor, angústia, fadiga psicofísica, labilidade emocional e alterações do padrão de sono (insônia de conciliação e manutenção), com curso progressivo e agravamento no contexto laboral recente. "
+                    f"Informa que a sintomatologia gera impacto direto e severo em suas atividades cotidianas e na execução das atribuições habituais do cargo de {cargo}, especialmente em atividades que exigem atenção concentrada contínua, tolerância a pressões, mediação pedagógica e contínua interação interpessoal. "
+                    "Refere acompanhamento médico assistencial especializado regular, mantendo farmacoterapia contínua sob orientação do médico assistente, com recomendação de afastamento temporário para repouso profilático e estabilização clínica. "
                     "Não relatou troca de alteração de dosagem da medicação. Não alegou fazer fisioterapia e psicoterapia."
                 )
             else:
                 novo_q = (
                     f"{termo_serv} de {idade_str}, {termo_readap}, ocupante do cargo de {cargo} {tempo_func}, comparece para avaliação médico-pericial oficial com relato de {queixa_base}. "
-                    "Refere quadro álgico de curso insidioso com episódios de agudização mecânica, caracterizado por dor de caráter em pontada e queimação, acompanhada de rigidez e limitação aos movimentos. "
-                    "Relata que a sintomatologia é intensificada pela manutenção de posturas estáticas prolongadas, esforços repetitivos e sobrecarga postural habitual inerentes às atribuições de sua função pública. "
+                    "Refere quadro álgico de curso insidioso com episódios de agudização mecânica recente, caracterizado por dor de caráter em pontada e queimação, acompanhada de rigidez miofascial e limitação aos movimentos articulares. "
+                    f"Relata que a sintomatologia é intensificada pela manutenção de posturas estáticas prolongadas, esforços repetitivos e sobrecarga postural habitual inerentes às atribuições do cargo de {cargo}. "
                     "Refere acompanhamento médico assistencial, fazendo uso de farmacoterapia sintomática analgésica e anti-inflamatória sob demanda prescrita pelo médico assistente, com recomendação de repouso temporário profilático. "
                     "Não relatou troca de alteração de dosagem da medicação. Não alegou fazer fisioterapia e psicoterapia."
                 )
@@ -6825,11 +6827,14 @@ def api_ai_refinar_ficha_esisla():
             app.logger.warning("Cliente Gemini indisponível para refinamento: %s", client_err)
 
         if ficha_otimizada:
+            if "\\r\\n" in ficha_otimizada or "\\n" in ficha_otimizada:
+                ficha_otimizada = ficha_otimizada.replace("\\r\\n", "\n").replace("\\n", "\n")
             if ficha_otimizada.startswith("```"):
                 lines = ficha_otimizada.split("\n")
                 if lines[0].startswith("```"): lines = lines[1:]
                 if lines and lines[-1].startswith("```"): lines = lines[:-1]
                 ficha_otimizada = "\n".join(lines).strip()
+            ficha_otimizada = _estruturar_secoes_oficiais_esisla(ficha_otimizada)
             ficha_otimizada = _sanitizar_texto_portugues_esisla(ficha_otimizada)
             ficha_otimizada = _desduplicar_e_limpar_queixa_esisla(ficha_otimizada)
             ficha_otimizada = _refinar_ficha_esisla_deterministica(ficha_otimizada, extra_ctx)
