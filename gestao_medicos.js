@@ -485,6 +485,24 @@
     return 'outro';
   }
 
+  function getDoctorCharCountBadgeHtml(texto, limite = 2000) {
+    let clean = '';
+    if (typeof texto === 'string') {
+      clean = texto.trim();
+    } else if (texto != null) {
+      clean = String(texto).trim();
+    }
+    const count = clean.length;
+    const isExceeded = count > limite;
+    const countFmt = count.toLocaleString('pt-BR');
+    const limiteFmt = limite.toLocaleString('pt-BR');
+
+    if (isExceeded) {
+      return `<span class="doc-esisla-char-badge danger" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:800;background:#FEE2E2;color:#DC2626;border:1px solid #FCA5A5;margin-left:6px;vertical-align:middle;text-transform:none;letter-spacing:normal;" title="Atenção: este bloco ultrapassa o limite de ${limiteFmt} caracteres (${countFmt} caracteres).">⚠️ ${countFmt} / ${limiteFmt} caracteres</span>`;
+    }
+    return `<span class="doc-esisla-char-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;margin-left:6px;vertical-align:middle;text-transform:none;letter-spacing:normal;" title="Total: ${countFmt} caracteres (Limite máximo: ${limiteFmt})">${countFmt} / ${limiteFmt} caracteres</span>`;
+  }
+
   window.renderDoctorEsislaBlocos = function(textoFicha) {
     const container = $('doctorEsislaBlocosContainer');
     if (!container) return;
@@ -509,9 +527,21 @@
       }
     }
 
-    const queixa = extractSectionDoctorEsisla(str, ['(*) Queixa e Duração', 'Queixa e Duração'], ['Antecedentes Mórbidos']) || p.queixaDuracao || a.queixaDuracao || '';
+    let queixa = extractSectionDoctorEsisla(str, ['(*) Queixa e Duração', 'Queixa e Duração'], ['Antecedentes Mórbidos']) || p.queixaDuracao || a.queixaDuracao || '';
+    let examesTxtQueixa = '';
+    const mExamesQ = queixa.match(/[\r\n\s]*Exames apresentados:\s*([\s\S]*?)(?=\n\n|\Z)/i);
+    if (mExamesQ) {
+      examesTxtQueixa = mExamesQ[1].trim();
+      queixa = queixa.replace(mExamesQ[0], '').trim();
+    }
+    queixa = queixa.replace(/Exames apresentados:\s*[\s\S]*?(?=\n\n|\Z)/gi, '').trim();
+
     const antecedentes = extractSectionDoctorEsisla(str, ['Antecedentes Mórbidos'], ['Atestado/Relatório e Exames Complementares', 'Atestado/Relatório/Exames Complementares', 'Atestado/Relatório', 'Pressão Arterial']) || p.historicoPregresso || a.historicoPregresso || 'Nega antecedentes mórbidos relevantes, cirurgias prévias, neoplasias ou hábitos tabágicos e etilistas.';
-    const atestado = extractSectionDoctorEsisla(str, ['Atestado/Relatório e Exames Complementares', 'Atestado/Relatório/Exames Complementares', 'Atestado/Relatório'], ['Pressão Arterial', 'Sistólica', 'Altura', '(*) Exame Físico Geral', '(*)Exame Físico Geral']) || 'Em anexo.';
+    let atestado = extractSectionDoctorEsisla(str, ['Atestado/Relatório e Exames Complementares', 'Atestado/Relatório/Exames Complementares', 'Atestado/Relatório'], ['Pressão Arterial', 'Sistólica', 'Altura', '(*) Exame Físico Geral', '(*)Exame Físico Geral']) || 'Em anexo.';
+    if (examesTxtQueixa && !atestado.includes(examesTxtQueixa)) {
+      atestado = atestado.replace(/^Em anexo\.?\s*/i, '').trim();
+      atestado = atestado ? ('Em anexo. ' + atestado + ' ' + examesTxtQueixa) : ('Em anexo. ' + examesTxtQueixa);
+    }
 
     // Sinais Vitais e Biometria
     const paSis = (str.match(/Sist[óo]lica(?:\s*\(mmHg\))?[:\s]*(\d+)/i) || [])[1] || p.pressaoSistolica || a.pressaoSistolica || '';
@@ -636,7 +666,11 @@
     container.innerHTML = blocks.map(b => `
       <div class="doc-esisla-card">
         <div class="doc-esisla-card-head">
-          <div class="doc-esisla-card-title"><span>${b.icon}</span><span>${esc(b.title)}</span></div>
+          <div class="doc-esisla-card-title">
+            <span>${b.icon}</span>
+            <span>${esc(b.title)}</span>
+            ${getDoctorCharCountBadgeHtml(b.content)}
+          </div>
           <button type="button" class="btn-sm" onclick="copyDoctorEsislaBlock(this)">📋 Copiar Bloco</button>
         </div>
         ${b.badgeHtml || ''}

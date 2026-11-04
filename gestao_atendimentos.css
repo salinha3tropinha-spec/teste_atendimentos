@@ -3426,6 +3426,13 @@ body.modal-lock { overscroll-behavior: none; }
   display: inline-flex;
   align-items: center;
   gap: 9px;
+  flex-wrap: wrap;
+}
+.esisla-card-title > div {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 .esisla-card-icon {
   font-size: 15px;
@@ -3450,6 +3457,31 @@ body.modal-lock { overscroll-behavior: none; }
   font-weight: 600;
   margin-left: 4px;
   text-transform: none;
+}
+.esisla-char-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #F1F5F9;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.4;
+  transition: all .2s ease;
+}
+.esisla-char-badge.danger {
+  background: #FEE2E2 !important;
+  color: #DC2626 !important;
+  border-color: #FCA5A5 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
 }
 .btn-copy-card-block {
   background: #F8FAFC;

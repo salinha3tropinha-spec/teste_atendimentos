@@ -2681,6 +2681,24 @@ function renderEsislaBlocos(textoFicha) {
         </div>`;
     }
 
+    function getEsislaCharCounterBadgeHtml(texto, limite = 2000) {
+        let clean = '';
+        if (typeof texto === 'string') {
+            clean = sanitizePtBrEsisla(texto).trim();
+        } else if (texto != null) {
+            clean = String(texto).trim();
+        }
+        const count = clean.length;
+        const isExceeded = count > limite;
+        const countFmt = count.toLocaleString('pt-BR');
+        const limiteFmt = limite.toLocaleString('pt-BR');
+
+        if (isExceeded) {
+            return `<span class="esisla-char-badge danger" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:800;background:#FEE2E2;color:#DC2626;border:1px solid #FCA5A5;margin-left:6px;vertical-align:middle;text-transform:none;letter-spacing:normal;" title="Atenção: este bloco ultrapassa o limite de ${limiteFmt} caracteres (${countFmt} caracteres).">⚠️ ${countFmt} / ${limiteFmt} caracteres</span>`;
+        }
+        return `<span class="esisla-char-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;margin-left:6px;vertical-align:middle;text-transform:none;letter-spacing:normal;" title="Total: ${countFmt} caracteres (Limite máximo: ${limiteFmt})">${countFmt} / ${limiteFmt} caracteres</span>`;
+    }
+
     const isFav = parecerTipo.toUpperCase().includes('FAVORÁVEL');
     const parecerBadge = isFav 
         ? '<span style="display:inline-block;padding:4px 12px;border-radius:6px;background:#DEF7EC;color:#03543F;font-weight:800;font-size:12px;border:1px solid #BCF0DA">FAVORÁVEL</span>' 
@@ -2699,6 +2717,7 @@ function renderEsislaBlocos(textoFicha) {
                     <div>
                         <span class="esisla-card-label">Queixa e Duração</span>
                         <span class="esisla-card-sublabel">Histórico da moléstia atual</span>
+                        ${getEsislaCharCounterBadgeHtml(queixa)}
                     </div>
                 </div>
                 <button type="button" class="btn-copy-card-block" onclick="copiarBlocoEsislaCard(this)" title="Copiar este bloco">📋 Copiar</button>
@@ -2713,6 +2732,7 @@ function renderEsislaBlocos(textoFicha) {
                     <div>
                         <span class="esisla-card-label">Antecedentes Mórbidos</span>
                         <span class="esisla-card-sublabel">Histórico patológico pregresso</span>
+                        ${getEsislaCharCounterBadgeHtml(antecedentes)}
                     </div>
                 </div>
                 <button type="button" class="btn-copy-card-block" onclick="copiarBlocoEsislaCard(this)" title="Copiar este bloco">📋 Copiar</button>
@@ -2727,6 +2747,7 @@ function renderEsislaBlocos(textoFicha) {
                     <div>
                         <span class="esisla-card-label">Atestados e Exames Complementares</span>
                         <span class="esisla-card-sublabel">Documentos anexados</span>
+                        ${getEsislaCharCounterBadgeHtml(atestado)}
                     </div>
                 </div>
                 <button type="button" class="btn-copy-card-block" onclick="copiarBlocoEsislaCard(this)" title="Copiar este bloco">📋 Copiar</button>
@@ -2741,6 +2762,7 @@ function renderEsislaBlocos(textoFicha) {
                     <div>
                         <span class="esisla-card-label">Sinais Vitais e Biometria</span>
                         <span class="esisla-card-sublabel">Medições físicas periciais</span>
+                        ${getEsislaCharCounterBadgeHtml(resumoVitais)}
                     </div>
                 </div>
                 <button type="button" class="btn-copy-card-block" onclick="copiarBlocoEsislaCard(this, '${esc(resumoVitais)}')" title="Copiar medições vitais">📋 Copiar</button>
@@ -2776,6 +2798,7 @@ function renderEsislaBlocos(textoFicha) {
                     <div>
                         <span class="esisla-card-label">Exame Físico Geral</span>
                         <span class="esisla-card-sublabel">Avaliação pericial segmentar</span>
+                        ${getEsislaCharCounterBadgeHtml(exameFisicoLimpo)}
                     </div>
                 </div>
                 <button type="button" class="btn-copy-card-block" onclick="copiarBlocoEsislaCard(this)" title="Copiar este bloco">📋 Copiar</button>
@@ -2797,6 +2820,7 @@ function renderEsislaBlocos(textoFicha) {
                     <div>
                         <span class="esisla-card-label">Alterações Clínicas e Exames Complementares</span>
                         <span class="esisla-card-sublabel">Achados clínicos complementares</span>
+                        ${getEsislaCharCounterBadgeHtml(alteracoes)}
                     </div>
                 </div>
                 <button type="button" class="btn-copy-card-block" onclick="copiarBlocoEsislaCard(this)" title="Copiar este bloco">📋 Copiar</button>
@@ -2811,6 +2835,7 @@ function renderEsislaBlocos(textoFicha) {
                     <div>
                         <span class="esisla-card-label">Limitações Físicas e Mentais</span>
                         <span class="esisla-card-sublabel">Impacto laboral</span>
+                        ${getEsislaCharCounterBadgeHtml(limitacoes)}
                     </div>
                 </div>
                 <button type="button" class="btn-copy-card-block" onclick="copiarBlocoEsislaCard(this)" title="Copiar este bloco">📋 Copiar</button>
@@ -2825,6 +2850,7 @@ function renderEsislaBlocos(textoFicha) {
                     <div>
                         <span class="esisla-card-label">Parecer Médico Pericial</span>
                         <span class="esisla-card-sublabel">Decisão oficial conclusiva</span>
+                        ${getEsislaCharCounterBadgeHtml(resumoParecer)}
                     </div>
                 </div>
                 <button type="button" class="btn-copy-card-block" onclick="copiarBlocoEsislaCard(this, '${esc(resumoParecer)}')" title="Copiar parecer pericial">📋 Copiar</button>
@@ -2866,6 +2892,7 @@ function renderEsislaBlocos(textoFicha) {
                     <div>
                         <span class="esisla-card-label">Resposta aos Quesitos Oficiais</span>
                         <span class="esisla-card-sublabel">Tríade pericial DPME</span>
+                        ${getEsislaCharCounterBadgeHtml(resumoQuesitos)}
                     </div>
                 </div>
                 <button type="button" class="btn-copy-card-block" onclick="copiarBlocoEsislaCard(this, '${esc(resumoQuesitos)}')" title="Copiar quesitos">📋 Copiar</button>
@@ -2882,6 +2909,7 @@ function renderEsislaBlocos(textoFicha) {
                     <div>
                         <span class="esisla-card-label">Justificativa do Parecer Médico</span>
                         <span class="esisla-card-sublabel">Fundamentação técnico-pericial</span>
+                        ${getEsislaCharCounterBadgeHtml(justif)}
                     </div>
                 </div>
                 <button type="button" class="btn-copy-card-block" onclick="copiarBlocoEsislaCard(this)" title="Copiar este bloco">📋 Copiar</button>
