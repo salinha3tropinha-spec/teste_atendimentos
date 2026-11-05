@@ -49,8 +49,8 @@
     </div>
     <div class="sticky-hud-actions">
       <span class="hud-save-status" id="hudSaveStatus">✓ Salvo</span>
-      <button type="button" class="btn btn-primary btn-sm" id="hudBtnModoIA2" onclick="abrirModoIA2('selecao')" style="background:linear-gradient(135deg, #4F46E5, #7C3AED);color:#fff;font-weight:800;border:none;box-shadow:0 2px 6px rgba(79,70,229,0.3)" title="Modo IA 2.0 (Gravação com Colinha em Tempo Real ou Modo Escrita)">🚀 IA 2.0</button>
-      <button type="button" class="btn btn-outline btn-sm" onclick="abrirModalPreenchimentoIA()" style="color:#1D4ED8;font-weight:700" title="Preencher com IA a partir de anotações do médico ou dados copiados">✨ IA</button>
+      <button type="button" class="btn btn-primary btn-sm" id="hudBtnModoIA2" onclick="abrirModoIA2('selecao')" style="display:none;background:linear-gradient(135deg, #4F46E5, #7C3AED);color:#fff;font-weight:800;border:none;box-shadow:0 2px 6px rgba(79,70,229,0.3)" title="Modo IA 2.0 (Gravação com Colinha em Tempo Real ou Modo Escrita)">🚀 IA 2.0</button>
+      <button type="button" class="btn btn-outline btn-sm" id="hudBtnPreencherIA" onclick="abrirModalPreenchimentoIA()" style="display:none;color:#1D4ED8;font-weight:700" title="Preencher com IA a partir de anotações do médico ou dados copiados">✨ IA</button>
       <button type="button" class="btn btn-outline btn-sm" onclick="openManagement()">Gestão</button>
       <button type="button" class="btn btn-danger btn-sm" onclick="deleteAtendimento()">Excluir</button>
       <button type="button" class="btn btn-outline btn-sm" onclick="saveNow()" title="Atalho: Ctrl + S">Salvar rascunho</button>
@@ -76,8 +76,8 @@
       <div class="save-status"><span id="saveDot" class="save-dot"></span><span id="saveText">Rascunho não iniciado</span></div>
     </div>
     <div class="header-actions">
-      <button type="button" class="btn btn-primary" id="headerBtnModoIA2" onclick="abrirModoIA2('selecao')" style="background:linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);color:#fff;border:none;font-weight:800;display:inline-flex;align-items:center;gap:6px;box-shadow:0 3px 10px rgba(79,70,229,0.3)" title="Abrir Modo IA 2.0 (Gravação com Colinha em Tempo Real ou Modo Escrita)">🚀 Modo IA 2.0</button>
-      <button type="button" class="btn btn-outline" onclick="abrirModalPreenchimentoIA()" style="background:linear-gradient(135deg, #EFF6FF, #DBEAFE);border-color:#3B82F6;color:#1D4ED8;font-weight:700;display:inline-flex;align-items:center;gap:6px" title="Preencher a ficha inteira com IA a partir de anotações do médico ou dados copiados do sistema">✨ Preencher com IA</button>
+      <button type="button" class="btn btn-primary" id="headerBtnModoIA2" onclick="abrirModoIA2('selecao')" style="display:none;background:linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);color:#fff;border:none;font-weight:800;align-items:center;gap:6px;box-shadow:0 3px 10px rgba(79,70,229,0.3)" title="Abrir Modo IA 2.0 (Gravação com Colinha em Tempo Real ou Modo Escrita)">🚀 Modo IA 2.0</button>
+      <button type="button" class="btn btn-outline" id="headerBtnPreencherIA" onclick="abrirModalPreenchimentoIA()" style="display:none;background:linear-gradient(135deg, #EFF6FF, #DBEAFE);border-color:#3B82F6;color:#1D4ED8;font-weight:700;align-items:center;gap:6px" title="Preencher a ficha inteira com IA a partir de anotações do médico ou dados copiados do sistema">✨ Preencher com IA</button>
       <button class="btn btn-outline optional" onclick="openManagement()">Gestão</button>
       <button class="btn btn-danger optional" onclick="deleteAtendimento()">Excluir</button>
       <button class="btn btn-outline optional" onclick="saveNow()">Salvar rascunho</button>
@@ -167,9 +167,6 @@
               ✍️ Escrita
             </button>
           </div>
-          <button type="button" class="btn btn-outline btn-sm ia2-btn-prontuario-padrao" onclick="sairModoIA2()" title="Alternar para visualização tradicional do prontuário médico">
-            👁️ Ver Prontuário Padrão
-          </button>
         </div>
       </div>
 
@@ -291,9 +288,6 @@
               </button>
               <button type="button" class="ia2-hero-sec-btn" onclick="trocarSubViewIA2('escrita')">
                 <span>✍️</span> Modo Escrita / Ditado
-              </button>
-              <button type="button" class="ia2-hero-sec-btn" onclick="sairModoIA2()">
-                <span>👁️</span> Ver Prontuário Padrão
               </button>
             </div>
           </div>

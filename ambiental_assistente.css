@@ -1062,23 +1062,6 @@ body.modo-ia2-active #containerModoIA2 {
   font-size: 11.5px;
 }
 
-.ia2-btn-prontuario-padrao {
-  font-weight: 700;
-  font-size: 12px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  border-color: #CBD5E1;
-  color: #475569;
-  background: #FFFFFF;
-  transition: all 0.2s ease;
-}
-
-.ia2-btn-prontuario-padrao:hover {
-  background: #F8FAFC;
-  border-color: #94A3B8;
-  color: #0F172A;
-}
-
 /* Fallback para compatibilidade com classes antigas */
 .ia2-patient-info {
   display: flex;

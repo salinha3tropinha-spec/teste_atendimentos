@@ -1293,6 +1293,9 @@ function syncState(){
       osteomuscularRegioes:state.osteomuscularRegioes || prevAux.osteomuscularRegioes || {},
       justificativa:getVal("justificativa", prevAux.justificativa || state.justificativa || $("agilJustificativa")?.value || "")
     };
+    if (typeof hasFichaVinculada === "function" && hasFichaVinculada() && typeof preservarDadosFichaVinculada === "function") {
+      preservarDadosFichaVinculada();
+    }
   } finally {
     __isSyncingState = false;
   }
@@ -4381,39 +4384,47 @@ function abrirModalDecisaoMedicoIA2(origem, texto) {
   // Extrair preventivamente os dados do atestado e prazos do texto bruto antes de abrir o modal
   const preAtd = extrairDadosAtestadoTextoBrutoJS(ia2DecisaoTextoPendente);
   if (!state.aux) state.aux = {};
-  if (preAtd.crmCro) {
-    state.crmCro = preAtd.crmCro;
-    state.aux.crmCro = preAtd.crmCro;
-    if ($("agilCrmCro")) $("agilCrmCro").value = preAtd.crmCro;
-    if ($("crmCro")) $("crmCro").value = preAtd.crmCro;
-  }
-  if (preAtd.nomeMedico) {
-    state.aux.nomeMedicoAssistente = preAtd.nomeMedico;
-    state.aux.medicoAssistenteNome = preAtd.nomeMedico;
-  }
-  if (preAtd.diasSolicitados) {
-    state.diasSolicitados = preAtd.diasSolicitados;
-    state.aux.diasSolicitados = preAtd.diasSolicitados;
-    if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = preAtd.diasSolicitados;
-    if ($("diasSolicitados")) $("diasSolicitados").value = preAtd.diasSolicitados;
-  }
-  if (preAtd.dataDocumentoIso) {
-    state.dataDocumento = preAtd.dataDocumentoIso;
-    state.aux.dataDocumento = preAtd.dataDocumentoIso;
-    if ($("agilDataDocumento")) $("agilDataDocumento").value = preAtd.dataDocumentoIso;
-    if ($("dataDocumento")) $("dataDocumento").value = preAtd.dataDocumentoIso;
-  }
-  if (preAtd.dataExpedicaoIso) {
-    state.dataExpedicao = preAtd.dataExpedicaoIso;
-    state.aux.dataExpedicaoIso = preAtd.dataExpedicaoIso;
-    state.aux.dataExpedicao = preAtd.dataExpedicaoBr || preAtd.dataExpedicaoIso;
-    if ($("agilDataExpedicao")) $("agilDataExpedicao").value = preAtd.dataExpedicaoIso;
-    if ($("dataExpedicao")) $("dataExpedicao").value = preAtd.dataExpedicaoIso;
+  const isVinculado = (typeof hasFichaVinculada === "function") && hasFichaVinculada();
+  if (isVinculado) {
+    if (typeof preservarDadosFichaVinculada === "function") preservarDadosFichaVinculada();
+  } else {
+    if (preAtd.crmCro) {
+      state.crmCro = preAtd.crmCro;
+      state.aux.crmCro = preAtd.crmCro;
+      if ($("agilCrmCro")) $("agilCrmCro").value = preAtd.crmCro;
+      if ($("crmCro")) $("crmCro").value = preAtd.crmCro;
+    }
+    if (preAtd.nomeMedico) {
+      state.aux.nomeMedicoAssistente = preAtd.nomeMedico;
+      state.aux.medicoAssistenteNome = preAtd.nomeMedico;
+    }
+    if (preAtd.diasSolicitados) {
+      state.diasSolicitados = preAtd.diasSolicitados;
+      state.aux.diasSolicitados = preAtd.diasSolicitados;
+      if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = preAtd.diasSolicitados;
+      if ($("diasSolicitados")) $("diasSolicitados").value = preAtd.diasSolicitados;
+    }
+    if (preAtd.dataDocumentoIso) {
+      state.dataDocumento = preAtd.dataDocumentoIso;
+      state.aux.dataDocumento = preAtd.dataDocumentoIso;
+      if ($("agilDataDocumento")) $("agilDataDocumento").value = preAtd.dataDocumentoIso;
+      if ($("dataDocumento")) $("dataDocumento").value = preAtd.dataDocumentoIso;
+    }
+    if (preAtd.dataExpedicaoIso) {
+      state.dataExpedicao = preAtd.dataExpedicaoIso;
+      state.aux.dataExpedicaoIso = preAtd.dataExpedicaoIso;
+      state.aux.dataExpedicao = preAtd.dataExpedicaoBr || preAtd.dataExpedicaoIso;
+      if ($("agilDataExpedicao")) $("agilDataExpedicao").value = preAtd.dataExpedicaoIso;
+      if ($("dataExpedicao")) $("dataExpedicao").value = preAtd.dataExpedicaoIso;
+    }
   }
 
   syncState();
+  if (isVinculado && typeof preservarDadosFichaVinculada === "function") {
+    preservarDadosFichaVinculada();
+  }
   const v = values();
-  const diasSolStr = preAtd.diasSolicitados || state.diasSolicitados || state.aux?.diasSolicitados || v.diasSolicitados || $("agilDiasSolicitados")?.value || $("diasSolicitados")?.value || "0";
+  const diasSolStr = (isVinculado ? (state.aux?.dadosFichaVinculada?.diasSolicitados || state.diasSolicitados || state.aux?.diasSolicitados) : (preAtd.diasSolicitados || state.diasSolicitados || state.aux?.diasSolicitados)) || v.diasSolicitados || $("agilDiasSolicitados")?.value || $("diasSolicitados")?.value || "0";
   const diasNum = parseInt(diasSolStr, 10) || 0;
   ia2DecisaoDiasValorOriginal = diasNum;
 
@@ -4725,14 +4736,21 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
       }
       if (typeof decisaoMedico.diasConcedidos !== "undefined" && decisaoMedico.diasConcedidos !== null) {
         const dStr = String(decisaoMedico.diasConcedidos).trim();
-        const iaDias = String(dados.dias_solicitados || state.diasSolicitados || "").trim();
-        // Só sobrescreve diasSolicitados se o médico escolheu reduzir manualmente ou se iaDias estiver vazio
-        if (decisaoMedico.diasModo === "reduzir" || (!iaDias && dStr && dStr !== "0")) {
-          state.diasSolicitados = dStr;
-          if (!state.aux) state.aux = {};
-          state.aux.diasSolicitados = dStr;
-          if ($("diasSolicitados")) $("diasSolicitados").value = dStr;
-          if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = dStr;
+        state.diasConcedidos = dStr;
+        if (!state.aux) state.aux = {};
+        state.aux.diasConcedidos = dStr;
+
+        const isVinculado = (typeof hasFichaVinculada === "function") && hasFichaVinculada();
+        if (!isVinculado) {
+          const iaDias = String(dados.dias_solicitados || state.diasSolicitados || "").trim();
+          if (decisaoMedico.diasModo === "reduzir" || (!iaDias && dStr && dStr !== "0")) {
+            state.diasSolicitados = dStr;
+            state.aux.diasSolicitados = dStr;
+            if ($("diasSolicitados")) $("diasSolicitados").value = dStr;
+            if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = dStr;
+          }
+        } else if (typeof preservarDadosFichaVinculada === "function") {
+          preservarDadosFichaVinculada();
         }
       }
     }
@@ -4966,15 +4984,89 @@ window.atualizarOverlayIA2Passo = atualizarOverlayIA2Passo;
    PREENCHIMENTO INTELIGENTE COM IA (ANOTAÇÕES / SISTEMA)
    ========================================================= */
 function isAdmInDoctorLogin() {
+  const isAdm = Boolean(
+    (currentProfile?.perfilOriginal === 'Administrador') ||
+    (currentProfile?.perfil === 'Administrador') ||
+    (currentProfile?.real_user_role === 'Administrador')
+  );
+  if (!isAdm) return false;
+
   const isImp = Boolean(
     (currentProfile && currentProfile.is_impersonating) ||
     (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('ambiental.impersonate_medico_id')) ||
     new URLSearchParams(window.location.search).get('impersonate_medico_id') ||
-    new URLSearchParams(window.location.search).get('medico_id')
+    (currentProfile?.perfil === 'Médico' && isAdm) ||
+    (currentProfile?.perfil === 'Administrador')
   );
-  const isAdm = (currentProfile?.perfilOriginal === 'Administrador') || (currentProfile?.perfil === 'Administrador');
-  return isAdm || isImp;
+  return isAdm && isImp;
 }
+window.isAdmInDoctorLogin = isAdmInDoctorLogin;
+
+function hasFichaVinculada() {
+  if (!state) return false;
+  const aux = state.aux || {};
+  return Boolean(
+    aux.fichaVinculada ||
+    aux.ficha_vinculada ||
+    aux.origemCriacao === "IMPORTACAO_ESISLA_AGENDA_BATCH" ||
+    aux.origemCriacao === "IMPORTACAO_ESISLA" ||
+    state.origemCriacao === "IMPORTACAO_ESISLA_AGENDA_BATCH" ||
+    state.origemCriacao === "IMPORTACAO_ESISLA" ||
+    (aux.protocolo && aux.dataExpedicao) ||
+    (aux.agenda_protocolo && aux.dataExpedicao) ||
+    (state.dataExpedicao && (state.dataDocumento || aux.dataDocumento)) ||
+    aux.dadosFichaVinculada ||
+    state.dadosFichaVinculada
+  );
+}
+window.hasFichaVinculada = hasFichaVinculada;
+
+function preservarDadosFichaVinculada() {
+  if (!state || !state.aux) return;
+  if (!hasFichaVinculada()) return;
+  const v = state.aux.dadosFichaVinculada || {
+    dataDocumento: state.dataDocumento || state.aux.dataDocumento || "",
+    dataExpedicao: state.aux.dataExpedicao || state.dataExpedicao || "",
+    dataExpedicaoIso: state.aux.dataExpedicaoIso || state.dataExpedicao || "",
+    diasSolicitados: state.diasSolicitados || state.aux.diasSolicitados || "",
+    crmCro: state.crmCro || state.aux.crmCro || "",
+    medicoAssistenteNome: state.aux.nomeMedicoAssistente || state.aux.medicoAssistenteNome || ""
+  };
+  state.aux.fichaVinculada = true;
+  state.aux.dadosFichaVinculada = v;
+
+  if (v.dataDocumento) {
+    state.dataDocumento = v.dataDocumento;
+    state.aux.dataDocumento = v.dataDocumento;
+    if ($("dataDocumento")) $("dataDocumento").value = v.dataDocumento;
+    if ($("agilDataDocumento")) $("agilDataDocumento").value = v.dataDocumento;
+  }
+  if (v.dataExpedicao || v.dataExpedicaoIso) {
+    const exp = v.dataExpedicaoIso || v.dataExpedicao;
+    state.dataExpedicao = exp;
+    state.aux.dataExpedicao = v.dataExpedicao || exp;
+    state.aux.dataExpedicaoIso = exp;
+    if ($("dataExpedicao")) $("dataExpedicao").value = exp;
+    if ($("agilDataExpedicao")) $("agilDataExpedicao").value = exp;
+  }
+  if (v.diasSolicitados) {
+    state.diasSolicitados = v.diasSolicitados;
+    state.aux.diasSolicitados = v.diasSolicitados;
+    if ($("diasSolicitados")) $("diasSolicitados").value = v.diasSolicitados;
+    if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = v.diasSolicitados;
+  }
+  if (v.crmCro) {
+    state.crmCro = v.crmCro;
+    state.aux.crmCro = v.crmCro;
+    if ($("crmCro")) $("crmCro").value = v.crmCro;
+    if ($("agilCrmCro")) $("agilCrmCro").value = v.crmCro;
+  }
+  if (v.medicoAssistenteNome) {
+    state.aux.medicoAssistenteNome = v.medicoAssistenteNome;
+    state.aux.nomeMedicoAssistente = v.medicoAssistenteNome;
+  }
+}
+window.preservarDadosFichaVinculada = preservarDadosFichaVinculada;
 
 function isModoIA2Habilitado() {
   const isImpersonating = Boolean(
@@ -5005,16 +5097,22 @@ function isModoIA2Habilitado() {
 window.isModoIA2Habilitado = isModoIA2Habilitado;
 
 function aplicarVisibilidadeModoIA2() {
-  const habilitado = isModoIA2Habilitado();
+  const isAdmDoctor = (typeof isAdmInDoctorLogin === "function") ? isAdmInDoctorLogin() : false;
   const hudBtn = $("hudBtnModoIA2");
   const hdrBtn = $("headerBtnModoIA2");
   const bnrBtn = $("bannerBtnModoIA2");
+  const hdrPreencherBtn = $("headerBtnPreencherIA") || document.querySelector('.header-actions button[onclick*="abrirModalPreenchimentoIA"]');
+  const hudPreencherBtn = $("hudBtnPreencherIA") || $("stickyDoctorHUD")?.querySelector('button[onclick*="abrirModalPreenchimentoIA"]');
 
-  if (hudBtn) hudBtn.style.display = habilitado ? "inline-flex" : "none";
-  if (hdrBtn) hdrBtn.style.display = habilitado ? "inline-flex" : "none";
-  if (bnrBtn) bnrBtn.style.display = habilitado ? "inline-flex" : "none";
+  // "Não precisa mostrar em cima 🚀 Modo IA 2.0 e ✨ Preencher com IA. Deixe apenas para adm que entrar no login médico."
+  if (hdrBtn) hdrBtn.style.display = isAdmDoctor ? "inline-flex" : "none";
+  if (hdrPreencherBtn) hdrPreencherBtn.style.display = isAdmDoctor ? "inline-flex" : "none";
 
-  if (!habilitado && document.body.classList.contains("modo-ia2-active")) {
+  if (hudBtn) hudBtn.style.display = isAdmDoctor ? "inline-flex" : "none";
+  if (hudPreencherBtn) hudPreencherBtn.style.display = isAdmDoctor ? "inline-flex" : "none";
+  if (bnrBtn) bnrBtn.style.display = isAdmDoctor ? "inline-flex" : "none";
+
+  if (!isModoIA2Habilitado() && document.body.classList.contains("modo-ia2-active")) {
     const container = $("containerModoIA2");
     if (container) container.style.display = "none";
     document.body.classList.remove("modo-ia2-active");
@@ -5757,31 +5855,36 @@ function aplicarDadosEsisla(dados) {
 
     if (dados.nome_medico_assistente) state.aux.medicoAssistenteNome = dados.nome_medico_assistente;
 
-    const isoExp = toIsoDate(dados.data_expedicao_iso || dados.data_expedicao);
-    if (isoExp) {
-      state.aux.dataExpedicao = dados.data_expedicao || isoExp;
-      state.aux.dataExpedicaoIso = isoExp;
-      state.dataExpedicao = dados.data_expedicao || isoExp;
-      if ($("dataExpedicao")) $("dataExpedicao").value = isoExp;
-      if ($("agilDataExpedicao")) $("agilDataExpedicao").value = isoExp;
-    } else if (dados.data_expedicao) {
-      state.aux.dataExpedicao = dados.data_expedicao;
-      state.dataExpedicao = dados.data_expedicao;
-    }
+    const isVinculado = (typeof hasFichaVinculada === "function") && hasFichaVinculada();
+    if (isVinculado) {
+      if (typeof preservarDadosFichaVinculada === "function") preservarDadosFichaVinculada();
+    } else {
+      const isoExp = toIsoDate(dados.data_expedicao_iso || dados.data_expedicao);
+      if (isoExp) {
+        state.aux.dataExpedicao = dados.data_expedicao || isoExp;
+        state.aux.dataExpedicaoIso = isoExp;
+        state.dataExpedicao = dados.data_expedicao || isoExp;
+        if ($("dataExpedicao")) $("dataExpedicao").value = isoExp;
+        if ($("agilDataExpedicao")) $("agilDataExpedicao").value = isoExp;
+      } else if (dados.data_expedicao) {
+        state.aux.dataExpedicao = dados.data_expedicao;
+        state.dataExpedicao = dados.data_expedicao;
+      }
 
-    const isoDoc = toIsoDate(dados.data_documento || dados.data_documento_br);
-    if (isoDoc) {
-      state.aux.dataDocumento = isoDoc;
-      if ($("dataDocumento")) $("dataDocumento").value = isoDoc;
-      if ($("agilDataDocumento")) $("agilDataDocumento").value = isoDoc;
-    }
+      const isoDoc = toIsoDate(dados.data_documento || dados.data_documento_br);
+      if (isoDoc) {
+        state.aux.dataDocumento = isoDoc;
+        if ($("dataDocumento")) $("dataDocumento").value = isoDoc;
+        if ($("agilDataDocumento")) $("agilDataDocumento").value = isoDoc;
+      }
 
-    if (dados.dias_solicitados) {
-      const diasVal = String(dados.dias_solicitados);
-      state.aux.diasSolicitados = diasVal;
-      state.aux.diasConcedidos = diasVal;
-      if ($("diasSolicitados")) $("diasSolicitados").value = diasVal;
-      if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = diasVal;
+      if (dados.dias_solicitados) {
+        const diasVal = String(dados.dias_solicitados);
+        state.aux.diasSolicitados = diasVal;
+        state.aux.diasConcedidos = diasVal;
+        if ($("diasSolicitados")) $("diasSolicitados").value = diasVal;
+        if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = diasVal;
+      }
     }
 
     // Abrir o subpainel de atestado do assistente e calcular as datas
@@ -7065,6 +7168,22 @@ async function tryServerLoad(id){
       state.workflowStatus=d.status||state.workflowStatus||"RASCUNHO";
       state.finalizado=state.workflowStatus==="FINALIZADO";
       if (!state.aux || typeof state.aux !== "object") state.aux = {};
+      const isVinculado = (typeof hasFichaVinculada === "function") && hasFichaVinculada();
+      if (isVinculado) {
+        state.aux.fichaVinculada = true;
+        if (!state.aux.dadosFichaVinculada) {
+          state.aux.dadosFichaVinculada = {
+            dataDocumento: state.dataDocumento || state.aux.dataDocumento || "",
+            dataExpedicao: state.aux.dataExpedicao || state.dataExpedicao || "",
+            dataExpedicaoIso: state.aux.dataExpedicaoIso || state.dataExpedicao || "",
+            diasSolicitados: state.diasSolicitados || state.aux.diasSolicitados || "",
+            crmCro: state.crmCro || state.aux.crmCro || "",
+            medicoAssistenteNome: state.aux.nomeMedicoAssistente || state.aux.medicoAssistenteNome || "",
+            cid: state.cid || state.aux.cid || ""
+          };
+        }
+        if (typeof preservarDadosFichaVinculada === "function") preservarDadosFichaVinculada();
+      }
       state.atendimento = state.atendimento || d.atendimento || id;
       const pacienteNome = state.nomePaciente || state.aux.nomePaciente || d.paciente_nome || d.paciente || "";
       if (pacienteNome) { state.nomePaciente = pacienteNome; state.aux.nomePaciente = pacienteNome; }
@@ -7088,6 +7207,10 @@ async function syncToServer(manual=false){
   if(isFinalizedReadOnly()){
     console.log("Atendimento em modo leitura. Sincronização de background ignorada.");
     return {ok: true, readonly: true};
+  }
+  
+  if (typeof preservarDadosFichaVinculada === "function") {
+    preservarDadosFichaVinculada();
   }
   
   try{

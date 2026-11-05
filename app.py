@@ -5738,8 +5738,10 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
     par_val = str(payload.get("parecer") or "").strip().upper()
     is_contra = ("CONTR" in par_val) or is_retro_invalida
     parecer_label = "CONTRÁRIO" if is_contra else "FAVORÁVEL"
-    dias = "0" if is_contra else str(payload.get("dias_solicitados") or payload.get("dias") or payload.get("atestado_dias") or "1").strip()
-    data_doc = str(payload.get("data_documento") or "").strip()
+    dias_concedidos = str(payload.get("diasConcedidos") or (payload.get("aux") or {}).get("diasConcedidos") or "").strip()
+    dias_solicitados = str(payload.get("dias_solicitados") or payload.get("diasSolicitados") or (payload.get("aux") or {}).get("diasSolicitados") or payload.get("dias") or payload.get("atestado_dias") or "1").strip()
+    dias = "0" if is_contra else (dias_concedidos or dias_solicitados or "1")
+    data_doc = str(payload.get("data_documento") or payload.get("dataDocumento") or (payload.get("aux") or {}).get("dataDocumento") or "").strip()
     data_doc_br = _format_date_br(data_doc) if data_doc else _format_date_br(_utc_now()[:10])
 
     cid_code = str(payload.get("cid") or "").strip().upper()
@@ -10858,6 +10860,40 @@ def api_save_atendimento(rid=None):
                 if saved_ficha_ts:
                     payload["ficha_esisla_gerada_em"] = saved_ficha_ts
                     a["fichaEsislaGeradaEm"] = saved_ficha_ts
+
+            # Preservar dados da ficha vinculada (data do atestado, expedição e dias solicitados originais)
+            is_vinculado_old = bool(
+                old_aux_d.get("fichaVinculada") or
+                old_aux_d.get("origemCriacao") in ("IMPORTACAO_ESISLA", "IMPORTACAO_ESISLA_AGENDA_BATCH") or
+                (isinstance(old, dict) and old.get("origemCriacao") in ("IMPORTACAO_ESISLA", "IMPORTACAO_ESISLA_AGENDA_BATCH")) or
+                old_aux_d.get("dadosFichaVinculada")
+            )
+            if is_vinculado_old:
+                dados_vinc = old_aux_d.get("dadosFichaVinculada") if isinstance(old_aux_d.get("dadosFichaVinculada"), dict) else {}
+                saved_dt_doc = str(dados_vinc.get("dataDocumento") or old.get("dataDocumento") or old_aux_d.get("dataDocumento") or "").strip()
+                saved_dt_exp = str(dados_vinc.get("dataExpedicao") or old.get("dataExpedicao") or old_aux_d.get("dataExpedicao") or "").strip()
+                saved_dt_exp_iso = str(dados_vinc.get("dataExpedicaoIso") or old_aux_d.get("dataExpedicaoIso") or saved_dt_exp).strip()
+                saved_dias_sol = str(dados_vinc.get("diasSolicitados") or old.get("diasSolicitados") or old_aux_d.get("diasSolicitados") or "").strip()
+
+                if saved_dt_doc:
+                    payload["dataDocumento"] = saved_dt_doc
+                    a["dataDocumento"] = saved_dt_doc
+                if saved_dt_exp:
+                    payload["dataExpedicao"] = saved_dt_exp_iso or saved_dt_exp
+                    a["dataExpedicao"] = saved_dt_exp
+                    a["dataExpedicaoIso"] = saved_dt_exp_iso or saved_dt_exp
+                if saved_dias_sol:
+                    payload["diasSolicitados"] = saved_dias_sol
+                    a["diasSolicitados"] = saved_dias_sol
+                a["fichaVinculada"] = True
+                a["dadosFichaVinculada"] = {
+                    "dataDocumento": saved_dt_doc,
+                    "dataExpedicao": saved_dt_exp,
+                    "dataExpedicaoIso": saved_dt_exp_iso,
+                    "diasSolicitados": saved_dias_sol,
+                    "crmCro": dados_vinc.get("crmCro") or old.get("crmCro") or a.get("crmCro") or "",
+                    "medicoAssistenteNome": dados_vinc.get("medicoAssistenteNome") or a.get("medicoAssistenteNome") or ""
+                }
 
         incoming = _normalize_workflow_state(payload.get("workflowStatus"), "RASCUNHO")
         
