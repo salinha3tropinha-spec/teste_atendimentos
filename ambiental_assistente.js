@@ -7309,7 +7309,7 @@ async function tryServerLoad(id){
         }
         if (typeof preservarDadosFichaVinculada === "function") preservarDadosFichaVinculada();
       }
-      state.atendimento = state.atendimento || d.atendimento || id;
+      state.atendimento = d.atendimento || d.id || id || state.atendimento;
       const pacienteNome = state.nomePaciente || state.aux.nomePaciente || d.paciente_nome || d.paciente || "";
       if (pacienteNome) { state.nomePaciente = pacienteNome; state.aux.nomePaciente = pacienteNome; }
       const pacienteCpf = state.cpfPaciente || state.aux.cpfPaciente || d.paciente_cpf || d.cpf || "";
@@ -7389,9 +7389,24 @@ async function syncToServer(manual=false){
       d=await r.json().catch(()=>null);
     }
     
-    if(!r.ok&&!hasServerId&&r.status===409&&d?.error?.code==="DUPLICATE_ATENDIMENTO"){
-      r=await AmbientalAuth.authFetch(`${getApiBase()}/api/atendimentos/${encodeURIComponent(state.atendimento)}`,{method:"PUT",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(payload)});
-      d=await r.json().catch(()=>null);
+    if(!r.ok&&r.status===409&&d?.error?.code==="DUPLICATE_ATENDIMENTO"){
+      if(state.__serverId && String(state.atendimento) !== String(state.__serverId)){
+        state.atendimento = state.__serverId;
+        payload.atendimento = state.__serverId;
+        const retryR = await AmbientalAuth.authFetch(`${getApiBase()}/api/atendimentos/${encodeURIComponent(state.__serverId)}`,{
+          method: "PUT",
+          headers: {"Content-Type":"application/json","Accept":"application/json"},
+          body: JSON.stringify(payload)
+        });
+        const retryD = await retryR.json().catch(()=>null);
+        if(retryR.ok && retryD?.success){
+          r = retryR;
+          d = retryD;
+        }
+      } else if(!hasServerId){
+        r=await AmbientalAuth.authFetch(`${getApiBase()}/api/atendimentos/${encodeURIComponent(state.atendimento)}`,{method:"PUT",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(payload)});
+        d=await r.json().catch(()=>null);
+      }
     }
     
     // --- AUTO-CORREÇÃO DE CONFLITO (SEM MENSAGEM / SEM BLOQUEIO) ---
@@ -7481,7 +7496,7 @@ async function flushOfflineQueue(){
           state.__serverSyncedAt=new Date().toISOString();
           setPersistStatus("ok","Sincronizado com o servidor");
         }
-      }else if(r.status===409 && d?.error?.code==="VERSION_CONFLICT") {
+      }else if(r.status===409 && (d?.error?.code==="VERSION_CONFLICT" || d?.error?.code==="DUPLICATE_ATENDIMENTO")) {
         await queue.remove(item.key);
         continue;
       }
@@ -8915,10 +8930,15 @@ async function init(){
      if ($("agilNomePaciente")) $("agilNomePaciente").value = nomeAltParam;
    }
    if (protocoloParam) {
-     state.atendimento = protocoloParam;
-     if ($("atd")) $("atd").value = protocoloParam;
-     if ($("atdNumber")) $("atdNumber").textContent = protocoloParam;
-     if ($("atendimento")) $("atendimento").value = protocoloParam;
+     if (!state.aux) state.aux = {};
+     state.aux.protocolo = protocoloParam;
+     state.aux.agenda_protocolo = protocoloParam;
+     if (!recovered && (!state.atendimento || isNew)) {
+       state.atendimento = protocoloParam;
+       if ($("atd")) $("atd").value = protocoloParam;
+       if ($("atdNumber")) $("atdNumber").textContent = protocoloParam;
+       if ($("atendimento")) $("atendimento").value = protocoloParam;
+     }
    }
    if (horaParam) {
      state.aux.horaAtd = horaParam;
@@ -13768,8 +13788,14 @@ async function verificarHistoricoPericiado(cpf) {
   }
 
   try {
-    const res = await fetch(`/api/atendimentos?q=${encodeURIComponent(clean)}`, {
-      headers: typeof AmbientalAuth !== "undefined" ? AmbientalAuth.headers() : {}
+    const fetchFn = (window.AmbientalAuth && typeof window.AmbientalAuth.authFetch === "function") 
+      ? window.AmbientalAuth.authFetch 
+      : fetch;
+    const authHeaders = (window.AmbientalAuth && typeof window.AmbientalAuth.headers === "function") 
+      ? window.AmbientalAuth.headers() 
+      : { "Accept": "application/json" };
+    const res = await fetchFn(`/api/atendimentos?q=${encodeURIComponent(clean)}`, {
+      headers: authHeaders
     });
     if (!res.ok) return;
     const data = await res.json();

@@ -406,9 +406,25 @@
     return response;
   }
 
+  function headers(custom = {}) {
+    const h = { "Accept": "application/json", ...custom };
+    try {
+      const raw = storage.getItem("ambiental.auth.session");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.access_token) h["Authorization"] = `Bearer ${parsed.access_token}`;
+      }
+      const impId = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('ambiental.impersonate_medico_id') : null;
+      if (impId && !h["X-Impersonate-Medico-Id"]) {
+        h["X-Impersonate-Medico-Id"] = impId;
+      }
+    } catch (_) {}
+    return h;
+  }
+
   window.AmbientalAuth = {
     init, setRemember, getClient, getAccessToken, getUser, me, login, recover,
-    updatePassword, logout, requireAuth, authFetch, syncServerSession, roleHome, areaAllowed,
+    updatePassword, logout, requireAuth, authFetch, syncServerSession, roleHome, areaAllowed, headers,
     get profile() { return STATE.profile; },
   };
 })();

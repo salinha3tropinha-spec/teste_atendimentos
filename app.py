@@ -10850,8 +10850,16 @@ def api_save_atendimento(rid=None):
         
         db = get_db()
         cur = db.cursor()
-        cur.execute("SELECT * FROM atendimentos WHERE id=%s OR numero=%s FOR UPDATE", (rid, number))
-        oldrow = cur.fetchone()
+        oldrow = None
+        if rid:
+            cur.execute("SELECT * FROM atendimentos WHERE id=%s FOR UPDATE", (rid,))
+            oldrow = cur.fetchone()
+        if not oldrow and number:
+            cur.execute("SELECT * FROM atendimentos WHERE numero=%s FOR UPDATE", (number,))
+            oldrow = cur.fetchone()
+        if not oldrow and rid and number:
+            cur.execute("SELECT * FROM atendimentos WHERE id=%s OR numero=%s FOR UPDATE", (rid, number))
+            oldrow = cur.fetchone()
         if oldrow:
             denied = _require_record_access(oldrow, write=True)
             if denied:
@@ -10972,10 +10980,13 @@ def api_save_atendimento(rid=None):
         completeness = _calc_completeness(payload)
         
         if oldrow:
+            real_id = oldrow["id"]
+            target_number = str(oldrow.get("numero") or number or "").strip()
+            payload["atendimento"] = target_number
             next_version = int(oldrow.get("versao") or 1) + 1
             cur.execute(
                 "UPDATE atendimentos SET numero=%s, payload_json=%s, status=%s, paciente_nome_hash=%s, paciente_nome=%s, paciente_cpf=%s, medico=%s, cid=%s, unidade=%s, completude=%s, alertas=%s, inconsistencias=%s, atualizado_em=%s, finalizado_em=%s, versao=%s, atualizado_por=%s WHERE id=%s AND versao=%s",
-                (number, json.dumps(payload, ensure_ascii=False), status, _patient_hash(payload), paciente_nome_db, paciente_cpf_db, str(payload.get("medico") or ""), str(a.get("cid") or ""), str(a.get("unidade") or ""), completeness, int(len(payload.get("aiAlertas") or [])), int(len(payload.get("inconsistencias") or [])), now, oldrow["finalizado_em"], next_version, request.user_id, oldrow["id"], current_version)
+                (target_number, json.dumps(payload, ensure_ascii=False), status, _patient_hash(payload), paciente_nome_db, paciente_cpf_db, str(payload.get("medico") or ""), str(a.get("cid") or ""), str(a.get("unidade") or ""), completeness, int(len(payload.get("aiAlertas") or [])), int(len(payload.get("inconsistencias") or [])), now, oldrow["finalizado_em"], next_version, request.user_id, oldrow["id"], current_version)
             )
             if cur.rowcount != 1:
                 # VERSION_CONFLICT bypass: caso ocorra alteração simultânea durante o salvamento, obtém a versão atual e conclui o update
@@ -10985,9 +10996,8 @@ def api_save_atendimento(rid=None):
                 next_version = current_version + 1
                 cur.execute(
                     "UPDATE atendimentos SET numero=%s, payload_json=%s, status=%s, paciente_nome_hash=%s, paciente_nome=%s, paciente_cpf=%s, medico=%s, cid=%s, unidade=%s, completude=%s, alertas=%s, inconsistencias=%s, atualizado_em=%s, finalizado_em=%s, versao=%s, atualizado_por=%s WHERE id=%s",
-                    (number, json.dumps(payload, ensure_ascii=False), status, _patient_hash(payload), paciente_nome_db, paciente_cpf_db, str(payload.get("medico") or ""), str(a.get("cid") or ""), str(a.get("unidade") or ""), completeness, int(len(payload.get("aiAlertas") or [])), int(len(payload.get("inconsistencias") or [])), now, oldrow["finalizado_em"], next_version, request.user_id, oldrow["id"])
+                    (target_number, json.dumps(payload, ensure_ascii=False), status, _patient_hash(payload), paciente_nome_db, paciente_cpf_db, str(payload.get("medico") or ""), str(a.get("cid") or ""), str(a.get("unidade") or ""), completeness, int(len(payload.get("aiAlertas") or [])), int(len(payload.get("inconsistencias") or [])), now, oldrow["finalizado_em"], next_version, request.user_id, oldrow["id"])
                 )
-            real_id = oldrow["id"]
             if eff.get("is_impersonating"):
                 cur.execute("UPDATE atendimentos SET usuario_id=%s, medico=%s WHERE id=%s", (eff.get("id"), str(payload.get("medico") or ""), real_id))
             elif not oldrow.get("usuario_id") and request.user_role != "Médico":
@@ -11006,11 +11016,12 @@ def api_save_atendimento(rid=None):
         _invalidate_stats_cache()
         saved_version = 1 if oldrow is None else int(oldrow.get("versao") or 1) + 1
         cur.close()
-        return _ok({"id": real_id, "atendimento": number, "status": status, "completude": completeness, "atualizado_em": now, "versao": saved_version}, 201 if oldrow is None else 200)
+        return _ok({"id": real_id, "atendimento": target_number if oldrow else number, "status": status, "completude": completeness, "atualizado_em": now, "versao": saved_version}, 201 if oldrow is None else 200)
         
     except psycopg2.IntegrityError as exc:
         if 'db' in locals() and db:
             db.rollback()
+        app.logger.warning("IntegrityError ao salvar atendimento (rid=%s, number=%s): %s", rid, number, str(exc))
         return _error("DUPLICATE_ATENDIMENTO", "O atendimento já existe no servidor.", False, 409)
     except Exception as exc:
         if 'db' in locals() and db:
