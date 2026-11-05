@@ -1609,6 +1609,7 @@ main { min-width: 0; }
     sessionStorage.setItem('ambiental.impersonate_medico_id', String(medicoId));
     sessionStorage.setItem('ambiental.impersonate_medico_nome', nomeFinal);
     sessionStorage.setItem('ambiental.impersonate_medico_crm', crmFinal);
+    sessionStorage.setItem('ambiental.impersonate_medico_modo', r?.modo_atendimento || 'agil');
 
     toast(`Entrando como ${nomeFinal}…`);
     setTimeout(() => {

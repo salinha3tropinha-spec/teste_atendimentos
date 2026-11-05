@@ -27,7 +27,8 @@ const authReady = AmbientalAuth.requireAuth({area:'atendimento'}).then(async pro
       if (profile.perfil === 'Administrador' || profile.perfilOriginal === 'Administrador') {
         let docNome = sessionStorage.getItem('ambiental.impersonate_medico_nome');
         let docCrm = sessionStorage.getItem('ambiental.impersonate_medico_crm');
-        if (!docNome) {
+        let docModo = sessionStorage.getItem('ambiental.impersonate_medico_modo');
+        if (!docNome || !docModo) {
           try {
             const listRes = await fetch('/api/admin/medicos/lista-impersonate', {
               headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
@@ -37,8 +38,10 @@ const authReady = AmbientalAuth.requireAuth({area:'atendimento'}).then(async pro
             if (found) {
               docNome = found.nome;
               docCrm = found.crm || '';
+              docModo = found.modo_atendimento || 'agil';
               sessionStorage.setItem('ambiental.impersonate_medico_nome', docNome);
               sessionStorage.setItem('ambiental.impersonate_medico_crm', docCrm);
+              sessionStorage.setItem('ambiental.impersonate_medico_modo', docModo);
             }
           } catch(_) {}
         }
@@ -47,6 +50,7 @@ const authReady = AmbientalAuth.requireAuth({area:'atendimento'}).then(async pro
           id: impId,
           nome: docNome || profile.nome,
           crm: docCrm || '',
+          modo_atendimento: docModo || profile.modo_atendimento || 'agil',
           perfil: 'Médico',
           perfilOriginal: 'Administrador',
           is_impersonating: true,
@@ -58,6 +62,8 @@ const authReady = AmbientalAuth.requireAuth({area:'atendimento'}).then(async pro
   } catch(e) {
     console.warn('Erro ao processar impersonate no atendimento:', e);
   }
+
+  if (typeof aplicarVisibilidadeModoIA2 === "function") aplicarVisibilidadeModoIA2();
 
   applyProfessionalDefaults(currentProfile);
   const title = document.querySelector('.brand-title');
@@ -2321,6 +2327,10 @@ function formatarDataIsoParaBr(str) {
 }
 
 function abrirModoIA2(view = "selecao") {
+  if (typeof isModoIA2Habilitado === "function" && !isModoIA2Habilitado()) {
+    toast("O Modo IA 2.0 está disponível exclusivamente para médicos configurados no Modo IA na Gestão de Médicos.");
+    return;
+  }
   syncState();
   const v = values();
 
@@ -4966,11 +4976,59 @@ function isAdmInDoctorLogin() {
   return isAdm || isImp;
 }
 
+function isModoIA2Habilitado() {
+  const isImpersonating = Boolean(
+    currentProfile?.is_impersonating ||
+    (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('ambiental.impersonate_medico_id'))
+  );
+
+  const docMode = String(
+    currentProfile?.modo_atendimento ||
+    (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('ambiental.impersonate_medico_modo')) ||
+    ''
+  ).trim().toLowerCase();
+
+  // No contexto de atendimento do médico (login direto de médico ou impersonação de médico)
+  if (currentProfile?.perfil === 'Médico' || isImpersonating) {
+    return docMode === 'ia' || docMode === 'ia2';
+  }
+
+  // Administrador em ambiente geral sem médico selecionado
+  const isAdm = Boolean(
+    (currentProfile?.perfilOriginal === 'Administrador') ||
+    (currentProfile?.perfil === 'Administrador')
+  );
+  if (isAdm) return true;
+
+  return docMode === 'ia' || docMode === 'ia2';
+}
+window.isModoIA2Habilitado = isModoIA2Habilitado;
+
+function aplicarVisibilidadeModoIA2() {
+  const habilitado = isModoIA2Habilitado();
+  const hudBtn = $("hudBtnModoIA2");
+  const hdrBtn = $("headerBtnModoIA2");
+  const bnrBtn = $("bannerBtnModoIA2");
+
+  if (hudBtn) hudBtn.style.display = habilitado ? "inline-flex" : "none";
+  if (hdrBtn) hdrBtn.style.display = habilitado ? "inline-flex" : "none";
+  if (bnrBtn) bnrBtn.style.display = habilitado ? "inline-flex" : "none";
+
+  if (!habilitado && document.body.classList.contains("modo-ia2-active")) {
+    const container = $("containerModoIA2");
+    if (container) container.style.display = "none";
+    document.body.classList.remove("modo-ia2-active");
+  }
+}
+window.aplicarVisibilidadeModoIA2 = aplicarVisibilidadeModoIA2;
+
 function aplicarPermissoesBannerIA() {
   const banner = $("bannerPreenchimentoIA");
-  if (!banner) return;
-  const permitir = isAdmInDoctorLogin();
-  banner.style.display = permitir ? "flex" : "none";
+  if (banner) {
+    const permitir = isAdmInDoctorLogin();
+    banner.style.display = permitir ? "flex" : "none";
+  }
+  aplicarVisibilidadeModoIA2();
 }
 window.aplicarPermissoesBannerIA = aplicarPermissoesBannerIA;
 try { aplicarPermissoesBannerIA(); } catch(_) {}
@@ -8472,9 +8530,15 @@ async function init(){
  if(typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico();
  if(typeof destacarCamposPreenchidosAtestado === "function") destacarCamposPreenchidosAtestado();
 
+ if (typeof aplicarVisibilidadeModoIA2 === "function") {
+   aplicarVisibilidadeModoIA2();
+ }
+
  // Se o médico estiver configurado para o Modo IA e estiver iniciando um atendimento
  const modoIa2Param = params.get("modo_ia2") === "1" || params.get("ia2") === "1" || params.get("modo") === "ia2";
- if (!openDocumentOnLoad && !state.finalizado) {
+ const isDoctorModoIAActive = (typeof isModoIA2Habilitado === "function" ? isModoIA2Habilitado() : (currentProfile?.modo_atendimento === "ia"));
+
+ if (!openDocumentOnLoad && !state.finalizado && isDoctorModoIAActive) {
    if (modoIa2Param || currentProfile?.modo_atendimento === "ia2") {
      setTimeout(() => {
        if (typeof abrirModoIA2 === "function") {
@@ -8482,15 +8546,13 @@ async function init(){
        }
      }, 350);
    } else if (currentProfile?.modo_atendimento === "ia") {
-     if (isNew || !recordId || (!state.cid && !state.parecer)) {
-       setTimeout(() => {
-         if (typeof abrirModoIA2 === "function") {
-           abrirModoIA2("selecao");
-         } else if (typeof abrirModalPreenchimentoIA === "function") {
-           abrirModalPreenchimentoIA();
-         }
-       }, 350);
-     }
+     setTimeout(() => {
+       if (typeof abrirModoIA2 === "function") {
+         abrirModoIA2("selecao");
+       } else if (typeof abrirModalPreenchimentoIA === "function") {
+         abrirModalPreenchimentoIA();
+       }
+     }, 350);
    }
  }
 }

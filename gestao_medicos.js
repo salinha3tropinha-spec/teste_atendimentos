@@ -45,12 +45,19 @@
     const a = String(n || 'Usuário').split(/\s+/).filter(Boolean);
     return (a[0]?.[0] || 'A') + (a.length > 1 ? (a[a.length - 1]?.[0] || 'M') : 'M');
   };
+  const isDoctorModoIA = () => {
+    const docModo = String(profile?.modo_atendimento || sessionStorage.getItem('ambiental.impersonate_medico_modo') || '').trim().toLowerCase();
+    return docModo === 'ia' || docModo === 'ia2';
+  };
   const openRecord = r => {
     const id = r?.atendimento || r?.id;
     if (!id) { showToast('Atendimento não identificado.'); return; }
     const impId = sessionStorage.getItem('ambiental.impersonate_medico_id');
-    const q = impId ? `&medico_id=${encodeURIComponent(impId)}` : '';
-    location.href = '/app?atendimento=' + encodeURIComponent(id) + q;
+    const p = new URLSearchParams();
+    p.set('atendimento', id);
+    if (impId) p.set('medico_id', impId);
+    if (isDoctorModoIA()) p.set('modo_ia2', '1');
+    location.href = '/app?' + p.toString();
   };
   
   function updateSyncLoader(title, sub, msg, pct) {
@@ -1808,6 +1815,7 @@
     if (readaptado) p.set('readaptado', readaptado);
     const impId = sessionStorage.getItem('ambiental.impersonate_medico_id');
     if (impId) p.set('medico_id', impId);
+    if (typeof isDoctorModoIA === 'function' && isDoctorModoIA()) p.set('modo_ia2', '1');
     location.href = '/app?' + p.toString();
   };
 
@@ -2257,6 +2265,7 @@
     sessionStorage.removeItem('ambiental.impersonate_medico_id');
     sessionStorage.removeItem('ambiental.impersonate_medico_nome');
     sessionStorage.removeItem('ambiental.impersonate_medico_crm');
+    sessionStorage.removeItem('ambiental.impersonate_medico_modo');
     location.href = '/gestao';
   };
 
@@ -2346,6 +2355,7 @@
             sessionStorage.setItem('ambiental.impersonate_medico_id', String(med.id));
             sessionStorage.setItem('ambiental.impersonate_medico_nome', med.nome || '');
             sessionStorage.setItem('ambiental.impersonate_medico_crm', med.crm || '');
+            sessionStorage.setItem('ambiental.impersonate_medico_modo', med.modo_atendimento || profile.modo_atendimento || 'agil');
             profile = {
               ...profile,
               id: med.id,
@@ -2419,11 +2429,16 @@
     sessionStorage.removeItem('ambiental.impersonate_medico_id');
     sessionStorage.removeItem('ambiental.impersonate_medico_nome');
     sessionStorage.removeItem('ambiental.impersonate_medico_crm');
+    sessionStorage.removeItem('ambiental.impersonate_medico_modo');
     AmbientalAuth.logout();
   };
   const getNovoAtendimentoUrl = () => {
     const impId = sessionStorage.getItem('ambiental.impersonate_medico_id');
-    return impId ? `/app?novo=1&medico_id=${encodeURIComponent(impId)}` : '/app?novo=1';
+    const p = new URLSearchParams();
+    p.set('novo', '1');
+    if (impId) p.set('medico_id', impId);
+    if (typeof isDoctorModoIA === 'function' && isDoctorModoIA()) p.set('modo_ia2', '1');
+    return '/app?' + p.toString();
   };
   $('newBtn').onclick = () => location.href = getNovoAtendimentoUrl();
   $('quickNew').onclick = () => location.href = getNovoAtendimentoUrl();

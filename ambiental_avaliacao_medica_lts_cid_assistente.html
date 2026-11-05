@@ -49,7 +49,7 @@
     </div>
     <div class="sticky-hud-actions">
       <span class="hud-save-status" id="hudSaveStatus">✓ Salvo</span>
-      <button type="button" class="btn btn-primary btn-sm" onclick="abrirModoIA2('selecao')" style="background:linear-gradient(135deg, #4F46E5, #7C3AED);color:#fff;font-weight:800;border:none;box-shadow:0 2px 6px rgba(79,70,229,0.3)" title="Modo IA 2.0 (Gravação com Colinha em Tempo Real ou Modo Escrita)">🚀 IA 2.0</button>
+      <button type="button" class="btn btn-primary btn-sm" id="hudBtnModoIA2" onclick="abrirModoIA2('selecao')" style="background:linear-gradient(135deg, #4F46E5, #7C3AED);color:#fff;font-weight:800;border:none;box-shadow:0 2px 6px rgba(79,70,229,0.3)" title="Modo IA 2.0 (Gravação com Colinha em Tempo Real ou Modo Escrita)">🚀 IA 2.0</button>
       <button type="button" class="btn btn-outline btn-sm" onclick="abrirModalPreenchimentoIA()" style="color:#1D4ED8;font-weight:700" title="Preencher com IA a partir de anotações do médico ou dados copiados">✨ IA</button>
       <button type="button" class="btn btn-outline btn-sm" onclick="openManagement()">Gestão</button>
       <button type="button" class="btn btn-danger btn-sm" onclick="deleteAtendimento()">Excluir</button>
@@ -76,7 +76,7 @@
       <div class="save-status"><span id="saveDot" class="save-dot"></span><span id="saveText">Rascunho não iniciado</span></div>
     </div>
     <div class="header-actions">
-      <button type="button" class="btn btn-primary" onclick="abrirModoIA2('selecao')" style="background:linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);color:#fff;border:none;font-weight:800;display:inline-flex;align-items:center;gap:6px;box-shadow:0 3px 10px rgba(79,70,229,0.3)" title="Abrir Modo IA 2.0 (Gravação com Colinha em Tempo Real ou Modo Escrita)">🚀 Modo IA 2.0</button>
+      <button type="button" class="btn btn-primary" id="headerBtnModoIA2" onclick="abrirModoIA2('selecao')" style="background:linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);color:#fff;border:none;font-weight:800;display:inline-flex;align-items:center;gap:6px;box-shadow:0 3px 10px rgba(79,70,229,0.3)" title="Abrir Modo IA 2.0 (Gravação com Colinha em Tempo Real ou Modo Escrita)">🚀 Modo IA 2.0</button>
       <button type="button" class="btn btn-outline" onclick="abrirModalPreenchimentoIA()" style="background:linear-gradient(135deg, #EFF6FF, #DBEAFE);border-color:#3B82F6;color:#1D4ED8;font-weight:700;display:inline-flex;align-items:center;gap:6px" title="Preencher a ficha inteira com IA a partir de anotações do médico ou dados copiados do sistema">✨ Preencher com IA</button>
       <button class="btn btn-outline optional" onclick="openManagement()">Gestão</button>
       <button class="btn btn-danger optional" onclick="deleteAtendimento()">Excluir</button>
@@ -632,7 +632,7 @@
           </span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <button type="button" class="btn btn-sm" onclick="abrirModoIA2('selecao')" style="font-weight:800;background:linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);color:#fff;border:none;padding:8px 14px;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(79,70,229,0.3);border-radius:6px;cursor:pointer" title="Abrir Modo IA 2.0 (Gravação ou Escrita)">
+          <button type="button" class="btn btn-sm" id="bannerBtnModoIA2" onclick="abrirModoIA2('selecao')" style="font-weight:800;background:linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);color:#fff;border:none;padding:8px 14px;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(79,70,229,0.3);border-radius:6px;cursor:pointer" title="Abrir Modo IA 2.0 (Gravação ou Escrita)">
             <span>🚀</span> Modo IA 2.0
           </button>
           <button type="button" class="btn btn-sm" id="btnGravarVozIA" onclick="abrirModalGravadorVozIA()" style="font-weight:800;background:linear-gradient(135deg, #059669 0%, #10B981 100%);color:#fff;border:none;padding:8px 14px;font-size:12px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(16,185,129,0.25);border-radius:6px;cursor:pointer" title="Gravar voz ou áudio para ditado médico e estruturação completa via Gemini 3.8 Flash">

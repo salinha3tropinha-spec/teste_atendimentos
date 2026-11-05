@@ -5695,6 +5695,7 @@ function entrarComoMedico(medicoId) {
   if (medico) {
     sessionStorage.setItem('ambiental.impersonate_medico_nome', medico.nome || '');
     sessionStorage.setItem('ambiental.impersonate_medico_crm', medico.crm || '');
+    sessionStorage.setItem('ambiental.impersonate_medico_modo', medico.modo_atendimento || 'agil');
   }
 
   // Redirecionar diretamente para o Portal Médico
