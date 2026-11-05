@@ -1126,35 +1126,43 @@ class FinalReportTextResult(BaseModel):
 
 class MedicamentoItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    medicamento: str = ""
-    dosagem: str = ""
-    frequencia: str = ""
-    observacao: str = ""
+    medicamento: str
+    dosagem: str
+    frequencia: str
+    observacao: str
 
     @model_validator(mode="before")
     @classmethod
     def _coerce_nulls(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
-        return {k: ("" if v is None else str(v)) for k, v in data.items()}
+        out: dict[str, Any] = {}
+        for k in ("medicamento", "dosagem", "frequencia", "observacao"):
+            v = data.get(k)
+            out[k] = "" if v is None else str(v)
+        return out
 
 class CondicaoItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    nome: str = ""
-    tratamento: str = ""
+    nome: str
+    tratamento: str
 
     @model_validator(mode="before")
     @classmethod
     def _coerce_nulls(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
-        return {k: ("" if v is None else str(v)) for k, v in data.items()}
+        out: dict[str, Any] = {}
+        for k in ("nome", "tratamento"):
+            v = data.get(k)
+            out[k] = "" if v is None else str(v)
+        return out
 
 class QuesitoPreenchimentoItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    id: int = 1
-    pergunta: str = ""
-    resposta: str = ""
+    id: int
+    pergunta: str
+    resposta: str
 
     @model_validator(mode="before")
     @classmethod
@@ -1172,64 +1180,64 @@ class QuesitoPreenchimentoItem(BaseModel):
 
 class PreenchimentoCompletoResult(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    nome_paciente: str = ""
-    cpf_paciente: str = ""
-    rg_paciente: str = ""
-    data_nascimento: str = ""
-    idade: str = ""
-    sexo: str = ""
-    cargo: str = ""
-    tempo_cargo: str = ""
-    tempo_unidade: str = ""
-    readaptado: str = ""
-    atividades_readaptado: str = ""
+    nome_paciente: str
+    cpf_paciente: str
+    rg_paciente: str
+    data_nascimento: str
+    idade: str
+    sexo: str
+    cargo: str
+    tempo_cargo: str
+    tempo_unidade: str
+    readaptado: str
+    atividades_readaptado: str
 
-    doenca_motivo: str = ""
-    inicio_tratamento: str = ""
-    freq_consultas: str = ""
-    sintomas_limitacao: str = ""
-    medications: list[MedicamentoItem] = Field(default_factory=list)
-    alteracao_med: str = ""
-    data_alteracao_med: str = ""
-    obs_alteracao_med: str = ""
-    psicoterapia: bool = False
-    fisioterapia: bool = False
-    obs_terapias: str = ""
-    outras_doencas: str = ""
-    conditions: list[CondicaoItem] = Field(default_factory=list)
-    historico_pregresso: str = ""
+    doenca_motivo: str
+    inicio_tratamento: str
+    freq_consultas: str
+    sintomas_limitacao: str
+    medications: list[MedicamentoItem]
+    alteracao_med: str
+    data_alteracao_med: str
+    obs_alteracao_med: str
+    psicoterapia: bool
+    fisioterapia: bool
+    obs_terapias: str
+    outras_doencas: str
+    conditions: list[CondicaoItem]
+    historico_pregresso: str
 
-    cid: str = ""
-    cid_descricao: str = ""
-    cids_secundarios: list[str] = Field(default_factory=list)
-    crm_cro: str = ""
-    nome_medico_assistente: str = ""
-    data_documento: str = ""
-    data_expedicao: str = ""
-    dias_solicitados: str = ""
-    obs_documentos: str = ""
+    cid: str
+    cid_descricao: str
+    cids_secundarios: list[str]
+    crm_cro: str
+    nome_medico_assistente: str
+    data_documento: str
+    data_expedicao: str
+    dias_solicitados: str
+    obs_documentos: str
 
-    exame_fisico_tipo: str = ""
-    outros_subtipo: str = ""
-    outros_resultado: str = ""
-    exame_mental_resultado: str = ""
-    exame_fisico_descricao: str = ""
-    alteracoes_clinicas_exames: str = ""
-    pressao_sistolica: str = ""
-    pressao_diastolica: str = ""
-    pulso: str = ""
-    altura: str = ""
-    peso: str = ""
+    exame_fisico_tipo: str
+    outros_subtipo: str
+    outros_resultado: str
+    exame_mental_resultado: str
+    exame_fisico_descricao: str
+    alteracoes_clinicas_exames: str
+    pressao_sistolica: str
+    pressao_diastolica: str
+    pulso: str
+    altura: str
+    peso: str
 
-    limitacao_funcional: str = ""
-    limitacao_rol: str = ""
-    desc_limitacao: str = ""
-    atividades_comprometidas: str = ""
+    limitacao_funcional: str
+    limitacao_rol: str
+    desc_limitacao: str
+    atividades_comprometidas: str
 
-    quesitos: list[QuesitoPreenchimentoItem] = Field(default_factory=list)
-    capacidade: str = ""
-    parecer: str = ""
-    justificativa: str = ""
+    quesitos: list[QuesitoPreenchimentoItem]
+    capacidade: str
+    parecer: str
+    justificativa: str
 
     @model_validator(mode="before")
     @classmethod
@@ -1239,28 +1247,43 @@ class PreenchimentoCompletoResult(BaseModel):
         out = dict(data)
         bool_fields = {"psicoterapia", "fisioterapia"}
         list_fields = {"medications", "conditions", "cids_secundarios", "quesitos"}
-        for k, v in list(out.items()):
-            if k in bool_fields:
-                if isinstance(v, bool):
-                    out[k] = v
-                elif v is None:
-                    out[k] = False
-                elif isinstance(v, str):
-                    out[k] = v.strip().lower() in ("true", "1", "sim", "yes")
-                else:
-                    out[k] = bool(v)
-            elif k in list_fields:
-                if not isinstance(v, list):
-                    out[k] = []
-                elif k == "cids_secundarios":
-                    out[k] = [str(item).strip() for item in v if item is not None and str(item).strip()]
-                else:
-                    out[k] = [item for item in v if isinstance(item, (dict, BaseModel))]
+        str_fields = {
+            "nome_paciente", "cpf_paciente", "rg_paciente", "data_nascimento", "idade", "sexo",
+            "cargo", "tempo_cargo", "tempo_unidade", "readaptado", "atividades_readaptado",
+            "doenca_motivo", "inicio_tratamento", "freq_consultas", "sintomas_limitacao",
+            "alteracao_med", "data_alteracao_med", "obs_alteracao_med", "obs_terapias",
+            "outras_doencas", "historico_pregresso", "cid", "cid_descricao", "crm_cro",
+            "nome_medico_assistente", "data_documento", "data_expedicao", "dias_solicitados",
+            "obs_documentos", "exame_fisico_tipo", "outros_subtipo", "outros_resultado",
+            "exame_mental_resultado", "exame_fisico_descricao", "alteracoes_clinicas_exames",
+            "pressao_sistolica", "pressao_diastolica", "pulso", "altura", "peso",
+            "limitacao_funcional", "limitacao_rol", "desc_limitacao", "atividades_comprometidas",
+            "capacidade", "parecer", "justificativa",
+        }
+        for k in bool_fields:
+            v = out.get(k)
+            if isinstance(v, bool):
+                out[k] = v
+            elif v is None:
+                out[k] = False
+            elif isinstance(v, str):
+                out[k] = v.strip().lower() in ("true", "1", "sim", "yes")
             else:
-                if v is None:
-                    out[k] = ""
-                elif not isinstance(v, str):
-                    out[k] = str(v)
+                out[k] = bool(v)
+        for k in list_fields:
+            v = out.get(k)
+            if not isinstance(v, list):
+                out[k] = []
+            elif k == "cids_secundarios":
+                out[k] = [str(item).strip() for item in v if item is not None and str(item).strip()]
+            else:
+                out[k] = [item for item in v if isinstance(item, (dict, BaseModel))]
+        for k in str_fields:
+            v = out.get(k)
+            if v is None:
+                out[k] = ""
+            elif not isinstance(v, str):
+                out[k] = str(v)
         return out
 
 _CID_CATALOG: dict[str, dict[str, str]] | None = None
@@ -1860,8 +1883,10 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO:
 5. LIMITAÇÕES, ROL E JUSTIFICATIVA DO PARECER:
 - limitacao_funcional: "Sim" se incapacidade temporária / parecer favorável ou se retroação inválida com quadro clínico limitante; "Não" se parecer contrário por ausência de incapacidade.
 - limitacao_rol: "Sim" se favorável ou retroação inválida; "Não" se contrário por ausência de incapacidade.
-- desc_limitacao: Descreva as limitações funcionais objetivas para as atribuições do cargo público (ex.: "Apresenta limitações físicas temporárias decorrentes do pós-operatório recente de cirurgia mamária com deiscência de pontos cirúrgicos, inviabilizando esforços físicos com membros superiores, levantamento de peso e permanência prolongada em sala de aula, atividades estas constantes no Rol de Atividades do cargo de [cargo].").
-- atividades_comprometidas: Atividades específicas do rol comprometidas (ex.: "Regência de classe, escrita em lousa, transporte de materiais pedagógicos e controle de sala de aula.").
+- desc_limitacao:
+  * Se Favorável ou se Contrário exclusivamente por retroação > 3 dias: Descreva as limitações funcionais objetivas para as atribuições do cargo público (ex.: "Apresenta limitações físicas temporárias decorrentes do pós-operatório recente de cirurgia mamária com deiscência de pontos cirúrgicos, inviabilizando esforços físicos com membros superiores, levantamento de peso e permanência prolongada em sala de aula, atividades estas constantes no Rol de Atividades do cargo de [cargo].").
+  * Se Contrário por ausência de incapacidade: Redija de forma clínica, individualizada e contextualizada ao relato da consulta e ao exame físico/mental realizado, explicando por que o quadro de [doenca_motivo] e os achados objetivos do exame pericial atual não configuram limitação funcional incapacitante para as atribuições constantes no Rol de Atividades do cargo de [cargo].
+- atividades_comprometidas: Atividades específicas do rol comprometidas se Favorável (ex.: "Regência de classe, escrita em lousa, transporte de materiais pedagógicos e controle de sala de aula."); deixe vazio se Contrário por ausência de incapacidade.
 - capacidade: "Capacidade parcial e temporariamente prejudicada" (se favorável) ou "Capacidade laborativa preservada" (se contrário).
 - parecer: "FAVORÁVEL" ou "CONTRÁRIO". Se houver retroação > 3 dias entre data_expedicao e data_documento sem internação hospitalar, o parecer é OBRIGATORIAMENTE "CONTRÁRIO".
 - quesitos:
@@ -1870,10 +1895,10 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO:
     2: Sim (A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)?)
     3: Sim (A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol?)
   * Se Contrário por ausência de incapacidade: 1: Sim, 2: Não (ou Sim se readaptado), 3: Não.
-- justificativa: Redija em padrão médico-pericial DPME, SEM utilizar parênteses () em nenhuma hipótese e sem expressões como "Concedo X dias":
-  * Se Favorável: "Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de [cargo], em razão de limitações físicas decorrentes de [doenca_motivo], CID [cid], referente ao período pleiteado."
+- justificativa: Redija em padrão médico-pericial DPME, de forma clínica, técnica e individualizada aos dados da consulta, SEM utilizar parênteses () em nenhuma hipótese e sem expressões como "Concedo X dias":
+  * Se Favorável: Fundamente a incapacidade laborativa parcial e temporária considerando as atribuições do rol do cargo de [cargo], correlacionando as limitações funcionais observadas no exame com [doenca_motivo], CID [cid], referente ao período pleiteado.
   * Se Contrário por retroação > 3 dias: Reconheça o quadro clínico e as limitações para o cargo de [cargo], porém fundamente o parecer contrário exclusivamente na expedição extemporânea da guia pericial com mais de 3 dias de retroação em relação à data de emissão do atestado médico, sem comprovação documental de internação hospitalar ou impedimento absoluto, SEM utilizar parênteses ().
-  * Se Contrário por ausência de incapacidade: "Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações incapacitantes para as atribuições rotineiras do cargo atual de [cargo]."
+  * Se Contrário por ausência de incapacidade: Fundamente de forma individualizada a capacidade laborativa preservada considerando as atribuições do rol do cargo de [cargo], correlacionando o quadro clínico avaliado de [doenca_motivo], CID [cid], e os achados do exame pericial atual que demonstram ausência de repercussão funcional incapacitante no ato pericial, referente ao período pleiteado.
 
 REGRA TERMINOLÓGICA MANDATÓRIA: NUNCA utilize o termo "Paciente" ou "paciente". Utilize SEMPRE "Servidor", "Servidora" ou "Periciado/Periciada", sem usar barras ou parênteses de gênero como "servidor(a)" ou "periciado(a)".
 """.strip()
@@ -5820,8 +5845,19 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
         just_text = _aprimorar_justificativa_retroacao_esisla(payload, just_raw)
         q1, q2, q3 = "Sim", "Sim", "Sim"
     elif is_contra:
+        raw_lim_contra = str(payload.get("desc_limitacao") or payload.get("descLimitacao") or "").strip()
+        has_valid_contra_lim = bool(raw_lim_contra) and not re.search(
+            r"\b(?:inviabilizando|impossibilitando|incapacitando\s+transitoriamente)\b",
+            raw_lim_contra,
+            flags=re.IGNORECASE,
+        )
+        has_valid_contra_just = bool(just_raw) and not re.search(
+            r"\b(?:prejudicada|parecer\s+favor[áa]vel)\b",
+            just_raw,
+            flags=re.IGNORECASE,
+        )
         if is_readap:
-            lim_text = (
+            lim_text = raw_lim_contra if has_valid_contra_lim else (
                 "Apresenta limitações físicas funcionais parciais decorrentes de sua patologia de base, "
                 "encontrando-se devidamente adaptada ao rol de atividades de sua readaptação funcional, "
                 "não se observando limitações incapacitantes para as atribuições de seu atual termo de readaptação funcional."
@@ -5830,15 +5866,15 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
                 "encontrando-se devidamente adaptado ao rol de atividades de sua readaptação funcional, "
                 "não se observando limitações incapacitantes para as atribuições de seu atual termo de readaptação funcional."
             )
-            just_text = "Capacidade laborativa própria preservada para as atribuições constantes no rol de atividades da readaptação funcional, referente ao período pleiteado."
+            just_text = just_raw if has_valid_contra_just else "Capacidade laborativa própria preservada para as atribuições constantes no rol de atividades da readaptação funcional, referente ao período pleiteado."
             q1, q2, q3 = "Sim", "Sim", "Não"
         elif "z76" in cid_code.lower() or "acompanha" in cid_desc.lower():
-            lim_text = f"Do ponto de vista médico não se observam limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo}, constantes no rol de atividades."
-            just_text = "Capacidade laborativa própria preservada. O pleito refere-se a acompanhamento de dependente enfermo, situação que não preenche os requisitos para concessão de Licença para Tratamento de Saúde nos termos dos Artigos 191 e 193 da Lei Estadual nº 10.261/1968."
+            lim_text = raw_lim_contra if has_valid_contra_lim else f"Do ponto de vista médico não se observam limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo}, constantes no rol de atividades."
+            just_text = just_raw if has_valid_contra_just else "Capacidade laborativa própria preservada. O pleito refere-se a acompanhamento de dependente enfermo, situação que não preenche os requisitos para concessão de Licença para Tratamento de Saúde nos termos dos Artigos 191 e 193 da Lei Estadual nº 10.261/1968."
             q1, q2, q3 = "Sim", "Não", "Não"
         else:
-            lim_text = f"Do ponto de vista médico não se observam limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo}, constantes no rol de atividades."
-            just_text = f"Capacidade laborativa própria preservada, não restando comprovada incapacidade laborativa temporária para as atribuições do cargo de {cargo}, referente ao período pleiteado."
+            lim_text = raw_lim_contra if has_valid_contra_lim else f"Do ponto de vista médico não se observam limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo}, constantes no rol de atividades."
+            just_text = just_raw if has_valid_contra_just else f"Capacidade laborativa própria preservada, não restando comprovada incapacidade laborativa temporária para as atribuições do cargo de {cargo}, referente ao período pleiteado."
             q1, q2, q3 = "Sim", "Não", "Não"
     else:
         is_acomp = ("z76" in cid_code.lower()) or ("acompanha" in cid_desc.lower()) or (payload.get("tipo_atendimento_pericia") == "ACOMPANHANTE") or bool(payload.get("is_acompanhante"))
@@ -6324,14 +6360,20 @@ def api_ai_esisla():
                 ficha_text = re.sub(r"\biniciou-se\s+seu\s+tratamento\s+em\s+\d{1,2}/\d{1,2}/\d{4}\b", f"iniciou-se seu tratamento em {raw_ini}", ficha_text, flags=re.IGNORECASE)
                 ficha_text = re.sub(r"\biniciou-se\s+seu\s+tratamento\s+hoje\b", f"iniciou-se seu tratamento em {raw_ini}", ficha_text, flags=re.IGNORECASE)
 
-            # Limitações Físicas e Mentais: se parecer CONTRÁRIO (e NÃO for retroação inválida), registrar ausência de limitações incapacitantes
+            # Limitações Físicas e Mentais: se parecer CONTRÁRIO (e NÃO for retroação inválida), preservar texto clínico da IA ou registrar ausência de limitações incapacitantes
             if is_contra and not is_retro_invalida:
                 cargo_nome = payload.get("cargo") or "servidor"
-                lim_contra = f"Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo_nome}, constantes no rol de atividades."
+                raw_payload_lim = str(payload.get("desc_limitacao") or payload.get("descLimitacao") or "").strip()
+                if raw_payload_lim and not re.search(r"\b(?:inviabilizando|impossibilitando|incapacitando\s+transitoriamente)\b", raw_payload_lim, flags=re.IGNORECASE):
+                    lim_contra = raw_payload_lim
+                else:
+                    lim_contra = f"Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo_nome}, constantes no rol de atividades."
                 m_lim = re.search(r"(\(\*\)\s*Descri[çc][ãa]o\s*da\(s\)\s*Limita[çc][ãa]o[^\n\r]*\n\s*)(.*?)(\n\s*\(\*\)\s*Parecer\s*M[ée]dico)", ficha_text, re.DOTALL | re.IGNORECASE)
                 if m_lim:
                     cur_lim = m_lim.group(2).strip()
-                    if not cur_lim or not _is_contrary_limitation_text(cur_lim):
+                    if raw_payload_lim and lim_contra == raw_payload_lim:
+                        ficha_text = ficha_text[:m_lim.start(2)] + lim_contra + ficha_text[m_lim.end(2):]
+                    elif not cur_lim or re.search(r"\b(?:inviabilizando|impossibilitando|incapacitando\s+transitoriamente)\b", cur_lim, flags=re.IGNORECASE):
                         ficha_text = ficha_text[:m_lim.start(2)] + lim_contra + ficha_text[m_lim.end(2):]
             else:
                 cargo_nome = payload.get("cargo") or "servidor"
@@ -8180,11 +8222,14 @@ def api_ai_preencher_ficha():
                     result.atividades_comprometidas = ""
                     if not (result.exame_fisico_descricao or "").strip():
                         result.exame_fisico_descricao = "Ao exame clínico pericial atual, periciando em bom estado geral, lúcido, orientado, sem achados objetivos de descompensação aguda ou déficit funcional incapacitante no momento da avaliação."
-                    if not (result.desc_limitacao or "").strip() or not _is_contrary_limitation_text(result.desc_limitacao):
+                    raw_lim = (result.desc_limitacao or "").strip()
+                    if not raw_lim or re.search(r"\b(?:inviabilizando|impossibilitando|incapacitando\s+transitoriamente)\b", raw_lim, flags=re.IGNORECASE):
                         result.desc_limitacao = f"Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo_label}, constantes no rol de atividades."
                     just_low = (result.justificativa or "").strip().lower()
-                    if not just_low or any(t in just_low for t in ("prejudicada", "favorável", "favoravel", "incapacidade temporária", "incapacidade temporaria")):
-                        result.justificativa = f"Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações incapacitantes para as atribuições rotineiras do cargo atual de {cargo_label}."
+                    if not just_low or re.search(r"\b(?:parcial\s+e\s+temporariamente\s+prejudicada|parecer\s+favor[áa]vel)\b", just_low, flags=re.IGNORECASE):
+                        cid_clause = f", CID {result.cid}" if result.cid else ""
+                        mot_clause = f" avaliado para {result.doenca_motivo}{cid_clause}" if result.doenca_motivo else ""
+                        result.justificativa = f"Constato a capacidade laborativa preservada{mot_clause}, considerando que neste ato pericial não se observam alterações ou limitações incapacitantes para as atribuições rotineiras do cargo atual de {cargo_label}."
 
             if result.justificativa:
                 result.justificativa = _clean_justificativa_text(result.justificativa)

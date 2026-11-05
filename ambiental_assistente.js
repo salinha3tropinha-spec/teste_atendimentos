@@ -7249,49 +7249,28 @@ function aplicarPreenchimentoIAResultado(dados) {
       if (btnAlterado) btnAlterado.classList.toggle("selected-alterado", state.exameMentalResultado === "Alterado");
     } else if (state.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo") {
       const parecerFav = String(state.parecer || dados.parecer || "").toUpperCase().includes("FAVOR") || isRetroInv;
-      if (!parecerFav) {
-        // Se parecer CONTRÁRIO (com expedição em dia): Mantém os critérios analisados pelo médico
-        const prevExameDesc = state.exameFisicoDescricao;
-        const prevJust = state.justificativa;
-        const prevDescLim = dados.desc_limitacao || state.descLimitacao;
-        if (typeof aplicarOsteomuscularNormal === "function") {
-          aplicarOsteomuscularNormal();
-        }
-        if (prevExameDesc) {
-          state.exameFisicoDescricao = prevExameDesc;
-          setVal("exameFisicoDescricao", prevExameDesc);
-          setVal("agilExameFisicoDescricao", prevExameDesc);
-        }
-        if (prevJust) {
-          state.justificativa = prevJust;
-          setVal("justificativa", prevJust);
-          setVal("agilJustificativa", prevJust);
-        }
-        if (prevDescLim) {
-          state.descLimitacao = prevDescLim;
-        }
-      } else {
-        // Se parecer FAVORÁVEL ou Retroação Inválida: Seleciona todas as partes do corpo condizentes como ALTERADO (vermelho)
-        const rawTxt = dados.texto_bruto || dados.texto || $("txtPreenchimentoIABruto")?.value || $("ia2EscritaText")?.value || $("ia2GravacaoTranscricao")?.value || window.__ia2UltimoTextoProcessado || "";
-        let regioesAfetadas = Array.isArray(dados.regioes_osteomusculares) && dados.regioes_osteomusculares.length > 0
-          ? dados.regioes_osteomusculares
-          : (typeof detectarTodasRegioesOsteomusculares === "function"
-              ? detectarTodasRegioesOsteomusculares(state.cid, rawTxt, state.doencaMotivo, state.exameFisicoDescricao, state.cidsSecundarios)
-              : [dados.regiao_osteomuscular || (typeof detectarRegiaoOsteomuscular === "function" ? detectarRegiaoOsteomuscular(state.cid, rawTxt, state.doencaMotivo, state.exameFisicoDescricao) : "lombar")]);
+      const rawTxt = dados.texto_bruto || dados.texto || $("txtPreenchimentoIABruto")?.value || $("ia2EscritaText")?.value || $("ia2GravacaoTranscricao")?.value || window.__ia2UltimoTextoProcessado || "";
+      let regioesAfetadas = Array.isArray(dados.regioes_osteomusculares) && dados.regioes_osteomusculares.length > 0
+        ? dados.regioes_osteomusculares
+        : (typeof detectarTodasRegioesOsteomusculares === "function"
+            ? detectarTodasRegioesOsteomusculares(state.cid, rawTxt, state.doencaMotivo, state.exameFisicoDescricao, state.cidsSecundarios)
+            : [dados.regiao_osteomuscular || (typeof detectarRegiaoOsteomuscular === "function" ? detectarRegiaoOsteomuscular(state.cid, rawTxt, state.doencaMotivo, state.exameFisicoDescricao) : "lombar")]);
 
-        if (!Array.isArray(regioesAfetadas) || regioesAfetadas.length === 0) {
-          regioesAfetadas = ["lombar"];
-        }
+      if (!Array.isArray(regioesAfetadas) || regioesAfetadas.length === 0) {
+        regioesAfetadas = ["lombar"];
+      }
 
-        if (!state.osteomuscularRegioes) state.osteomuscularRegioes = {};
-        state.osteomuscularRegioes = {};
-        regioesAfetadas.forEach(r => {
-          if (r) state.osteomuscularRegioes[r] = "Alterado";
-        });
-        state.osteomuscularResultado = "Alterado";
-        if (typeof updateOsteoUI === "function") {
-          updateOsteoUI();
-        }
+      const statusOsteo = parecerFav
+        ? "Alterado"
+        : (String(dados.outros_resultado || "").toLowerCase() === "alterado" ? "Alterado" : "Normal");
+
+      state.osteomuscularRegioes = {};
+      regioesAfetadas.forEach(r => {
+        if (r) state.osteomuscularRegioes[r] = statusOsteo;
+      });
+      state.osteomuscularResultado = statusOsteo;
+      if (typeof updateOsteoUI === "function") {
+        updateOsteoUI();
       }
     }
 
@@ -7347,8 +7326,22 @@ function aplicarPreenchimentoIAResultado(dados) {
       if ($("agilSintomasLimitacao")) $("agilSintomasLimitacao").value = sintomasParaPreencher;
     }
     if (state.exameFisicoDescricao) {
+      if (!state.aux) state.aux = {};
+      state.aux.exameFisicoDescricao = state.exameFisicoDescricao;
       if ($("exameFisicoDescricao")) $("exameFisicoDescricao").value = state.exameFisicoDescricao;
       if ($("agilExameFisicoDescricao")) $("agilExameFisicoDescricao").value = state.exameFisicoDescricao;
+    }
+    if (state.descLimitacao) {
+      if (!state.aux) state.aux = {};
+      state.aux.descLimitacao = state.descLimitacao;
+      if ($("descLimitacao")) $("descLimitacao").value = state.descLimitacao;
+      if ($("agilDescLimitacao")) $("agilDescLimitacao").value = state.descLimitacao;
+    }
+    if (state.justificativa) {
+      if (!state.aux) state.aux = {};
+      state.aux.justificativa = state.justificativa;
+      if ($("justificativa")) $("justificativa").value = state.justificativa;
+      if ($("agilJustificativa")) $("agilJustificativa").value = state.justificativa;
     }
     if (antParaPreencher) {
       state.historicoPregresso = antParaPreencher;
@@ -10664,13 +10657,13 @@ function onAgilExameTipoChange(val) {
     if (mentalWrap) mentalWrap.style.display = "block";
     if (osteoWrap) osteoWrap.style.display = "none";
     if (outrosWrap) outrosWrap.style.display = "none";
-    if (btnIaJust) btnIaJust.style.display = "none";
+    if (btnIaJust) btnIaJust.style.display = "inline-flex";
     if (typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico("mental");
   } else if (val === "Aparelho Osteomuscular e Tecido Conjutivo") {
     if (mentalWrap) mentalWrap.style.display = "none";
     if (osteoWrap) osteoWrap.style.display = "block";
     if (outrosWrap) outrosWrap.style.display = "none";
-    if (btnIaJust) btnIaJust.style.display = "none";
+    if (btnIaJust) btnIaJust.style.display = "inline-flex";
     if (typeof updateOsteoUI === "function") updateOsteoUI();
     if (typeof renderizarSugestoesExameFisico === "function") renderizarSugestoesExameFisico("osteomuscular");
   } else if (val === "Outros") {
@@ -10701,7 +10694,7 @@ function onAgilExameTipoChange(val) {
     if (mentalWrap) mentalWrap.style.display = "none";
     if (osteoWrap) osteoWrap.style.display = "none";
     if (outrosWrap) outrosWrap.style.display = "none";
-    if (btnIaJust) btnIaJust.style.display = "none";
+    if (btnIaJust) btnIaJust.style.display = "inline-flex";
   }
   autoSave();
 }
@@ -11893,11 +11886,14 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
   const isFem = sexo === "f" || sexo === "feminino" || /servidora|periciada|professora/i.test(cargo);
   const termoServ = isFem ? "Servidora" : "Servidor";
   const higidoTerm = isFem ? "hígida" : "hígido";
+  const existingLimRaw = String(st.descLimitacao || st.aux?.descLimitacao || v.descLimitacao || "").trim();
+  const hasValidContraryLim = existingLimRaw.length > 0 && !/\b(?:inviabilizando|impossibilitando|incapacitando\s+transitoriamente)\b/i.test(existingLimRaw);
 
   if (isAcomp) {
     if (isFav) {
       return `${termoServ} ${higidoTerm}, sem limitação funcional própria. Necessidade de afastamento temporário decorrente da assistência imprescindível ao familiar dependente sob tratamento, impossibilitando a conciliação com as atribuições constantes no Rol de Atividades do cargo de ${cargo} (artigo 199 da Lei Estadual nº 10.261/1968).`;
     } else {
+      if (hasValidContraryLim) return existingLimRaw;
       return `Do ponto de vista médico não se observam limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de ${cargo}, constantes no rol de atividades.`;
     }
   }
@@ -11911,6 +11907,7 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
       if (ativ.includes("Rol de Atividades")) return ativ;
       return `${ativ.replace(/[.;,]+$/, "")}, atividades estas constantes no Rol de Atividades do cargo de ${cargo}.`;
     } else {
+      if (hasValidContraryLim) return existingLimRaw;
       return `Do ponto de vista médico não se observa limitações mentais funcionais incapacitantes para as atribuições do cargo de ${cargo}, constantes no rol de atividades.`;
     }
   } else if (isOsteo) {
@@ -11937,6 +11934,7 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
       if (ativ.includes("Rol de Atividades")) return ativ;
       return `${ativ.replace(/[.;,]+$/, "")}, atividades estas constantes no Rol de Atividades do cargo de ${cargo}.`;
     } else {
+      if (hasValidContraryLim) return existingLimRaw;
       return `Do ponto de vista médico não se observa limitações físicas funcionais incapacitantes para as atribuições do cargo de ${cargo}, constantes no rol de atividades.`;
     }
   }
@@ -11962,6 +11960,7 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
     if (ativ.includes("Rol de Atividades")) return ativ;
     return `${ativ.replace(/[.;,]+$/, "")}, atividades estas constantes no Rol de Atividades do cargo de ${cargo}.`;
   } else {
+    if (hasValidContraryLim) return existingLimRaw;
     return `Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de ${cargo}, constantes no rol de atividades.`;
   }
 }

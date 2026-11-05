@@ -1501,7 +1501,7 @@
                 <button type="button" class="btn btn-outline voice-btn" id="voiceBtn_agilJustificativa" onclick="toggleVoiceDictation('agilJustificativa')" title="Clique para ditar justificativa por voz">
                   <span>🎙️</span> Voz
                 </button>
-                <button class="btn-ai" type="button" id="btnAgilJustificativaIA" onclick="gerarJustificativaAgilIA()" title="Gera a fundamentação técnica completa com Inteligência Artificial baseada nos fatos do atendimento" style="display:none;padding:5px 12px;font-size:12px;font-weight:700;gap:6px;align-items:center">
+                <button class="btn-ai" type="button" id="btnAgilJustificativaIA" onclick="gerarJustificativaAgilIA()" title="Gera a fundamentação técnica completa com Inteligência Artificial baseada nos fatos do atendimento" style="display:inline-flex;padding:5px 12px;font-size:12px;font-weight:700;gap:6px;align-items:center">
                   ✨ Gerar Justificativa com IA
                 </button>
               </div>
@@ -2730,7 +2730,7 @@ Atestado de 15 dias do dia 29/09 por Z98.8 favorável."></textarea>
   </div>
 </div>
 
-<script src="/ambiental_assistente.js?v=2.2.3"></script>
+<script src="/ambiental_assistente.js?v=2.2.4"></script>
 </div> <!-- Fecha a div .app -->
 
 <script>window.addEventListener("pageshow",()=>{AmbientalAuth.me().then(p=>{if(!p) location.replace("/login.html?reason=expired");}).catch(()=>{});});</script></body>
