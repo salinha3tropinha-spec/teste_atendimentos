@@ -607,7 +607,7 @@ function isGenericCIDLabel(txt) {
   if (!txt || typeof txt !== "string") return false;
   const t = txt.trim();
   if (state?.isAcompanhante || state?.aux?.isAcompanhante || t.toLowerCase().includes("199") || t.toLowerCase().includes("acompanh") || t.includes(".") || t.length > 70) return false;
-  return /^[A-Z]\d{2}(\.\d+)?\s*[—–-]\s*[A-Za-zÀ-ÿ\s]+$/i.test(t);
+  return /^[A-Z]\d{2}(\.\d+)?\s*[\u2014\u2013\-]\s*[A-Za-z\u00C0-\u00FF\s]+$/i.test(t);
 }
 
 function selectCID(code){
@@ -4372,6 +4372,8 @@ function extrairDadosAtestadoTextoBrutoJS(texto) {
       res.dataExpedicaoIso = `${mExpIso[1]}-${mExpIso[2]}-${mExpIso[3]}`;
       res.dataExpedicaoBr = `${mExpIso[3]}/${mExpIso[2]}/${mExpIso[1]}`;
     }
+  }
+
   // 6. Data de Ingresso e Tempo no Cargo
   const mIng = s.match(/(?:Data\s+de\s+)?Ingresso:?\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i)
     || s.match(/Ingresso:[\s\S]{0,250}?\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/i);
