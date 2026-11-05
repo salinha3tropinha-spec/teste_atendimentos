@@ -829,7 +829,7 @@ body::before{
 .header-user{display:flex;align-items:center;gap:8px;background:#F8FAFC;border:1px solid #DDE6EF;border-radius:11px;padding:6px 8px}.header-user>span:nth-child(2){display:flex;flex-direction:column;line-height:1.1}.header-user b{font-size:10px;color:#29435F;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.header-user small{font-size:8px;color:#718096;margin-top:2px}.header-session-dot{width:7px;height:7px;background:#00AE50;border-radius:50%;box-shadow:0 0 0 3px rgba(0,174,80,.09)}.header-user button{border:1px solid #E7CECE;background:#fff;color:#A13A3A;border-radius:8px;padding:6px 8px;font-size:9px;font-weight:800;cursor:pointer}
 /* ===== FINALIZAÇÃO PREMIUM ===== */
 .finalize-progress-overlay{
-  position:fixed;inset:0;z-index:3000;display:none;align-items:center;justify-content:center;
+  position:fixed;inset:0;z-index:1000000;display:none;align-items:center;justify-content:center;
   padding:24px;background:rgba(7,25,48,.68);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
 }
 .finalize-progress-overlay.open{display:flex;animation:fpFadeIn .22s ease-out}
@@ -872,7 +872,7 @@ body::before{
 .finalize-overlay-premium {
   position: fixed;
   inset: 0;
-  z-index: 2500;
+  z-index: 999999;
   background: rgba(15, 23, 42, 0.68);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
