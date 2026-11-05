@@ -8162,7 +8162,30 @@ def api_ai_preencher_ficha():
     except Exception as exc:
         if isinstance(exc, ValueError):
             return jsonify({"error": "invalid_request", "detail": str(exc)}), 400
-        return _provider_error(exc)
+def _calcular_tempo_cargo_ingresso(data_ingresso: str, ref_date: datetime | None = None) -> tuple[str, str]:
+    if not data_ingresso:
+        return "", ""
+    try:
+        s = str(data_ingresso).strip()
+        if "-" in s and len(s) == 10:
+            dt_ing = datetime.strptime(s, "%Y-%m-%d")
+        else:
+            m = re.search(r'(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})', s)
+            if not m:
+                return "", ""
+            dt_ing = datetime.strptime(f"{int(m.group(1)):02d}/{int(m.group(2)):02d}/{m.group(3)}", "%d/%m/%Y")
+        today = ref_date or datetime.now()
+        years_cargo = today.year - dt_ing.year - ((today.month, today.day) < (dt_ing.month, dt_ing.day))
+        if years_cargo >= 1:
+            return str(years_cargo), "Anos"
+        else:
+            months = (today.year - dt_ing.year) * 12 + (today.month - dt_ing.month)
+            if today.day < dt_ing.day:
+                months -= 1
+            months_cargo = max(1, months)
+            return str(months_cargo), "Meses"
+    except Exception:
+        return "", ""
 
 def parse_esisla_text(text: str) -> dict:
     data = {}
@@ -8293,7 +8316,7 @@ def parse_esisla_text(text: str) -> dict:
             elif (not data.get('cargo') or not data.get('regime_juridico')) and re.search(r'(AUT[ÁA]RQUICO|CLT|EFETIVO|ESTATUT[ÁA]RIO|LEI\s*500\/74)\b', vl, re.I):
                 m_cr = re.search(r'(AUT[ÁA]RQUICO|CLT|EFETIVO|ESTATUT[ÁA]RIO|LEI\s*500\/74)\b', vl, re.I)
                 data['regime_juridico'] = m_cr.group(1).strip()
-                c_nom = vl[:m_cr.start()].strip()
+                c_nom = (vl[:m_cr.start()].strip() or vl[m_cr.end():].strip())
                 if c_nom:
                     c_clean = re.sub(r'^\d+\s*[-–]?\s*', '', c_nom).strip()
                     data['cargo'] = c_clean or c_nom
@@ -8302,22 +8325,20 @@ def parse_esisla_text(text: str) -> dict:
                 data['municipio'] = vl
 
     # Ingresso e cálculo de tempo no cargo
-    m_ing = re.search(r'Ingresso:\s*(?:\n\s*)?(\d{2}/\d{2}/\d{4})', text, re.I)
+    m_ing = re.search(r'Ingresso:?\s*(\d{2}/\d{2}/\d{4})', text, re.I)
+    if not m_ing:
+        m_ing = re.search(r'Ingresso:[\s\S]{0,250}?\b(\d{2}/\d{2}/\d{4})\b', text, re.I)
+    if not m_ing and sec_func:
+        m_ing = re.search(r'\b(\d{2}/\d{2}/\d{4})\b', sec_func.group(1))
+    if not m_ing:
+        m_ing = re.search(r'\b(?:Admiss[ãa\ufffd]o|Data\s+de\s+In[íi\ufffd]cio)[:\s\-]+(\d{2}/\d{2}/\d{4})\b', text, re.I)
+
     if m_ing:
         data['data_ingresso'] = m_ing.group(1).strip()
-        try:
-            dt_ing = datetime.strptime(data['data_ingresso'], "%d/%m/%Y")
-            today = datetime.now()
-            years_cargo = today.year - dt_ing.year - ((today.month, today.day) < (dt_ing.month, dt_ing.day))
-            if years_cargo >= 1:
-                data['tempo_cargo'] = str(years_cargo)
-                data['tempo_unidade'] = 'Anos'
-            else:
-                months_cargo = max(1, (today.year - dt_ing.year) * 12 + (today.month - dt_ing.month))
-                data['tempo_cargo'] = str(months_cargo)
-                data['tempo_unidade'] = 'Meses'
-        except Exception:
-            pass
+        tempo_cargo, tempo_unidade = _calcular_tempo_cargo_ingresso(data['data_ingresso'])
+        if tempo_cargo:
+            data['tempo_cargo'] = tempo_cargo
+            data['tempo_unidade'] = tempo_unidade
 
     # 7. Situação
     m = re.search(r'Situa[çc\ufffd]?[ãa\ufffd]?o:\s*([^\n\r]+)', text, re.I)
@@ -8744,6 +8765,7 @@ def api_esisla_parse_pdf():
                     "Preencha rigorosamente conforme os campos do documento: Protocolo, CPF, RG, Nome Completo, "
                     "Data de Nascimento, Idade, Sexo, NI, Órgão, UA, Município, Regime Jurídico, Cargo, Situação, "
                     "Readaptação (Sim ou Não), CRM Médico, Nome do Médico Assistente, CID 10, Nº Dias, Data de emissão do atestado, "
+                    "Data de Ingresso no Estado / Serviço Público (campo data_ingresso no formato DD/MM/AAAA), "
                     "Local e Data da Expedição (campo data_expedicao no formato DD/MM/AAAA)."
                 )
                 config = types.GenerateContentConfig(
@@ -8764,6 +8786,12 @@ def api_esisla_parse_pdf():
                             for k, v in ai_dict.items():
                                 if v and not dados.get(k):
                                     dados[k] = str(v)
+                            # Recalcular tempo no cargo se data de ingresso foi obtida via IA
+                            if dados.get("data_ingresso") and not dados.get("tempo_cargo"):
+                                tc, tu = _calcular_tempo_cargo_ingresso(dados["data_ingresso"])
+                                if tc:
+                                    dados["tempo_cargo"] = tc
+                                    dados["tempo_unidade"] = tu
                             # Recalcular retroação caso a data de expedição tenha sido obtida via IA
                             if dados.get("data_expedicao") and (dados.get("data_documento") or dados.get("data_documento_br")) and not dados.get("retroacao_dias"):
                                 try:
@@ -8819,6 +8847,8 @@ def api_esisla_criar_atendimento():
             "nomePaciente": dados.get("nome_paciente", ""),
             "cpfPaciente": dados.get("cpf_paciente", ""),
             "cargo": dados.get("cargo", ""),
+            "tempoCargo": str(dados.get("tempo_cargo", "")),
+            "tempoUnidade": str(dados.get("tempo_unidade", "Anos") if dados.get("tempo_cargo") else ""),
             "idade": dados.get("idade", ""),
             "readaptado": dados.get("readaptado", "Não"),
             "cid": dados.get("cid", ""),
@@ -8845,6 +8875,10 @@ def api_esisla_criar_atendimento():
                 "sexo": dados.get("sexo", "Masculino"),
                 "ni": dados.get("ni", ""),
                 "cargo": dados.get("cargo", ""),
+                "tempoCargo": str(dados.get("tempo_cargo", "")),
+                "tempoUnidade": str(dados.get("tempo_unidade", "Anos") if dados.get("tempo_cargo") else ""),
+                "dataIngresso": str(dados.get("data_ingresso", "")),
+                "ingresso": str(dados.get("data_ingresso", "")),
                 "idade": dados.get("idade", ""),
                 "readaptado": dados.get("readaptado", "Não"),
                 "orgao": dados.get("orgao", ""),
@@ -9078,6 +9112,8 @@ def api_esisla_vincular_agenda_batch():
             if dados.get("orgao"): campos_adiantados.append("Órgão")
             if dados.get("unidade"): campos_adiantados.append("UA")
             if dados.get("cargo"): campos_adiantados.append("Cargo")
+            if dados.get("tempo_cargo"): campos_adiantados.append(f"Tempo no Cargo ({dados['tempo_cargo']} {dados.get('tempo_unidade', 'Anos')})")
+            if dados.get("data_ingresso"): campos_adiantados.append(f"Ingresso ({dados['data_ingresso']})")
             if dados.get("regime_juridico"): campos_adiantados.append("Regime")
             if dados.get("cid"): campos_adiantados.append(f"CID {dados['cid']}")
             if dados.get("dias_solicitados"): campos_adiantados.append(f"{dados['dias_solicitados']} dias")
@@ -9107,6 +9143,10 @@ def api_esisla_vincular_agenda_batch():
                         existing_payload["cpfPaciente"] = dados["cpf_paciente"]
                     if not existing_payload.get("cargo") and dados.get("cargo"):
                         existing_payload["cargo"] = dados["cargo"]
+                    if not existing_payload.get("tempoCargo") and dados.get("tempo_cargo"):
+                        existing_payload["tempoCargo"] = str(dados["tempo_cargo"])
+                    if not existing_payload.get("tempoUnidade") and dados.get("tempo_unidade"):
+                        existing_payload["tempoUnidade"] = str(dados["tempo_unidade"])
                     if not existing_payload.get("idade") and dados.get("idade"):
                         existing_payload["idade"] = dados["idade"]
                     if not existing_payload.get("cid") and dados.get("cid"):
@@ -9124,6 +9164,13 @@ def api_esisla_vincular_agenda_batch():
                     for k_esisla, v_esisla in dados.items():
                         if v_esisla and not aux.get(k_esisla):
                             aux[k_esisla] = v_esisla
+                    if dados.get("tempo_cargo") and not aux.get("tempoCargo"):
+                        aux["tempoCargo"] = str(dados["tempo_cargo"])
+                    if dados.get("tempo_unidade") and not aux.get("tempoUnidade"):
+                        aux["tempoUnidade"] = str(dados["tempo_unidade"])
+                    if dados.get("data_ingresso") and not aux.get("dataIngresso"):
+                        aux["dataIngresso"] = str(dados["data_ingresso"])
+                        aux["ingresso"] = str(dados["data_ingresso"])
                     aux["cpfPaciente"] = dados.get("cpf_paciente") or aux.get("cpfPaciente", "")
                     aux["rg"] = dados.get("rg_paciente") or aux.get("rg", "")
                     aux["orgao"] = dados.get("orgao") or aux.get("orgao", "")
@@ -9138,11 +9185,11 @@ def api_esisla_vincular_agenda_batch():
                     cur.execute("""
                         UPDATE atendimentos
                            SET payload_json = %s,
-                               paciente_cpf = COALESCE(NULLIF(%s, ''), paciente_cpf),
-                               cid = COALESCE(NULLIF(%s, ''), cid),
-                               unidade = COALESCE(NULLIF(%s, ''), unidade),
-                               atualizado_em = %s,
-                               atualizado_por = %s
+                                paciente_cpf = COALESCE(NULLIF(%s, ''), paciente_cpf),
+                                cid = COALESCE(NULLIF(%s, ''), cid),
+                                unidade = COALESCE(NULLIF(%s, ''), unidade),
+                                atualizado_em = %s,
+                                atualizado_por = %s
                          WHERE id = %s
                     """, (
                         json.dumps(existing_payload, ensure_ascii=False),
@@ -9156,9 +9203,9 @@ def api_esisla_vincular_agenda_batch():
                     cur.execute("""
                         UPDATE agendas
                            SET atendimento_id = %s,
-                               protocolo = COALESCE(NULLIF(protocolo, ''), %s),
-                               ni = COALESCE(NULLIF(ni, ''), %s),
-                               atualizado_em = %s
+                                protocolo = COALESCE(NULLIF(protocolo, ''), %s),
+                                ni = COALESCE(NULLIF(ni, ''), %s),
+                                atualizado_em = %s
                          WHERE id = %s
                     """, (atd_id, dados.get("protocolo") or "", dados.get("ni") or "", now, matched_agenda["id"]))
 
@@ -9174,6 +9221,8 @@ def api_esisla_vincular_agenda_batch():
                         "nomePaciente": dados.get("nome_paciente") or matched_agenda["nome_periciado"],
                         "cpfPaciente": dados.get("cpf_paciente", ""),
                         "cargo": dados.get("cargo", ""),
+                        "tempoCargo": str(dados.get("tempo_cargo", "")),
+                        "tempoUnidade": str(dados.get("tempo_unidade", "Anos") if dados.get("tempo_cargo") else ""),
                         "idade": dados.get("idade", ""),
                         "readaptado": dados.get("readaptado", "Não"),
                         "cid": dados.get("cid", ""),
@@ -9200,6 +9249,10 @@ def api_esisla_vincular_agenda_batch():
                             "sexo": dados.get("sexo", "Masculino"),
                             "ni": dados.get("ni") or matched_agenda.get("ni", ""),
                             "cargo": dados.get("cargo", ""),
+                            "tempoCargo": str(dados.get("tempo_cargo", "")),
+                            "tempoUnidade": str(dados.get("tempo_unidade", "Anos") if dados.get("tempo_cargo") else ""),
+                            "dataIngresso": str(dados.get("data_ingresso", "")),
+                            "ingresso": str(dados.get("data_ingresso", "")),
                             "idade": dados.get("idade", ""),
                             "readaptado": dados.get("readaptado", "Não"),
                             "orgao": dados.get("orgao", ""),

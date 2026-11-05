@@ -5498,6 +5498,25 @@ window.processarArquivoEsislaGestao = async function(file) {
     document.getElementById('prevOrgao').textContent = `Órgão: ${dados.orgao || '—'}`;
     document.getElementById('prevUnidade').textContent = `UA: ${dados.unidade || '—'} · Reg: ${dados.regime_juridico || '—'}`;
 
+    const elIngressoTempo = document.getElementById('prevIngressoTempo');
+    if (elIngressoTempo) {
+      const ing = dados.data_ingresso || '';
+      const tc = dados.tempo_cargo ? `${dados.tempo_cargo} ${dados.tempo_unidade || 'Anos'}` : '';
+      if (ing && tc) {
+        elIngressoTempo.textContent = `Ingresso: ${ing} · Tempo no Cargo: ${tc}`;
+        elIngressoTempo.style.display = 'block';
+      } else if (tc) {
+        elIngressoTempo.textContent = `Tempo no Cargo: ${tc}`;
+        elIngressoTempo.style.display = 'block';
+      } else if (ing) {
+        elIngressoTempo.textContent = `Ingresso: ${ing}`;
+        elIngressoTempo.style.display = 'block';
+      } else {
+        elIngressoTempo.textContent = '—';
+        elIngressoTempo.style.display = 'none';
+      }
+    }
+
     document.getElementById('prevCidPill').textContent = `CID: ${dados.cid || '—'}`;
     document.getElementById('prevCidDesc').textContent = dados.cid_descricao || '—';
     document.getElementById('prevDiasData').textContent = `Prazo: ${dados.dias_solicitados || '—'} dia(s) · Emitido em: ${dados.data_documento_br || dados.data_documento || '—'}`;

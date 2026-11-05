@@ -4372,6 +4372,19 @@ function extrairDadosAtestadoTextoBrutoJS(texto) {
       res.dataExpedicaoIso = `${mExpIso[1]}-${mExpIso[2]}-${mExpIso[3]}`;
       res.dataExpedicaoBr = `${mExpIso[3]}/${mExpIso[2]}/${mExpIso[1]}`;
     }
+  // 6. Data de Ingresso e Tempo no Cargo
+  const mIng = s.match(/(?:Data\s+de\s+)?Ingresso:?\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i)
+    || s.match(/Ingresso:[\s\S]{0,250}?\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})\b/i);
+  if (mIng) {
+    const d = mIng[1].padStart(2, "0"), mo = mIng[2].padStart(2, "0"), y = mIng[3];
+    res.dataIngresso = `${d}/${mo}/${y}`;
+    if (typeof calcularTempoNoCargoPorIngresso === "function") {
+      const calc = calcularTempoNoCargoPorIngresso(res.dataIngresso);
+      if (calc) {
+        res.tempoCargo = calc.tempo;
+        res.tempoUnidade = calc.unidade;
+      }
+    }
   }
 
   return res;
@@ -5002,6 +5015,45 @@ function isAdmInDoctorLogin() {
 }
 window.isAdmInDoctorLogin = isAdmInDoctorLogin;
 
+function calcularTempoNoCargoPorIngresso(dataIngresso, dataRef = new Date()) {
+  if (!dataIngresso) return null;
+  let d, m, y;
+  const s = String(dataIngresso).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const parts = s.split("-");
+    y = parseInt(parts[0], 10);
+    m = parseInt(parts[1], 10);
+    d = parseInt(parts[2], 10);
+  } else {
+    const match = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
+    if (!match) return null;
+    d = parseInt(match[1], 10);
+    m = parseInt(match[2], 10);
+    y = parseInt(match[3], 10);
+  }
+  if (!d || !m || !y || y < 1900 || y > 2100) return null;
+
+  const today = (dataRef instanceof Date && !isNaN(dataRef)) ? dataRef : new Date();
+  const curY = today.getFullYear();
+  const curM = today.getMonth() + 1;
+  const curD = today.getDate();
+
+  let years = curY - y;
+  if (curM < m || (curM === m && curD < d)) {
+    years--;
+  }
+
+  if (years >= 1) {
+    return { tempo: String(years), unidade: "Anos" };
+  } else {
+    let months = (curY - y) * 12 + (curM - m);
+    if (curD < d) months--;
+    months = Math.max(1, months);
+    return { tempo: String(months), unidade: "Meses" };
+  }
+}
+window.calcularTempoNoCargoPorIngresso = calcularTempoNoCargoPorIngresso;
+
 function hasFichaVinculada() {
   if (!state) return false;
   const aux = state.aux || {};
@@ -5030,7 +5082,10 @@ function preservarDadosFichaVinculada() {
     dataExpedicaoIso: state.aux.dataExpedicaoIso || state.dataExpedicao || "",
     diasSolicitados: state.diasSolicitados || state.aux.diasSolicitados || "",
     crmCro: state.crmCro || state.aux.crmCro || "",
-    medicoAssistenteNome: state.aux.nomeMedicoAssistente || state.aux.medicoAssistenteNome || ""
+    medicoAssistenteNome: state.aux.nomeMedicoAssistente || state.aux.medicoAssistenteNome || "",
+    tempoCargo: state.tempoCargo || state.aux.tempoCargo || "",
+    tempoUnidade: state.tempoUnidade || state.aux.tempoUnidade || "Anos",
+    dataIngresso: state.aux.dataIngresso || state.aux.ingresso || ""
   };
   state.aux.fichaVinculada = true;
   state.aux.dadosFichaVinculada = v;
@@ -5064,6 +5119,20 @@ function preservarDadosFichaVinculada() {
   if (v.medicoAssistenteNome) {
     state.aux.medicoAssistenteNome = v.medicoAssistenteNome;
     state.aux.nomeMedicoAssistente = v.medicoAssistenteNome;
+  }
+  if (v.tempoCargo) {
+    state.tempoCargo = v.tempoCargo;
+    state.aux.tempoCargo = v.tempoCargo;
+    state.tempoUnidade = v.tempoUnidade || "Anos";
+    state.aux.tempoUnidade = v.tempoUnidade || "Anos";
+    if ($("tempoCargo")) $("tempoCargo").value = v.tempoCargo;
+    if ($("agilTempoCargo")) $("agilTempoCargo").value = v.tempoCargo;
+    if ($("tempoUnidade")) $("tempoUnidade").value = v.tempoUnidade || "Anos";
+    if ($("agilTempoUnidade")) $("agilTempoUnidade").value = v.tempoUnidade || "Anos";
+  }
+  if (v.dataIngresso) {
+    state.aux.dataIngresso = v.dataIngresso;
+    state.aux.ingresso = v.dataIngresso;
   }
 }
 window.preservarDadosFichaVinculada = preservarDadosFichaVinculada;
@@ -5773,6 +5842,32 @@ function aplicarDadosEsisla(dados) {
       state.aux.cargo = dados.cargo;
       if ($("cargo")) $("cargo").value = dados.cargo;
       if ($("agilCargo")) $("agilCargo").value = dados.cargo;
+    }
+
+    // Tempo no Cargo calculado a partir do Ingresso
+    let tempoCargoVal = dados.tempo_cargo || dados.tempoCargo || "";
+    let tempoUnidadeVal = dados.tempo_unidade || dados.tempoUnidade || "Anos";
+    const dataIngresso = dados.data_ingresso || dados.dataIngresso || dados.ingresso || "";
+    if (!tempoCargoVal && dataIngresso && typeof calcularTempoNoCargoPorIngresso === "function") {
+      const calc = calcularTempoNoCargoPorIngresso(dataIngresso);
+      if (calc) {
+        tempoCargoVal = calc.tempo;
+        tempoUnidadeVal = calc.unidade;
+      }
+    }
+    if (tempoCargoVal) {
+      state.tempoCargo = String(tempoCargoVal);
+      state.aux.tempoCargo = String(tempoCargoVal);
+      state.tempoUnidade = String(tempoUnidadeVal || "Anos");
+      state.aux.tempoUnidade = String(tempoUnidadeVal || "Anos");
+      if ($("tempoCargo")) $("tempoCargo").value = String(tempoCargoVal);
+      if ($("agilTempoCargo")) $("agilTempoCargo").value = String(tempoCargoVal);
+      if ($("tempoUnidade")) $("tempoUnidade").value = String(tempoUnidadeVal || "Anos");
+      if ($("agilTempoUnidade")) $("agilTempoUnidade").value = String(tempoUnidadeVal || "Anos");
+    }
+    if (dataIngresso) {
+      state.aux.dataIngresso = dataIngresso;
+      state.aux.ingresso = dataIngresso;
     }
 
     if (dados.idade) {
@@ -7193,6 +7288,30 @@ async function tryServerLoad(id){
       if (cargo) { state.cargo = cargo; state.aux.cargo = cargo; }
       const idade = state.idade || state.aux.idade || d.idade || "";
       if (idade) { state.idade = idade; state.aux.idade = idade; }
+
+      // Tempo no Cargo e Ingresso
+      let tempoCargo = state.tempoCargo || state.aux?.tempoCargo || d.tempo_cargo || "";
+      let tempoUnidade = state.tempoUnidade || state.aux?.tempoUnidade || d.tempo_unidade || "Anos";
+      const dataIngresso = state.dataIngresso || state.aux?.dataIngresso || state.aux?.ingresso || d.data_ingresso || "";
+      if (!tempoCargo && dataIngresso && typeof calcularTempoNoCargoPorIngresso === "function") {
+        const c = calcularTempoNoCargoPorIngresso(dataIngresso);
+        if (c) {
+          tempoCargo = c.tempo;
+          tempoUnidade = c.unidade;
+        }
+      }
+      if (tempoCargo) {
+        state.tempoCargo = String(tempoCargo);
+        if (!state.aux) state.aux = {};
+        state.aux.tempoCargo = String(tempoCargo);
+        state.tempoUnidade = String(tempoUnidade || "Anos");
+        state.aux.tempoUnidade = String(tempoUnidade || "Anos");
+      }
+      if (dataIngresso) {
+        if (!state.aux) state.aux = {};
+        state.aux.dataIngresso = dataIngresso;
+        state.aux.ingresso = dataIngresso;
+      }
       applyState();
       syncExtendedToAgil();
       setPersistStatus("ok","Atendimento sincronizado com o servidor");
