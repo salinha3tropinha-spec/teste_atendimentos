@@ -9,7 +9,7 @@
 
 <title>Ambiental — Avaliação Médica Pericial LTS</title>
 <!-- v15: validação determinística dos quesitos baseada diretamente nos radio buttons + sincronização de estado -->
-<link rel="stylesheet" href="/ambiental_assistente.css?v=2.1.3">
+<link rel="stylesheet" href="/ambiental_assistente.css?v=2.1.5">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/auth.js"></script><script src="/api.js"></script></head>
 <body><div id="authLoading" style="position:fixed;inset:0;background:#F2F6FA;z-index:999999;display:grid;place-items:center;font-family:Inter,system-ui,sans-serif;color:#073F87"><div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DDE6EF;border-radius:14px;padding:13px 16px;box-shadow:0 12px 35px rgba(10,30,55,.1);font-size:12px;font-weight:800"><img src="/logo.png" alt="" style="width:28px;height:28px;object-fit:contain"><span>Verificando sessão...</span></div></div>
 <script>
@@ -2040,8 +2040,29 @@
     </div>
     <div class="finalize-success-note">Tudo certo. Abrindo a Gestão Médica…</div>
   </div>
+<div id="finalizeOverlay" class="overlay finalize-overlay-premium" aria-hidden="true">
+  <div class="dialog finalize-dialog-modern">
+    <div class="finalize-dialog-head">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="finalize-head-icon">🏁</div>
+        <div>
+          <strong class="finalize-head-title">Finalização do Laudo Pericial</strong>
+          <span class="finalize-head-sub">Revise os dados principais do laudo pericial antes do fechamento definitivo.</span>
+        </div>
+      </div>
+      <button class="finalize-close-btn" type="button" onclick="closeFinalizeDialog()" title="Fechar">✕</button>
+    </div>
+    <div id="finalizeSummary" class="finalize-summary-modern"></div>
+    <div class="finalize-dialog-actions">
+      <button class="btn btn-outline finalize-btn-cancel" type="button" onclick="closeFinalizeDialog()">
+        ↩ Voltar ao Atendimento
+      </button>
+      <button class="btn btn-green finalize-btn-confirm" id="confirmFinalizeBtn" type="button" onclick="confirmFinalize()">
+        <span>🏁</span> Confirmar e Finalizar Atendimento
+      </button>
+    </div>
+  </div>
 </div>
-<div id="finalizeOverlay" class="overlay" aria-hidden="true"><div class="dialog finalize-dialog"><div class="dialog-head"><div><strong>Pronto para finalizar</strong><span>A finalização depende da confirmação do backend e será registrada no histórico.</span></div><button class="btn btn-outline" type="button" onclick="closeFinalizeDialog()">Fechar</button></div><div id="finalizeSummary" class="finalize-summary"></div><div class="dialog-actions"><button class="btn btn-outline" type="button" onclick="closeFinalizeDialog()">Cancelar</button><button class="btn btn-primary" id="confirmFinalizeBtn" type="button" onclick="confirmFinalize()">Finalizar atendimento</button></div></div></div>
 
 <div class="modal-backdrop" id="historyModal">
   <div class="modal">
@@ -2708,7 +2729,7 @@ Atestado de 15 dias do dia 29/09 por Z98.8 favorável."></textarea>
   </div>
 </div>
 
-<script src="/ambiental_assistente.js?v=2.1.4"></script>
+<script src="/ambiental_assistente.js?v=2.1.5"></script>
 </div> <!-- Fecha a div .app -->
 
 <script>window.addEventListener("pageshow",()=>{AmbientalAuth.me().then(p=>{if(!p) location.replace("/login.html?reason=expired");}).catch(()=>{});});</script></body>

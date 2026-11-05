@@ -8458,16 +8458,94 @@ function openFinalizeDialog(){
   const q=getQuesitoValidation();
   const el=$("finalizeSummary");
   if(!el)return;
-  const items=[
-    ["Atendimento",state.atendimento],
-    ["Situação","Todos os campos obrigatórios preenchidos"],
-    ["Quesitos",`${q.answered}/3 respondidos`],
-    ["Capacidade laborativa",state.capacidade||"Não definida"],
-    ["Parecer",state.parecer||"Não definido"],
-    ["Inconsistências críticas",String(validation.blocking.length)],
-    ["Documento final",missingFields().length?"Pendente":"Disponível para visualização"]
-  ];
-  el.innerHTML=items.map(([l,v])=>`<div class="finalize-item"><span>${esc(l)}</span><b>${esc(v)}</b></div>`).join("");
+  const nome = state.aux?.nomePaciente || state.nomePaciente || $("agilNomePaciente")?.value || $("nomePaciente")?.value || "Colaborador(a)";
+  const rawCpf = state.aux?.cpfPaciente || state.cpfPaciente || $("agilCpfPaciente")?.value || $("cpfPaciente")?.value || "";
+  const cpf = typeof formatCPF === "function" ? formatCPF(rawCpf) : rawCpf;
+  const cargo = state.cargo || state.aux?.cargo || $("agilCargo")?.value || $("cargo")?.value || "Não informado";
+  const tempoCargo = state.tempoCargo || state.aux?.tempoCargo || "";
+  const tempoUnidade = state.tempoUnidade || state.aux?.tempoUnidade || "Anos";
+  const tempoCargoStr = tempoCargo ? `${tempoCargo} ${tempoUnidade}` : "";
+
+  const cid = state.cid || state.aux?.cid || $("agilCid")?.value || $("cid")?.value || "—";
+  const fCid = typeof findCID === "function" ? findCID(cid) : null;
+  const cidDesc = fCid?.n || state.aux?.doencaMotivo || state.doencaMotivo || $("agilDoencaMotivo")?.value || "—";
+
+  const parecer = state.parecer || state.aux?.parecer || $("agilParecer")?.value || "Favorável";
+  const isContrario = String(parecer).toUpperCase().includes("CONT");
+  const dias = state.diasSolicitados || state.aux?.diasSolicitados || $("agilDiasSolicitados")?.value || "0";
+  const capacidade = state.capacidade || state.aux?.capacidade || "Incapaz Temporariamente";
+  const exame = state.exameFisicoTipo || "Exame Clínico";
+
+  const medico = state.medico || state.aux?.medico || (typeof sessionStorage !== "undefined" ? sessionStorage.getItem('ambiental.impersonate_medico_nome') : "") || "Médico Perito";
+  const crm = state.crmResponsavel || state.aux?.crmResponsavel || (typeof sessionStorage !== "undefined" ? sessionStorage.getItem('ambiental.impersonate_medico_crm') : "") || "";
+
+  el.innerHTML = `
+    <!-- Card do Periciando -->
+    <div class="finalize-patient-card">
+      <div class="finalize-patient-avatar">👤</div>
+      <div class="finalize-patient-details">
+        <div class="finalize-patient-top">
+          <strong class="finalize-patient-name">${esc(nome)}</strong>
+          <span class="finalize-atd-pill">Atd #${esc(state.atendimento)}</span>
+        </div>
+        <div class="finalize-patient-meta">
+          ${cpf ? `<span class="finalize-meta-tag">🪪 CPF: ${esc(cpf)}</span>` : ""}
+          <span class="finalize-meta-tag">💼 Cargo: ${esc(cargo)}</span>
+          ${tempoCargoStr ? `<span class="finalize-meta-tag">⏱️ Tempo: ${esc(tempoCargoStr)}</span>` : ""}
+        </div>
+      </div>
+    </div>
+
+    <!-- Grid de Indicadores Clínicos / Periciais -->
+    <div class="finalize-indicators-grid">
+      <!-- CID Principal -->
+      <div class="finalize-ind-card">
+        <span class="finalize-ind-label">CID-10 Principal</span>
+        <div class="finalize-cid-row">
+          <span class="finalize-cid-badge">${esc(cid)}</span>
+          <span class="finalize-cid-desc" title="${esc(cidDesc)}">${esc(cidDesc)}</span>
+        </div>
+      </div>
+
+      <!-- Parecer e Prazo -->
+      <div class="finalize-ind-card">
+        <span class="finalize-ind-label">Parecer Conclusivo & Prazo</span>
+        <div class="finalize-parecer-row">
+          <span class="finalize-parecer-badge ${isContrario ? 'contrario' : 'favoravel'}">
+            ${isContrario ? 'CONTRÁRIO' : 'FAVORÁVEL'}
+          </span>
+          <span class="finalize-dias-val">${esc(dias)} dia(s) concedido(s)</span>
+        </div>
+      </div>
+
+      <!-- Capacidade Laborativa -->
+      <div class="finalize-ind-card">
+        <span class="finalize-ind-label">Capacidade Laborativa</span>
+        <div class="finalize-ind-val">
+          <span class="finalize-ind-icon">⚖️</span>
+          <span>${esc(capacidade)}</span>
+        </div>
+      </div>
+
+      <!-- Quesitos & Exame Físico -->
+      <div class="finalize-ind-card">
+        <span class="finalize-ind-label">Quesitos & Avaliação Clínica</span>
+        <div class="finalize-ind-val">
+          <span class="finalize-ind-icon">📋</span>
+          <span>${q.answered}/3 Respondidos · ${esc(exame)}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Banner de Assinatura & Auditoria -->
+    <div class="finalize-audit-strip">
+      <span class="finalize-audit-icon">🛡️</span>
+      <div class="finalize-audit-text">
+        <strong>Assinatura Médica Responsável</strong>
+        <span>Dr(a). ${esc(medico)}${crm ? ` · CRM ${esc(crm)}` : ""} — Pronto para homologação no banco de dados.</span>
+      </div>
+    </div>
+  `;
   const fo = $("finalizeOverlay");
   if(fo){
     fo.classList.add("open");
