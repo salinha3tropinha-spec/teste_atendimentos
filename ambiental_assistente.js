@@ -4266,21 +4266,11 @@ async function finalizarAtendimentoIA2(origem) {
       await refinarDialogoComIA2(true).catch(e => console.warn("Aviso no refinamento IA:", e));
     }
     await acaoBotaoPrincipalGravacaoIA2();
-  } else if (origem === "escrita") {
+  } else {
+    // Escrita Livre / Direto: Abre sempre a Decisão Pericial do Médico
     const rawTxt = ($("ia2EscritaText")?.value || "").trim();
     const txtUtil = extrairTextoUtilEscritaIA2(rawTxt);
-    const hasTextoUtil = Boolean(txtUtil && txtUtil.length >= 10);
-
-    if (hasTextoUtil) {
-      abrirModalDecisaoMedicoIA2("escrita", txtUtil);
-      return;
-    }
-
-    // Finalização direta garantida
-    syncAgilToExtended();
-    ensureAgileBackgroundDefaults();
-    syncState();
-    openFinalizeDialog();
+    abrirModalDecisaoMedicoIA2("escrita", txtUtil || rawTxt);
   }
 }
 
@@ -4517,13 +4507,21 @@ function abrirModalDecisaoMedicoIA2(origem, texto) {
     console.error("Aviso ao preparar modal de decisão:", err);
   } finally {
     const modal = $("ia2ModalDecisaoMedico");
-    if (modal) modal.style.display = "flex";
+    if (modal) {
+      modal.classList.add("show");
+      modal.setAttribute("aria-hidden", "false");
+      modal.style.display = "flex";
+    }
   }
 }
 
 function fecharModalDecisaoMedicoIA2() {
   const modal = $("ia2ModalDecisaoMedico");
-  if (modal) modal.style.display = "none";
+  if (modal) {
+    modal.classList.remove("show");
+    modal.setAttribute("aria-hidden", "true");
+    modal.style.display = "none";
+  }
 }
 
 function selecionarDecisaoParecerIA2(parecer) {
@@ -4690,8 +4688,23 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
       atualizarOverlayIA2Passo(3, "📋 Mapeando parâmetros clínicos e CIDs...", 70);
     }
 
-    if (!texto) {
-      throw new Error("A IA não identificou falas ou conteúdo clínico suficiente no áudio/anotação enviada. Verifique se o arquivo possui áudio gravado e tente novamente.");
+    if (!texto || String(texto).trim() === "") {
+      const v = typeof values === "function" ? values() : {};
+      const doenca = state.aux?.doencaMotivo || state.doencaMotivo || v.doencaMotivo || "";
+      const cid = state.cid || state.aux?.cid || v.cid || "";
+      const queixa = state.aux?.queixaDuracao || state.queixaDuracao || v.queixaDuracao || "";
+      const parecer = decisaoMedico?.parecer || state.parecer || "FAVORÁVEL";
+      const dias = (typeof decisaoMedico?.diasConcedidos !== "undefined" && decisaoMedico.diasConcedidos !== null) ? decisaoMedico.diasConcedidos : (state.diasSolicitados || 0);
+      const obsMed = decisaoMedico?.observacoesMedico || "";
+      texto = [
+        `Consulta pericial realizada em ${today()}.`,
+        cid ? `CID: ${cid}.` : "",
+        doenca ? `Motivo do afastamento: ${doenca}.` : "",
+        queixa ? `Queixa informada: ${queixa}.` : "",
+        `Parecer pericial definido: ${parecer}.`,
+        dias ? `Dias concedidos: ${dias} dias.` : "",
+        obsMed ? `Observações do perito: ${obsMed}.` : ""
+      ].filter(Boolean).join(" ");
     }
 
     atualizarOverlayIA2Passo(4, "⚡ Preenchendo ficha e-SISLA com parecer e regras oficiais...", 88);
