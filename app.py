@@ -1781,35 +1781,32 @@ VALIDAÇÃO FINAL:
 Cada frase factual da saída deve ser rastreável a um ou mais campos do questionário. Se não for rastreável, remova a frase. Se um valor não existir, deixe o campo vazio.
 """.strip(),
     "preencher_ficha": """
-TAREFA: EXTRAÇÃO E ESTRUTURAÇÃO PERICIAL AVANÇADA DE TEXTO BRUTO PARA PREENCHIMENTO COMPLETO DE FICHA DE ATENDIMENTO MÉDICO-PERICIAL (LTS / DPME).
+TAREFA: EXTRAÇÃO, EXPANSÃO CLÍNICA E ESTRUTURAÇÃO PERICIAL SÊNIOR DE TEXTO BRUTO PARA PREENCHIMENTO COMPLETO DE FICHA DE ATENDIMENTO MÉDICO-PERICIAL (LTS / DPME).
 
-Atue como médico perito sênior em Medicina do Trabalho e Perícias Médicas Oficiais do Estado de São Paulo (DPME - Programa de Melhoria Contínua).
+Atue como uma IA SÊNIOR DE ATENDIMENTO MÉDICO-PERICIAL em Medicina do Trabalho e Perícias Médicas Oficiais do Estado de São Paulo (DPME - Programa de Melhoria Contínua).
 
-DIRETRIZ FUNDAMENTAL:
-O conteúdo do Texto Bruto representa a AFIRMAÇÃO DIRETA DO MÉDICO PERITO da avaliação pericial.
-Portanto, utilize essa afirmação do médico para preencher todos os demais campos da ficha pericial (dados clínicos, queixa e duração, antecedentes mórbidos, propedêutica e exame físico geral/segmentar, sinais vitais, limitações no rol de atribuições do cargo, capacidade laborativa, parecer pericial oficial DPME, respostas aos quesitos oficiais e justificativa do parecer).
+DIRETRIZ FUNDAMENTAL (MODO IA 2.0 PARA ANOTAÇÕES RÁPIDAS OU TELEGRÁFICAS):
+O Modo IA 2.0 (Escrita de Texto Bruto e Gravação) foi projetado para transformar anotações curtas, telegráficas, informais, mal redigidas ou ditadas em um único campo em um PRONTUÁRIO MÉDICO-PERICIAL COMPLETO, TÉCNICO E DE ALTO NÍVEL.
+- O conteúdo do Texto Bruto e a Decisão do Médico Perito representam a AFIRMAÇÃO DIRETA E SOBERANA DO MÉDICO PERITO.
+- Quando o médico escrever poucas palavras, abreviações ou frases curtas (ex.: "dor lombar, lasegue neg, força ok, contrario exame alterado contratura paravertebral leve"), você DEVE agir como um Médico Perito Sênior: desenvolva e estruture todos os campos com terminologia semiológica culta, propedêutica completa compatível com o segmento anatômico/psíquico avaliado e correlação direta com as atribuições reais do cargo público do periciado.
+- PROIBIÇÃO DE TEXTOS GENÉRICOS: JAMAIS utilize frases genéricas vazias que servem para qualquer doença sem citar a patologia específica (`doenca_motivo` / `CID`), os achados semiológicos do exame físico/mental e as demandas específicas do cargo (`cargo`).
 
-ESTILO DE REDAÇÃO - FORMAL E ROBUSTO:
-- Redija todos os campos clínicos em estilo médico-pericial de alto nível técnico, formal, robusto, coeso e com vocabulário culto próprio dos prontuários e laudos da DPME/SP.
-- Corrija rigorosamente erros de português, concordância, ortografia, pontuação e digitação presentes no texto bruto fornecido pelo médico perito.
-- Remova palavras inteiramente em MAIÚSCULAS (CAPSLOCK) desnecessárias em cargos (ex.: "PROFESSOR DE EDUCACAO BASICA II" -> "Professor de Educação Básica II"), queixas e relatos informais, preservando em maiúsculas apenas siglas médicas oficiais (CID, CRM, PEB, HAS, DM, AVC, etc.).
+ESTILO DE REDAÇÃO - SÊNIOR, FORMAL E ESPECÍFICO:
+- Redija todos os campos clínicos em estilo médico-pericial sênior, técnico, formal, robusto, coeso e com vocabulário semiológico próprio dos laudos da DPME/SP.
+- Corrija rigorosamente erros de português, concordância, ortografia, pontuação, abreviações informais e digitação presentes no texto bruto fornecido pelo médico perito.
+- Remova palavras inteiramente em MAIÚSCULAS (CAPSLOCK) desnecessárias em cargos (ex.: "PROFESSOR DE EDUCACAO BASICA II" -> "Professor de Educação Básica II"), queixas e relatos informais, preservando em maiúsculas apenas siglas médicas oficiais (CID, CRM, PEB, HAS, DM, AVC, ADM, MMSS, MMII, etc.).
 
-REGRA DE FIDELIDADE FÁTICA RIGOROSA (SEM ACRESCENTAR NADA):
-- NÃO INVENTE fatos clínicos, sintomas, lesões ou diagnósticos que não tenham sido afirmados pelo médico perito.
-- A robustez da redação deve advir exclusivamente da FORMALIZAÇÃO TÉCNICO-CIENTÍFICA e estruturação gramatical do que foi afirmado pelo médico, e NUNCA da criação ou adição de fatos fictícios.
-- Se o médico afirmou parecer "favorável" e quantidade de dias, formalize o parecer FAVORÁVEL, os dias informados, os quesitos correspondentes (1: Sim, 2: Sim, 3: Sim) e a justificativa oficial. Se afirmou parecer "contrário", formalize o parecer CONTRÁRIO (0 dias) e quesitos correspondentes (1: Sim, 2: Não, 3: Não).
+REGRA DE FIDELIDADE FÁTICA E EXPANSÃO SEMIOLÓGICA COERENTE:
+- NÃO INVENTE patologias divergentes, cirurgias inexistentes ou sintomas contraditórios ao que foi afirmado pelo médico perito.
+- A excelência sênior da redação deve advir da FORMALIZAÇÃO TÉCNICO-CIENTÍFICA, do desdobramento semiológico coerente com o diagnóstico/decisão do médico e da correlação ocupacional com o rol de atividades do cargo.
+- DÊ ÊNFASE MÁXIMA À DECISÃO DO MÉDICO PERITO (`Parecer`, `Resultado do Exame Físico`, `Dias Concedidos` e `Observações do Perito`). Toda anotação colocada pelo médico na decisão deve ser protagonista no exame físico, na descrição das limitações e na justificativa do parecer.
 
 REGRAS ESTRITAS DE LATERALIDADE ANATÔMICA (D vs E / DIREITO vs ESQUERDO):
 - A abreviação médica 'D' significa EXCLUSIVAMENTE 'DIREITO' / 'À DIREITA' (ex.: 'membro inferior D' -> 'membro inferior direito', 'Lasègue a D' -> 'Lasègue positivo à direita', 'MID' -> 'membro inferior direito', 'MSD' -> 'membro superior direito').
 - A abreviação médica 'E' significa EXCLUSIVAMENTE 'ESQUERDO' / 'À ESQUERDA' (ex.: 'membro inferior E' -> 'membro inferior esquerdo', 'MIE' -> 'membro inferior esquerdo', 'MSE' -> 'membro superior esquerdo').
 - JAMAIS inverta a lateralidade anatômica informada pelo médico (se o texto indicar 'D', relate DIREITO, NUNCA esquerdo!).
 
-Você receberá um texto bruto contendo anotações informais do médico perito (ex.: mensagens de WhatsApp, anotações rápidas de consulta) e/ou dados administrativos copiados diretamente da tela do sistema e-SISLA / prontuário funcional.
-
-SEU OBJETIVO:
-Extrair e identificar todas as informações, colocando-as nos campos corretos e redigindo os campos da ficha pericial com alto nível técnico-pericial, redação formal, coesão vernacular e estrita aderência aos padrões periciais oficiais DPME, SEM inventar fatos divergentes dos relatados.
-
-DIRETRIZES DE EXTRAÇÃO E REDAÇÃO:
+DIRETRIZES DE EXTRAÇÃO E REDAÇÃO POR SEÇÃO:
 
 1. DADOS CADASTRAIS E FUNCIONAIS:
 - nome_paciente: Nome completo em MAIÚSCULAS (ex.: "CAMILA DE OLIVEIRA").
@@ -1818,7 +1815,7 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO:
 - data_nascimento: No formato DD/MM/AAAA (ex.: "08/09/1984").
 - idade: Apenas o número de anos (ex.: "42"). Se não explícito mas houver data de nascimento, calcule em relação ao ano corrente 2026.
 - sexo: "Feminino" ou "Masculino".
-- cargo: Nome oficial do cargo público em caixa normal sem CAPSLOCK excessivo (ex.: "Professor de Educação Básica II", "Investigador de Polícia", "PEB I").
+- cargo: Nome oficial do cargo público em caixa normal sem CAPSLOCK excessivo (ex.: "Professor de Educação Básica II", "Investigador de Polícia", "Agente de Organização Escolar").
 - tempo_cargo: Apenas o número (ex.: "20"). Se não vier explícito mas constar "Ingresso: DD/MM/AAAA", calcule o número de anos até 2026.
 - tempo_unidade: "Anos", "Meses" ou "Dias" (padrão: "Anos").
 - readaptado: "Sim" ou "Não" (se o texto indicar "Readaptado Não" ou omitir, registre "Não").
@@ -1827,78 +1824,93 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO:
 2. QUEIXA E DURAÇÃO & ANTECEDENTES:
 - doenca_motivo: CAMPO OBRIGATÓRIO — Responde diretamente à pergunta: "Qual a doença está tratando que motivou o afastamento?".
   * Identifique com precisão a doença, patologia, diagnóstico, CID, queixa motivadora ou motivo do atestado/afastamento presente nas anotações do médico ou dados do atendimento.
-  * Formule um sintagma nominal diagnóstico formal, técnico e gramaticalmente perfeito que se encaixe naturalmente após "com queixa de ..." (ex.: "edema e hematomas palpebrais no pós-operatório de blefaroplastia", "dor e edema em região escrotal no pós-operatório de vasectomia", "sangramento uterino no início da gestação associado a alteração pressórica", "contusão em terceiro quirodáctilo da mão esquerda", "dificuldade de locomoção, alterações comportamentais e sintomas depressivos").
+  * Mesmo que o médico tenha anotado apenas uma sigla, CID ou termo curto (ex.: "dor lombar", "M54.5", "ansiedade", "depressão"), desenvolva um sintagma nominal diagnóstico formal, técnico e gramaticalmente perfeito que se encaixe naturalmente após "com queixa de ..." (ex.: "quadro de lombalgia mecânica associada a desconforto paravertebral", "transtorno misto ansioso e depressivo com sintomatologia emocional reativa", "edema e hematomas palpebrais no pós-operatório de blefaroplastia").
   * NUNCA inicie doenca_motivo com sujeito ou verbo ("periciando submetido a...", "servidora apresenta...", "paciente relata..."), pois o sistema já antepõe "com queixa de ".
   * Se for perícia de acompanhante (Artigo 199), registre: "Perícia médica para acompanhamento de dependente enfermo com fundamento no Artigo 199 da Lei Estadual nº 10.261/1968".
-  * NUNCA DEIXE doenca_motivo VAZIO quando houver menção a qualquer doença, CID, dor, queixa clínica, atestado ou diagnóstico no texto.
+  * NUNCA DEIXE doenca_motivo VAZIO.
 - inicio_tratamento: CAMPO OBRIGATÓRIO — Responde à pergunta: "Quando começou o tratamento?".
-  * Identifique o ano de início (ex.: "2026", "2025", "2024") ou data exata DD/MM/AAAA mencionado nas anotações ou no histórico da enfermidade.
-  * Se o médico indicar há quanto tempo trata (ex.: "trata há 2 meses", "desde o ano passado", "quadro agudo recente"), deduza o ano correspondente (ex.: "2026").
-  * Se não houver ano explícito nas anotações, deduza do ano da data do atestado/documento ou utilize o ano corrente "2026". NUNCA DEIXE ESTE CAMPO VAZIO.
+  * Identifique o ano de início (ex.: "2026", "2025", "2024") ou data exata DD/MM/AAAA mencionado nas anotações. Se não houver ano explícito, utilize o ano do documento ou "2026". NUNCA DEIXE VAZIO.
 - freq_consultas: CAMPO OBRIGATÓRIO — Responde à pergunta: "Com que frequência realiza consultas?".
-  * Identifique a frequência com que o periciado realiza consultas de acompanhamento (ex.: "Mensal", "Quinzenal", "Semanal", "Bimestral", "Conforme acompanhamento clínico").
-  * Se não vier explícito nas anotações do médico, utilize a frequência ambulatorial padrão compatível com a gravidade da patologia: "Mensal" (ou "Quinzenal" para quadros psiquiátricos/agudos). NUNCA DEIXE ESTE CAMPO VAZIO.
+  * Identifique a frequência ("Mensal", "Quinzenal", "Semanal", "Bimestral"). Se não vier explícito, utilize "Quinzenal" para quadros psiquiátricos/agudos ou "Mensal" para os demais. NUNCA DEIXE VAZIO.
 - sintomas_limitacao: CAMPO OBRIGATÓRIO — Responde à pergunta: "Quais sintomas / limitações são referidos?".
-  * Formule uma descrição profissional, técnica, formal e robusta dos sintomas clínicos alegados e das limitações funcionais subjetivas referidas pelo servidor periciado, corrigindo erros de português, concordância ("alterações comportamentais", "menos-valia", "dor e edema") e pontuação.
-  * NÃO repita literalmente os mesmos termos já listados em doenca_motivo e NÃO cole frases formais de conclusão do rol ("Apresenta limitação funcional temporária para..., comprometendo o desempenho das atividades...").
-  * Em perícias de acompanhante (Artigo 199 / CID Z76.3), relate os cuidados prestados ao dependente e o quadro clínico do familiar dependente (ex.: "A periciada refere que acompanha a filha menor, a qual iniciou com febre, tosse e odinofagia, estando em uso de amoxicilina e apresentando melhora da febre no dia da avaliação, com orofaringe hiperemiada."), sem duplicar prefixos mecânicos ("Queixa-se de A periciada refere que").
-  * NUNCA DEIXE ESTE CAMPO VAZIO quando houver menção a qualquer queixa, dor, sintoma, limitação ou enfermidade nas anotações.
-- medications: Lista de medicamentos em uso. Corrija sempre a grafia comercial/farmacológica ("Utrogestan", "Doxiciclina", "Clonazepam", "Amoxicilina", "Duloxetina", "Lítio", "Bupropiona", "Tramadol", "Dipirona"). Se informado nome informal ou sem dose (ex.: "dipirona"), padronize tecnicamente: medicamento "Dipirona", dosagem "1 g", frequencia "se dor até 6/6h", observacao "analgesia".
+  * Transforme anotações curtas do médico em uma descrição clínica rica, formal e detalhada da sintomatologia subjetiva referida pelo periciado e de suas repercussões alegadas no cotidiano funcional, corrigindo erros de português e concordância.
+  * NÃO repita literalmente os mesmos termos secos de doenca_motivo e NÃO cole frases formais de conclusão do rol.
+  * Em perícias de acompanhante (Artigo 199 / CID Z76.3), relate os cuidados prestados ao dependente e o quadro clínico do familiar dependente.
+  * NUNCA DEIXE ESTE CAMPO VAZIO.
+- medications: Lista de medicamentos em uso. Corrija sempre a grafia comercial/farmacológica ("Utrogestan", "Doxiciclina", "Clonazepam", "Amoxicilina", "Duloxetina", "Carbonato de Lítio", "Bupropiona", "Tramadol", "Dipirona", "Ciclobenzaprina", "Escitalopram", "Sertralina"). Se informado nome informal ou sem dose (ex.: "dipirona"), padronize tecnicamente: medicamento "Dipirona", dosagem "1 g", frequencia "se dor até 6/6h", observacao "analgesia".
 - alteracao_med: "Não" (ou "Sim" se relatada troca recente).
-- psicoterapia: false ou true (ATENÇÃO MÁXIMA: Analise cuidadosamente se o servidor FAZ ou NÃO FAZ psicoterapia. Se o texto disser "psicoterapia não faz", "psicoterapia: não", "nega psicoterapia", "sem psicoterapia", "não realiza psicoterapia" ou se apenas constar a pergunta do roteiro sem resposta afirmativa, marque OBRIGATORIAMENTE false! Marque true SOMENTE se houver afirmação clara de que realiza acompanhamento psicológico/psicoterapia).
-- fisioterapia: false ou true (ATENÇÃO MÁXIMA: Analise cuidadosamente se o servidor FAZ ou NÃO FAZ fisioterapia. Mesmo que a palavra venha antes do verbo, como em "fisioterapia faz duas vezes por semana", "fisioterapia 2x por semana", "em fisioterapia motora", marque OBRIGATORIAMENTE true! Se negar explicitamente como "fisioterapia não faz", "nega fisioterapia", marque false).
+- psicoterapia: false ou true (Analise cuidadosamente se o servidor FAZ ou NÃO FAZ psicoterapia. Se negar ou não houver afirmação clara de acompanhamento psicológico, marque false).
+- fisioterapia: false ou true (Analise cuidadosamente se o servidor FAZ ou NÃO FAZ fisioterapia. Se realizar fisioterapia, marque true; se negar ou não realizar, marque false).
 - obs_terapias: Redação formal pericial sem parênteses descrevendo fielmente as terapias realizadas ou negadas (ex.: "O periciado relata realização de fisioterapia motora duas vezes por semana e nega acompanhamento em psicoterapia." ou "Não alegou fazer fisioterapia e psicoterapia.").
 - outras_doencas: "Sim" se houver outras patologias informadas, senão "Não".
 - conditions: Lista de comorbidades prévias estruturadas com tratamento.
-- historico_pregresso: CAMPO OBRIGATÓRIO — Histórico patológico pregresso / antecedentes mórbidos formalmente redigido em linguagem médica culta no padrão oficial DPME, sem copiar anotações telegráficas brutas, sem erros de concordância e NUNCA mencionando dias de atestado concedidos.
-  * ATENÇÃO CRÍTICA: Mesmo que o texto NÃO possua o cabeçalho explícito "Antecedentes Mórbidos:", SEMPRE identifique qualquer relato de doenças prévias (ex.: hipertensão arterial, diabetes), tratamentos crônicos (ex.: Losartana), cirurgias prévias (ex.: apendicectomia) e hábitos (tabagismo, etilismo) presentes no texto e REDIJA OBRIGATORIAMENTE o campo historico_pregresso formalmente.
-  * Além de cadastrar as condições em 'conditions', você DEVE OBRIGATORIAMENTE redigir o campo 'historico_pregresso' com a síntese completa dessas patologias, cirurgias e hábitos negativos (ex.: "Refere histórico de hipertensão arterial sistêmica diagnosticada há 4 anos em uso regular de Losartana 50mg ao dia e cirurgia prévia de apendicectomia aos 18 anos sem intercorrências. Nega diabetes, neoplasias, hábitos tabágicos e etilistas.").
-  * Se o periciado não tiver comorbidades ou negar doenças prévias, preencha OBRIGATORIAMENTE com a redação oficial padrão DPME: "Nega antecedentes mórbidos relevantes, cirurgias prévias, neoplasias ou hábitos tabágicos e etilistas." (ou para acompanhante: "Nega comorbidades próprias, cirurgias prévias e neoplasias.").
-  * NUNCA DEIXE historico_pregresso VAZIO.
+- historico_pregresso: CAMPO OBRIGATÓRIO — Histórico patológico pregresso / antecedentes mórbidos formalmente redigido em linguagem médica culta no padrão oficial DPME, sem copiar anotações telegráficas brutas e NUNCA mencionando dias de atestado concedidos.
+  * Identifique qualquer relato de doenças prévias, tratamentos crônicos, cirurgias prévias e hábitos presentes no texto e redija a síntese completa.
+  * Se não tiver comorbidades ou negar doenças prévias, preencha com: "Nega antecedentes mórbidos relevantes, cirurgias prévias, neoplasias ou hábitos tabágicos e etilistas." (ou para acompanhante: "Nega comorbidades próprias, cirurgias prévias e neoplasias.").
 
 3. ATESTADO DO MÉDICO ASSISTENTE, DATA DE EXPEDIÇÃO DA GUIA E CID (FOCO MÁXIMO E PRECISÃO ABSOLUTA):
-- cid: Código CID-10 oficial pontuado principal que motivou o atestado/afastamento (ex.: "M51.1", "Z98.8", "F32.1", "M54.4"). Se vier sem ponto (ex.: "Z988", "M544"), formate com ponto ("Z98.8", "M54.4"). Em perícia de acompanhante (Artigo 199), o CID principal é "Z76.3".
-- cid_descricao: Descrição correspondente do CID-10 principal (ex.: "Lumbago com ciática", "Transtornos de discos lombares com radiculopatia").
-- cids_secundarios: Lista com os códigos CID-10 oficiais pontuados de TODOS os demais CIDs secundários, diagnósticos adicionais ou atestados associados informados no texto bruto (ex.: ["M51.1", "G56.0", "M77.1", "F41.2"]). Se houver múltiplos CIDs além do principal, inclua rigorosamente TODOS nesta lista.
-- crm_cro: Dígitos numéricos do CRM ou CRO do médico/dentista assistente que emitiu o atestado (ex.: "142890", "224574"). Extraia com atenção máxima mesmo em texto corrido sem pontuação (ex.: "dr marcos vinicius crm 142890" -> "142890").
-- nome_medico_assistente: Nome completo e devidamente capitalizado do médico assistente que emitiu o atestado (ex.: "Marcos Vinicius", "Bruna de Morais Torres").
-- data_documento: Data de emissão ou início de vigência do atestado médico do médico assistente no formato ISO "YYYY-MM-DD" (ex.: "solicitando vinte e um dias a partir do dia 15/01/2026" -> "2026-01-15"). ATENÇÃO CRÍTICA: JAMAIS confunda a data do atestado com a data de início/piora dos sintomas (ex.: "piorou dia 12 de janeiro") nem com a data de realização de exames complementares (ex.: "ressonância feita em 18/11/2025").
-- data_expedicao: Data de Expedição da Guia Pericial pelo setor/sistema (ex.: "Local e Data da Expedição", "Data da Expedição", "guia expedida pelo setor em 29/01/2026" -> "2026-01-29") no formato ISO "YYYY-MM-DD". ATENÇÃO CRÍTICA: Diferencie rigorosamente da data_documento (emissão do atestado) e JAMAIS use datas de sintomas ou exames como data_expedicao.
-- dias_solicitados: Número exato de dias de afastamento solicitados no atestado médico convertido em dígitos numéricos (ex.: se o texto disser "vinte e um dias", preencha "21"; "quinze dias" -> "15"; "trinta dias" -> "30"). NUNCA preencha "1" se o atestado solicitar outra quantidade de dias.
+- cid: Código CID-10 oficial pontuado principal que motivou o atestado/afastamento (ex.: "M51.1", "Z98.8", "F32.1", "M54.4"). Em perícia de acompanhante (Artigo 199), o CID principal é "Z76.3".
+- cid_descricao: Descrição oficial correspondente do CID-10 principal.
+- cids_secundarios: Lista com os códigos CID-10 oficiais pontuados de TODOS os demais CIDs secundários informados no texto bruto.
+- crm_cro: Dígitos numéricos do CRM ou CRO do médico/dentista assistente que emitiu o atestado.
+- nome_medico_assistente: Nome completo e devidamente capitalizado do médico assistente que emitiu o atestado.
+- data_documento: Data de emissão ou início de vigência do atestado médico do médico assistente no formato ISO "YYYY-MM-DD".
+- data_expedicao: Data de Expedição da Guia Pericial pelo setor/sistema no formato ISO "YYYY-MM-DD".
+- dias_solicitados: Número exato de dias de afastamento solicitados no atestado médico convertido em dígitos numéricos.
 - obs_documentos: Síntese formal do documento sem uso desnecessário de parênteses (ex.: "Atestado médico emitido em 15/01/2026 pelo Dr. Marcos Vinicius, CRM 142890, indicando 21 dias de afastamento sob CID M54.4.").
 
 4. EXAME FÍSICO / MENTAL, EXAMES COMPLEMENTARES E SINAIS VITAIS:
-- exame_fisico_tipo: Categoria correspondente ("Exame Mental" para patologias mentais/CID F; "Aparelho Osteomuscular e Tecido Conjutivo" para osteo/articular/CID M; "Outros" para procedimentos cirúrgicos, dermatologia, mamas, feridas, etc.).
-- outros_subtipo: Quando exame_fisico_tipo for "Outros", selecione o segmento correspondente dentre: "Exame Físico Geral", "Tecido celular subcutâneo", "Pele e Fâneros", "Aparelho Circulatório", "Aparelho Respiratório", "Aparelho Hemolinfopoético", "Aparelho Digestivo", "Aparelho Geniturinário", "Aparelho Endócrino", "Sistema Nervoso", "Órgãos dos Sentidos" ou "E outros". Para pós-operatório, mamas ou cirurgias gerais com ferida operatória, utilize "Exame Físico Geral". Se exame não for Outros, use "".
-- outros_resultado: Quando exame_fisico_tipo for "Outros", utilize "Alterado" se o parecer for FAVORÁVEL (com deiscência, dor, limitação funcional) ou se for retroação inválida com achados clínicos; ou "Normal" se parecer CONTRÁRIO por ausência de incapacidade. Se exame não for Outros, use "".
-- exame_mental_resultado: Se exame mental, "Alterado" ou "Normal"; senão vazio.
-- exame_fisico_descricao: Redija uma propedêutica médica objetiva, técnica e plausível condizente com a queixa informada (ex.: para pós-operatório com deiscência: "Estado geral bom, consciente e orientada, acianótica, eupneica, afebril. Mamas simétricas, ferida operatória em cicatrização com edema moderado e deiscência de 3 pontos cirúrgicos sem secreção purulenta ativa. Dor à palpação local e limitação antálgica à abdução e elevação de membros superiores acima de 90 graus.").
+- exame_fisico_tipo: Categoria correspondente ("Exame Mental" para patologias mentais/CID F; "Aparelho Osteomuscular e Tecido Conjutivo" para osteo/articular/CID M, S, T; "Outros" para clínica médica, procedimentos cirúrgicos, dermatologia, mamas, feridas, gestação, etc.).
+- outros_subtipo: Quando exame_fisico_tipo for "Outros", selecione dentre: "Exame Físico Geral", "Tecido celular subcutâneo", "Pele e Fâneros", "Aparelho Circulatório", "Aparelho Respiratório", "Aparelho Hemolinfopoético", "Aparelho Digestivo", "Aparelho Geniturinário", "Aparelho Endócrino", "Sistema Nervoso", "Órgãos dos Sentidos" ou "E outros". Se exame não for Outros, use "".
+- outros_resultado: Respeite estritamente a decisão do médico perito ("Alterado" se o médico definiu Exame Alterado — INCLUSIVE quando o parecer for CONTRÁRIO com Exame Alterado!; "Normal" se o médico definiu Exame Normal ou Documental).
+- exame_mental_resultado: Se exame mental, respeite estritamente a decisão do médico perito ("Alterado" ou "Normal"); senão vazio.
+- exame_fisico_descricao: Redija uma propedêutica médica SÊNIOR, rica, técnica e detalhada, estritamente alinhada ao modelo de decisão do médico:
+  * Se Exame ALTERADO com Parecer FAVORÁVEL: Descreva em detalhes os sinais semiológicos objetivos de comprometimento funcional (ex.: limitação antálgica de amplitude de movimento, contratura paravertebral, testes irritativos positivos, deiscência/edema operatório, ou alterações de humor/afeto/volição e lentificação psicomotora no exame mental), integrando com destaque as observações do médico perito.
+  * Se Exame ALTERADO com Parecer CONTRÁRIO: Descreva fielmente as alterações clínicas/físicas ou psíquicas constatadas pelo médico no exame pericial (ex.: dor discreta à palpação, contratura muscular leve residual, restrição leve em extremo de arco de movimento, cicatriz operatória ou ansiedade leve reativa), MAS demonstre tecnicamente na propedêutica os parâmetros objetivos de estabilidade funcional preservada (ex.: marcha independente sem claudicação, força motora grau V preservada, ausência de déficit neurológico focal ou radiculopatia ativa, ou funções cognitivas, juízo crítico, orientação e pragmatismo preservados).
+  * Se Exame NORMAL (com Parecer CONTRÁRIO ou com Parecer FAVORÁVEL Retrospectivo): Descreva a propedêutica completa do segmento avaliado demonstrando parâmetros objetivos dentro da normalidade e estabilidade clínica no momento do exame (sem usar frase genérica de 1 linha).
+  * Se Exame DOCUMENTAL: Registre a avaliação fundamentada na análise técnica da documentação médica comprobatória, exames e relatórios assistenciais vinculados ao quadro clínico.
 - alteracoes_clinicas_exames: Se o texto bruto mencionar exames complementares apresentados (ressonância, ultrassonografia, radiografia, tomografia, exames laboratoriais), redija o relato técnico dos achados; caso não tenham sido apresentados exames complementares, registre: "Não foram apresentados exames complementares (imagem ou laboratoriais) no ato pericial.".
-- pressao_sistolica: Apenas dígitos numéricos da pressão sistólica (ex.: "135" ou "120"). NUNCA inclua unidades, letras ou barra como "135/85" ou "135 mmHg".
-- pressao_diastolica: Apenas dígitos numéricos da pressão diastólica (ex.: "85" ou "80"). NUNCA inclua unidades, letras ou barra.
-- pulso: Apenas dígitos numéricos do pulso/frequência cardíaca (ex.: "78" ou "80"). NUNCA inclua "bpm".
-- altura: Apenas número em metros com ponto (ex.: "1.63"). Se não constar, deixe vazio.
-- peso: Apenas dígitos do peso em quilogramas (ex.: "74"). NUNCA inclua "kg". Se não constar, deixe vazio.
+- pressao_sistolica, pressao_diastolica, pulso, altura, peso: Apenas dígitos numéricos (altura em metros com ponto, ex.: "1.65").
 
-5. LIMITAÇÕES, ROL E JUSTIFICATIVA DO PARECER:
-- limitacao_funcional: "Sim" se incapacidade temporária / parecer favorável ou se retroação inválida com quadro clínico limitante; "Não" se parecer contrário por ausência de incapacidade.
-- limitacao_rol: "Sim" se favorável ou retroação inválida; "Não" se contrário por ausência de incapacidade.
-- desc_limitacao:
-  * Se Favorável ou se Contrário exclusivamente por retroação > 3 dias: Descreva as limitações funcionais objetivas para as atribuições do cargo público (ex.: "Apresenta limitações físicas temporárias decorrentes do pós-operatório recente de cirurgia mamária com deiscência de pontos cirúrgicos, inviabilizando esforços físicos com membros superiores, levantamento de peso e permanência prolongada em sala de aula, atividades estas constantes no Rol de Atividades do cargo de [cargo].").
-  * Se Contrário por ausência de incapacidade: Redija de forma clínica, individualizada e contextualizada ao relato da consulta e ao exame físico/mental realizado, explicando por que o quadro de [doenca_motivo] e os achados objetivos do exame pericial atual não configuram limitação funcional incapacitante para as atribuições constantes no Rol de Atividades do cargo de [cargo].
-- atividades_comprometidas: Atividades específicas do rol comprometidas se Favorável (ex.: "Regência de classe, escrita em lousa, transporte de materiais pedagógicos e controle de sala de aula."); deixe vazio se Contrário por ausência de incapacidade.
-- capacidade: "Capacidade parcial e temporariamente prejudicada" (se favorável) ou "Capacidade laborativa preservada" (se contrário).
-- parecer: "FAVORÁVEL" ou "CONTRÁRIO". Se houver retroação > 3 dias entre data_expedicao e data_documento sem internação hospitalar, o parecer é OBRIGATORIAMENTE "CONTRÁRIO".
-- quesitos:
-  * Se Favorável ou se Contrário exclusivamente por retroação inválida (> 3 dias):
-    1: Sim (Há doença(s) ou sequela(s) de doença(s) prévia(s)?)
-    2: Sim (A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)?)
-    3: Sim (A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol?)
-  * Se Contrário por ausência de incapacidade: 1: Sim, 2: Não (ou Sim se readaptado), 3: Não.
-- justificativa: Redija em padrão médico-pericial DPME, de forma clínica, técnica e individualizada aos dados da consulta, SEM utilizar parênteses () em nenhuma hipótese e sem expressões como "Concedo X dias":
-  * Se Favorável: Fundamente a incapacidade laborativa parcial e temporária considerando as atribuições do rol do cargo de [cargo], correlacionando as limitações funcionais observadas no exame com [doenca_motivo], CID [cid], referente ao período pleiteado.
-  * Se Contrário por retroação > 3 dias: Reconheça o quadro clínico e as limitações para o cargo de [cargo], porém fundamente o parecer contrário exclusivamente na expedição extemporânea da guia pericial com mais de 3 dias de retroação em relação à data de emissão do atestado médico, sem comprovação documental de internação hospitalar ou impedimento absoluto, SEM utilizar parênteses ().
-  * Se Contrário por ausência de incapacidade: Fundamente de forma individualizada a capacidade laborativa preservada considerando as atribuições do rol do cargo de [cargo], correlacionando o quadro clínico avaliado de [doenca_motivo], CID [cid], e os achados do exame pericial atual que demonstram ausência de repercussão funcional incapacitante no ato pericial, referente ao período pleiteado.
+5. MODELOS SÊNIOR DE DECISÃO PERICIAL (LIMITAÇÕES, ROL E JUSTIFICATIVA DO PARECER):
+Você DEVE aplicar com precisão cirúrgica o modelo correspondente à decisão do médico perito, dando máxima ênfase às observações do médico (`observacoesMedico`), ao quadro clínico (`doenca_motivo`, `CID`) e às demandas reais do cargo (`cargo`), SEM utilizar parênteses () na justificativa:
+
+- MODELO A — PARECER CONTRÁRIO + EXAME FÍSICO/MENTAL ALTERADO (Sem retroação):
+  * limitacao_funcional: "Não" | limitacao_rol: "Não" | capacidade: "Capacidade laborativa preservada" | parecer: "CONTRÁRIO" | quesitos: 1: Sim, 2: Não (ou Sim se readaptado), 3: Não.
+  * outros_resultado / exame_mental_resultado: OBRIGATORIAMENTE "Alterado".
+  * desc_limitacao: Reconheça expressamente os achados alterados verificados no exame físico/mental relacionados a [doenca_motivo], porém explique tecnicamente que tais alterações apresentam repercussão clínica leve/estabilizada, com preservação da funcionalidade global, da força motora/cognição e da autonomia, não configurando limitação funcional incapacitante para as atribuições constantes no Rol de Atividades do cargo de [cargo].
+  * justificativa: JAMAIS escreva "não se observam alterações" neste modelo! Redija uma fundamentação sênior que RECONHEÇA o diagnóstico de [doenca_motivo], CID [cid], e as alterações observadas ao exame clínico pericial atual (incluindo as anotações do perito), mas fundamente tecnicamente por que esses achados clínicos não atingem limiar incapacitante nem impedem o desempenho seguro e habitual das atribuições do cargo de [cargo], concluindo pela capacidade laborativa preservada e parecer CONTRÁRIO no período pleiteado.
+
+- MODELO B — PARECER CONTRÁRIO + EXAME FÍSICO/MENTAL NORMAL:
+  * limitacao_funcional: "Não" | limitacao_rol: "Não" | capacidade: "Capacidade laborativa preservada" | parecer: "CONTRÁRIO" | quesitos: 1: Sim, 2: Não (ou Sim se readaptado), 3: Não.
+  * outros_resultado / exame_mental_resultado: "Normal".
+  * desc_limitacao: Explique tecnicamente que o quadro referido de [doenca_motivo] encontra-se clinicamente compensado e sem alterações objetivas ao exame pericial atual, não gerando limitação funcional incapacitante para o exercício das atribuições constantes no Rol de Atividades do cargo de [cargo].
+  * justificativa: Fundamente a capacidade laborativa preservada para o cargo de [cargo], correlacionando a queixa de [doenca_motivo], CID [cid], com os parâmetros normais e estabilizados verificados no exame físico/mental pericial atual (e observações do perito), demonstrando ausência de repercussão funcional incapacitante para as atividades do cargo no período pleiteado.
+
+- MODELO C — PARECER CONTRÁRIO + EXAME DOCUMENTAL:
+  * limitacao_funcional: "Não" | limitacao_rol: "Não" | capacidade: "Capacidade laborativa preservada" | parecer: "CONTRÁRIO".
+  * desc_limitacao e justificativa: Fundamente que, pela análise técnica pericial e documental referente ao quadro de [doenca_motivo], CID [cid], não se evidenciam elementos clínicos objetivos de descompensação aguda ou incapacidade laborativa que impeçam o exercício das atribuições do cargo de [cargo].
+
+- MODELO D — PARECER FAVORÁVEL + EXAME FÍSICO/MENTAL ALTERADO (Integral ou com Redução de Dias):
+  * limitacao_funcional: "Sim" | limitacao_rol: "Sim" | capacidade: "Capacidade parcial e temporariamente prejudicada" | parecer: "FAVORÁVEL" | quesitos: 1: Sim, 2: Sim, 3: Sim.
+  * outros_resultado / exame_mental_resultado: "Alterado".
+  * desc_limitacao: Descreva de forma específica como os achados alterados do exame físico/mental decorrentes de [doenca_motivo] restringem tarefas concretas do servidor, finalizando com a correlação às atividades constantes no Rol de Atividades do cargo de [cargo].
+  * atividades_comprometidas: Liste as atividades reais do rol do cargo de [cargo] comprometidas pela patologia.
+  * justificativa: Fundamente a incapacidade laborativa parcial e temporária considerando as atribuições do rol do cargo de [cargo], correlacionando os achados objetivos alterados do exame pericial (e as observações do médico perito) com o quadro de [doenca_motivo], CID [cid]. Se o médico reduziu/ajustou os dias concedidos, fundamente que o período ajustado é tecnicamente suficiente para a estabilização clínica e recuperação funcional.
+
+- MODELO E — PARECER FAVORÁVEL + EXAME FÍSICO/MENTAL NORMAL (Perícia Retrospectiva / Convalescença):
+  * limitacao_funcional: "Sim" | limitacao_rol: "Sim" | capacidade: "Capacidade parcial e temporariamente prejudicada" | parecer: "FAVORÁVEL" | quesitos: 1: Sim, 2: Sim, 3: Sim.
+  * outros_resultado / exame_mental_resultado: "Normal".
+  * desc_limitacao: Descreva as limitações funcionais temporárias que acometeram o servidor durante a fase aguda do período coberto pelo atestado médico para as atribuições constantes no Rol de Atividades do cargo de [cargo].
+  * justificativa: Fundamente que, considerando o histórico clínico, a documentação médica comprobatória e a sintomatologia aguda compatível com [doenca_motivo], CID [cid], embora no presente ato pericial o exame físico/mental já se apresente sem alterações agudas em razão da evolução terapêutica, convalescença clínica e tempo decorrido, resta comprovada a incapacidade laborativa parcial e temporária para as atribuições do rol do cargo de [cargo] no período pleiteado.
+
+- MODELO F — PARECER FAVORÁVEL + EXAME DOCUMENTAL:
+  * limitacao_funcional: "Sim" | limitacao_rol: "Sim" | capacidade: "Capacidade parcial e temporariamente prejudicada" | parecer: "FAVORÁVEL" | quesitos: 1: Sim, 2: Sim, 3: Sim.
+  * desc_limitacao e justificativa: Fundamente a incapacidade laborativa parcial e temporária para as atribuições do rol do cargo de [cargo] com base na documentação médica comprobatória e na natureza clínica/cirúrgica de [doenca_motivo], CID [cid], referente ao período pleiteado.
+
+- MODELO G — PARECER CONTRÁRIO POR RETROAÇÃO INVÁLIDA (> 3 DIAS ENTRE ATESTADO E EXPEDIÇÃO DA GUIA):
+  * Mantenha TODO o atendimento clínico, o exame físico e as limitações funcionais EXATAMENTE como se fosse FAVORÁVEL (limitacao_funcional: "Sim", limitacao_rol: "Sim", desc_limitacao detalhando as limitações para o cargo, atividades_comprometidas preenchidas, quesitos 1: Sim, 2: Sim, 3: Sim), porém defina parecer: "CONTRÁRIO".
+  * justificativa: Redija um TEXTO RESUMIDO, DIRETO E CONCISO em frase única (sem parênteses ()), reconhecendo o quadro clínico de [doenca_motivo] sob CID [cid] com limitações funcionais temporárias para o cargo de [cargo], mas emitindo parecer CONTRÁRIO por estrito critério administrativo e normativo do DPME SP devido à expedição da guia com mais de 3 dias de retroação sem comprovação de internação hospitalar.
 
 REGRA TERMINOLÓGICA MANDATÓRIA: NUNCA utilize o termo "Paciente" ou "paciente". Utilize SEMPRE "Servidor", "Servidora" ou "Periciado/Periciada", sem usar barras ou parênteses de gênero como "servidor(a)" ou "periciado(a)".
 """.strip()
@@ -5481,7 +5493,16 @@ def _construir_justificativa_retroacao(
     cargo_clean = _remover_parenteses_texto(cargo or "servidor").strip(" ,.;") or "servidor"
     cid_clean = re.sub(r"[^A-Z0-9\.]", "", (cid or "").upper()).strip(".")
     mot_raw = re.sub(r"\s*\(?\s*CID\s*[:\-]?\s*[A-Z]\d{2}(?:\.\d+)?\s*\)?", "", doenca_motivo or "", flags=re.I)
-    mot_clean = _limpar_fragmento_clinico_retroacao(mot_raw) or "patologia clínica relatada no ato pericial"
+    mot_clean = _limpar_fragmento_clinico_retroacao(mot_raw)
+    if not mot_clean and sintomas:
+        sint_fallback = _limpar_fragmento_clinico_retroacao(sintomas)
+        if len(sint_fallback) > 70:
+            sint_fallback = sint_fallback[:70].rsplit(" ", 1)[0].rstrip(" ,.;:")
+        mot_clean = sint_fallback
+    mot_clean = mot_clean or "patologia clínica avaliada"
+    mot_clean = re.sub(r"\s+\be\b\s*$", "", mot_clean, flags=re.I).strip(" ,.;:")
+    mot_clean = re.sub(r"\b([eE])(?:[\s,]+[eE])+\b", r"\1", mot_clean)
+
     if cid_clean and cid_clean.lower() in mot_clean.lower():
         cid_clause = ""
     elif cid_clean:
@@ -5489,37 +5510,19 @@ def _construir_justificativa_retroacao(
     else:
         cid_clause = ""
 
-    sint_clean = _limpar_fragmento_clinico_retroacao(sintomas)
-    sint_clean = re.sub(r"\s+\be\b\s*$", "", sint_clean, flags=re.I).strip(" ,.;:")
-    sint_clean = re.sub(r"\b([eE])(?:[\s,]+[eE])+\b", r"\1", sint_clean)
-    if sint_clean and sint_clean.lower() != mot_clean.lower() and len(sint_clean) > 8:
-        if len(sint_clean) > 180:
-            sint_clean = sint_clean[:180].rsplit(" ", 1)[0].rstrip(" ,.;:")
-        relato_clause = f", com relato de {sint_clean} e limitações funcionais temporárias para as atribuições habituais do cargo de {cargo_clean},"
-    else:
-        relato_clause = f", com relato de limitações funcionais temporárias para o exercício das atribuições habituais do cargo de {cargo_clean},"
-    relato_clause = re.sub(r"\b([eE])(?:[\s,]+[eE])+\b", r"\1", relato_clause)
-
     if doc_date_br and exp_date_br and retro_dias is not None and retro_dias > 3:
         prazo_clause = (
-            f"constata-se que a Guia com mais de 3 dias de retroação foi expedida somente em {exp_date_br} para atestado emitido em {doc_date_br}, "
-            f"totalizando {retro_dias} dias de retroação, prazo superior ao limite regulamentar previsto nas normas médico-periciais do DPME"
+            f"a guia foi expedida em {exp_date_br} para atestado de {doc_date_br}, "
+            f"com {retro_dias} dias de retroação"
         )
     elif retro_dias is not None and retro_dias > 3:
-        prazo_clause = (
-            f"constata-se que a Guia com mais de 3 dias de retroação foi expedida com {retro_dias} dias de retroação em relação à emissão do documento médico, "
-            f"prazo superior ao limite regulamentar previsto nas normas médico-periciais do DPME"
-        )
+        prazo_clause = f"a guia foi expedida com {retro_dias} dias de retroação"
     else:
-        prazo_clause = (
-            "constata-se que a Guia com mais de 3 dias de retroação foi expedida superando o limite regulamentar previsto nas normas médico-periciais do DPME"
-        )
+        prazo_clause = "a guia foi expedida com mais de 3 dias de retroação"
 
     texto = (
-        f"Embora {sujeito} apresente quadro clínico compatível com {mot_clean}{cid_clause}{relato_clause} "
-        f"{prazo_clause}. "
-        f"Diante da ausência de comprovação documental de internação hospitalar ou de impedimento absoluto para a emissão tempestiva da guia, "
-        f"emite-se parecer CONTRÁRIO à concessão da licença pleiteada por estrito critério administrativo e normativo do DPME SP."
+        f"Embora {sujeito} apresente {mot_clean}{cid_clause} e limitações temporárias para o cargo de {cargo_clean}, "
+        f"{prazo_clause} sem internação hospitalar, ensejando parecer CONTRÁRIO por critério administrativo e normativo do DPME SP."
     )
     texto = re.sub(r"\b([eE])(?:[\s,]+[eE])+\b", r"\1", texto)
     return _remover_parenteses_texto(texto)
@@ -5606,7 +5609,6 @@ def _aprimorar_justificativa_retroacao_esisla(payload: dict[str, Any], just_atua
     doenca = str(payload.get("doenca_motivo") or payload.get("cid_descricao") or "").strip()
     cid = str(payload.get("cid") or "").strip()
     sintomas = str(payload.get("sintomas_limitacoes") or payload.get("sintomas_limitacao") or payload.get("queixa_duracao") or "").strip()
-    ef_desc = str(payload.get("exame_fisico_descricao") or "").strip()
 
     base_just = _construir_justificativa_retroacao(
         is_fem=is_fem,
@@ -5618,22 +5620,6 @@ def _aprimorar_justificativa_retroacao_esisla(payload: dict[str, Any], just_atua
         exp_date_br=exp_br,
         retro_dias=retro_dias,
     )
-
-    # Na geração da ficha e-SISLA, refinar ainda mais integrando a propedêutica clínica quando disponível
-    if ef_desc and len(ef_desc) > 15 and "sem alterações incapacitantes" not in ef_desc.lower():
-        ef_clean = _limpar_fragmento_clinico_retroacao(
-            re.sub(r"^(?:Exame F[íi]sico Geral|Aparelho Osteomuscular[^\:]*|Exame Mental)\s*:\s*", "", ef_desc, flags=re.I)
-        )
-        if ef_clean and len(ef_clean) > 120:
-            ef_clean = ef_clean[:120].rsplit(" ", 1)[0].rstrip(" ,.;:")
-        if ef_clean and ef_clean.lower() not in base_just.lower():
-            base_just = re.sub(
-                r",\s*verifica-se que\b",
-                f", bem como achados clínicos ao exame pericial compatíveis com a queixa, verifica-se que",
-                base_just,
-                count=1,
-            )
-
     return _remover_parenteses_texto(base_just)
 
 
@@ -7608,47 +7594,98 @@ def api_ai_preencher_ficha():
             )
 
             if decisao_medico:
-                dec_inst = "\n\nDECISÃO CLÍNICA/PERICIAL DEFINIDA PELO MÉDICO PERITO NO SISTEMA:\n"
-                if decisao_medico.get("parecer") and not pre_retro_invalida:
-                    dec_inst += f"- Parecer definido pelo médico: {decisao_medico['parecer']}\n"
-                if decisao_medico.get("exameFisicoResultado"):
-                    dec_inst += f"- Avaliação do exame físico pelo perito: {decisao_medico['exameFisicoResultado']}\n"
-                if decisao_medico.get("diasConcedidos") is not None:
-                    d_conc_str = str(decisao_medico.get("diasConcedidos")).strip()
+                dec_par_str = str(decisao_medico.get("parecer") or "").strip().upper()
+                dec_ex_str = str(decisao_medico.get("exameFisicoResultado") or "").strip()
+                dec_ex_low = dec_ex_str.lower()
+                dec_obs_str = str(decisao_medico.get("observacoesMedico") or "").strip()
+                dec_dias_modo = str(decisao_medico.get("diasModo") or "").strip().lower()
+                dec_dias_conc = decisao_medico.get("diasConcedidos")
+
+                dec_inst = "\n\nDECISÃO CLÍNICA E PERICIAL SOBERANA DEFINIDA PELO MÉDICO PERITO NO SISTEMA (ÊNFASE MÁXIMA):\n"
+                if dec_par_str and not pre_retro_invalida:
+                    dec_inst += f"- Parecer definido pelo médico perito: {dec_par_str}\n"
+                if dec_ex_str:
+                    dec_inst += f"- Constatação do exame físico/mental definida pelo perito: {dec_ex_str}\n"
+                if dec_dias_conc is not None:
+                    d_conc_str = str(dec_dias_conc).strip()
                     if d_conc_str == "0":
                         dec_inst += "- Dias concedidos pelo médico: 0 (Parecer CONTRÁRIO - manter dias_solicitados apenas com o valor original do atestado se houver, ou '0' como string)\n"
-                    elif d_conc_str != "1":
-                        dec_inst += f"- Dias concedidos pelo médico: {decisao_medico['diasConcedidos']}\n"
-                if decisao_medico.get("observacoesMedico"):
-                    dec_inst += f"- Observações clínicas / anotações confidenciais do perito: {decisao_medico['observacoesMedico']}\n"
+                    elif d_conc_str != "1" or dec_dias_modo == "reduzir":
+                        dec_inst += f"- Dias concedidos pelo médico: {d_conc_str} (Modo: {dec_dias_modo or 'integral'})\n"
+                if dec_obs_str:
+                    dec_inst += (
+                        f"- OBSERVAÇÕES CLÍNICAS / ANOTAÇÕES DO MÉDICO PERITO NA DECISÃO (PROTAGONISMO OBRIGATÓRIO): \"{dec_obs_str}\"\n"
+                        "  -> Você DEVE incorporar os achados e argumentos desta observação do médico diretamente em 'exame_fisico_descricao', 'desc_limitacao' e 'justificativa'!\n"
+                    )
+
                 if pre_retro_invalida:
                     dec_inst += (
-                        "ATENÇÃO (CASO DE RETROAÇÃO INVÁLIDA > 3 DIAS): O parecer é OBRIGATORIAMENTE CONTRÁRIO por retroação inválida da guia, "
+                        "MODELO ATIVO — RETROAÇÃO INVÁLIDA (> 3 DIAS): O parecer é OBRIGATORIAMENTE CONTRÁRIO por retroação inválida da guia, "
                         "PORÉM você DEVE manter todo o atendimento do médico perito, o EXAME FÍSICO e as LIMITAÇÕES FUNCIONAIS "
                         "(limitacao_funcional='Sim', limitacao_rol='Sim', desc_limitacao e atividades_comprometidas) EXATAMENTE COMO SE O PARECER FOSSE FAVORÁVEL! "
-                        "Aplique o motivo do parecer CONTRÁRIO (retroação > 3 dias) APENAS no campo 'justificativa', sem usar parênteses ().\n"
+                        "No campo 'justificativa', redija um TEXTO RESUMIDO E DIRETO em frase única reconhecendo as limitações para o cargo mas emitindo parecer CONTRÁRIO por critério administrativo e normativo do DPME SP, sem usar parênteses ().\n"
+                    )
+                elif "CONT" in dec_par_str and "alterado" in dec_ex_low:
+                    dec_inst += (
+                        "MODELO ATIVO — PARECER CONTRÁRIO COM EXAME FÍSICO/MENTAL ALTERADO:\n"
+                        "- O médico perito constatou ALTERAÇÕES no exame físico/mental, porém concluiu que NÃO HÁ INCAPACIDADE LABORATIVA (Parecer CONTRÁRIO).\n"
+                        "- Defina obrigatoriamente outros_resultado='Alterado' (e exame_mental_resultado='Alterado' se exame mental).\n"
+                        "- Em 'exame_fisico_descricao': descreva tecnicamente as alterações constatadas no exame físico/mental juntamente com os parâmetros objetivos de estabilidade funcional preservada.\n"
+                        "- Em 'desc_limitacao': reconheça os achados alterados relacionados à patologia/CID, porém explique tecnicamente por que são de repercussão leve/compensada e NÃO configuram limitação funcional incapacitante para o Rol de Atividades do cargo.\n"
+                        "- Em 'justificativa': JAMAIS escreva 'não se observam alterações'! Fundamente como um Perito Sênior que, embora o exame clínico evidencie alterações relacionadas à patologia e ao CID avaliado, tais achados encontram-se funcionalmente compensados e não atingem limiar incapacitante para as demandas específicas do cargo, concluindo pela capacidade laborativa preservada e parecer CONTRÁRIO.\n"
+                    )
+                elif "CONT" in dec_par_str and "documental" in dec_ex_low:
+                    dec_inst += (
+                        "MODELO ATIVO — PARECER CONTRÁRIO COM AVALIAÇÃO DOCUMENTAL:\n"
+                        "- Fundamente em 'exame_fisico_descricao', 'desc_limitacao' e 'justificativa' que, pela análise técnica pericial e documental referente à patologia e ao CID avaliado, não se evidenciam elementos objetivos de descompensação aguda ou incapacidade laborativa para as atribuições do cargo.\n"
+                    )
+                elif "CONT" in dec_par_str:
+                    dec_inst += (
+                        "MODELO ATIVO — PARECER CONTRÁRIO COM EXAME FÍSICO/MENTAL NORMAL:\n"
+                        "- Defina outros_resultado='Normal' (e exame_mental_resultado='Normal' se exame mental).\n"
+                        "- Redija um exame físico/mental técnico e completo para a especialidade, e fundamente em 'desc_limitacao' e 'justificativa' a capacidade laborativa preservada correlacionando a queixa/CID e a normalidade/estabilidade do exame pericial com as atribuições específicas do cargo.\n"
+                    )
+                elif "FAV" in dec_par_str and "normal" in dec_ex_low:
+                    dec_inst += (
+                        "MODELO ATIVO — PARECER FAVORÁVEL COM EXAME FÍSICO/MENTAL NORMAL (PERÍCIA RETROSPECTIVA / CONVALESCENÇA):\n"
+                        "- Defina outros_resultado='Normal' (e exame_mental_resultado='Normal' se exame mental), limitacao_funcional='Sim', limitacao_rol='Sim'.\n"
+                        "- Em 'exame_fisico_descricao', descreva a estabilidade clínica atual em fase de convalescença/remissão.\n"
+                        "- Em 'desc_limitacao' e 'justificativa', fundamente a incapacidade laborativa parcial e temporária de forma retrospectiva para o período do atestado médico, com base na história clínica, documentação comprobatória e evolução terapêutica, apesar do exame atual já se encontrar sem alterações agudas.\n"
+                    )
+                elif "FAV" in dec_par_str and "documental" in dec_ex_low:
+                    dec_inst += (
+                        "MODELO ATIVO — PARECER FAVORÁVEL COM AVALIAÇÃO DOCUMENTAL:\n"
+                        "- Fundamente a incapacidade laborativa parcial e temporária para o rol do cargo com base na documentação médica comprobatória, exames/relatórios cirúrgicos ou hospitalares e na natureza da patologia/CID.\n"
                     )
                 else:
-                    dec_inst += "ATENÇÃO: A decisão do médico perito acima É SOBERANA. Você deve alinhar estritamente o parecer, exame clínico, justificativa e limitações a essas escolhas do perito, integrando-as com os fatos relatados na consulta. Todos os campos string devem ser retornados como string (use \"\" se vazio, nunca null).\n"
+                    dec_inst += (
+                        "MODELO ATIVO — PARECER FAVORÁVEL COM EXAME FÍSICO/MENTAL ALTERADO:\n"
+                        "- Defina outros_resultado='Alterado' (e exame_mental_resultado='Alterado' se exame mental), limitacao_funcional='Sim', limitacao_rol='Sim'.\n"
+                        "- Desenvolva propedêutica rica dos achados alterados, descreva as limitações específicas no Rol de Atividades do cargo e fundamente tecnicamente a incapacidade temporária"
+                        + (f", justificando também que o período ajustado de {dec_dias_conc} dias concedidos pelo perito é suficiente para a estabilização clínica.\n" if dec_dias_modo == "reduzir" else ".\n")
+                    )
+                dec_inst += "ATENÇÃO: Todos os campos string devem ser retornados como string (use \"\" se vazio, nunca null). Jamais use parênteses () na justificativa.\n"
                 instruction += dec_inst
             elif pre_retro_invalida:
                 instruction += (
                     "\n\nATENÇÃO (CASO DE RETROAÇÃO INVÁLIDA > 3 DIAS): O parecer deve ser OBRIGATORIAMENTE CONTRÁRIO por retroação inválida da guia, "
                     "PORÉM você DEVE manter todo o atendimento do médico perito, o EXAME FÍSICO e as LIMITAÇÕES FUNCIONAIS "
                     "(limitacao_funcional='Sim', limitacao_rol='Sim', desc_limitacao e atividades_comprometidas) EXATAMENTE COMO SE O PARECER FOSSE FAVORÁVEL! "
-                    "Aplique o motivo do parecer CONTRÁRIO (retroação > 3 dias) APENAS no campo 'justificativa', sem usar parênteses ().\n"
+                    "No campo 'justificativa', redija um TEXTO RESUMIDO E DIRETO em frase única reconhecendo as limitações para o cargo mas emitindo parecer CONTRÁRIO por critério administrativo e normativo do DPME SP, sem usar parênteses ().\n"
                 )
 
+            fallback_triggered = False
             try:
                 result = _generate_structured(instruction, PreenchimentoCompletoResult)
             except Exception as gen_exc:
+                fallback_triggered = True
                 app.logger.warning(
                     "Fallback determinístico ativado em preencher-ficha após falha na geração estruturada: %s",
                     gen_exc,
                 )
                 result = PreenchimentoCompletoResult(
                     doenca_motivo=str(ctx_atual.get("doencaMotivo") or "").strip(),
-                    exame_fisico_descricao=texto_bruto[:1800].strip(),
+                    exame_fisico_descricao="",
                     parecer=str(decisao_medico.get("parecer") or "").strip() if isinstance(decisao_medico, dict) else "",
                 )
 
@@ -7963,8 +8000,28 @@ def api_ai_preencher_ficha():
             if len(cpf_digits) == 11:
                 result.cpf_paciente = f"{cpf_digits[:3]}.{cpf_digits[3:6]}.{cpf_digits[6:9]}-{cpf_digits[9:]}"
 
-            # Normalização de Exame "Outros"
-            is_outros = (result.exame_fisico_tipo or "").strip().lower() == "outros"
+            # Inferência determinística de exame_fisico_tipo caso venha vazio
+            if not (result.exame_fisico_tipo or "").strip():
+                cid_up_ef = (result.cid or "").upper().strip()
+                if cid_up_ef.startswith("F") or re.search(
+                    r"\b(?:ansiedade|depress[ãa]o|depressiv|psiqui[áa]tric|exame\s+mental|humor|afeto|ins[ôo]nia|p[âa]nico|burnout|bipolar)\b",
+                    texto_bruto,
+                    re.I,
+                ):
+                    result.exame_fisico_tipo = "Exame Mental"
+                elif cid_up_ef.startswith(("M", "S", "T", "G5")) or re.search(
+                    r"\b(?:lombar|lombalgia|coluna|ombro|joelho|las[èe]gue|força\s+muscular|marcha|osteo|cervical|punho|tornozelo|fratura|tendinite|bursite|h[ée]rnia|ci[áa]tica|contratura|paravertebral)\b",
+                    texto_bruto,
+                    re.I,
+                ):
+                    result.exame_fisico_tipo = "Aparelho Osteomuscular e Tecido Conjutivo"
+                else:
+                    result.exame_fisico_tipo = "Outros"
+
+            # Normalização de Exame "Outros" e Exame Mental
+            ef_tipo_low = (result.exame_fisico_tipo or "").strip().lower()
+            is_outros = ef_tipo_low == "outros"
+            is_mental_ef = "mental" in ef_tipo_low
             if is_outros:
                 if not result.outros_subtipo or result.outros_subtipo.strip().lower() in ("none", "null", "", "outros"):
                     result.outros_subtipo = "Exame Físico Geral"
@@ -8081,6 +8138,10 @@ def api_ai_preencher_ficha():
             result.cids_secundarios = all_secondary
 
             # Aplicar escolhas explícitas e soberanas do médico perito (Modo IA 2.0)
+            user_exame = ""
+            user_obs = ""
+            user_dias_modo = ""
+            user_dias_str = ""
             if decisao_medico:
                 user_parecer = str(decisao_medico.get("parecer") or "").strip().upper()
                 if user_parecer and (not retro_invalida or decisao_fav):
@@ -8092,44 +8153,82 @@ def api_ai_preencher_ficha():
                 user_exame = str(decisao_medico.get("exameFisicoResultado") or "").strip().lower()
                 if "normal" in user_exame:
                     result.outros_resultado = "Normal"
+                    if is_mental_ef:
+                        result.exame_mental_resultado = "Normal"
                 elif "alterado" in user_exame:
                     result.outros_resultado = "Alterado"
+                    if is_mental_ef:
+                        result.exame_mental_resultado = "Alterado"
                 elif "documental" in user_exame:
                     result.outros_resultado = "Normal"
+                    if is_mental_ef:
+                        result.exame_mental_resultado = "Normal"
 
                 user_dias = decisao_medico.get("diasConcedidos")
                 user_dias_modo = str(decisao_medico.get("diasModo") or "").strip().lower()
                 if user_dias is not None and str(user_dias).strip() != "":
-                    u_dias_str = str(user_dias).strip()
+                    user_dias_str = str(user_dias).strip()
                     # Não sobrescrever dias reais do atestado (ex: 21) com o fallback "1" do formulário vazio
-                    if u_dias_str in ("1", "0") and user_dias_modo != "reduzir" and (result.dias_solicitados or "").strip() not in ("", "1", "0"):
+                    if user_dias_str in ("1", "0") and user_dias_modo != "reduzir" and (result.dias_solicitados or "").strip() not in ("", "1", "0"):
                         pass
-                    elif u_dias_str != "0":
-                        result.dias_solicitados = u_dias_str
+                    elif user_dias_str != "0":
+                        result.dias_solicitados = user_dias_str
 
                 user_obs = str(decisao_medico.get("observacoesMedico") or "").strip()
-                if user_obs and user_obs not in (result.exame_fisico_descricao or ""):
+                if user_obs and (result.exame_fisico_descricao or "").strip() and user_obs.lower() not in (result.exame_fisico_descricao or "").lower():
                     result.exame_fisico_descricao = (
-                        (result.exame_fisico_descricao or "").rstrip(". ") + f". Anotações periciais complementares do médico: {user_obs}."
+                        (result.exame_fisico_descricao or "").rstrip(". ") + f". Constatação pericial específica: {user_obs.rstrip('.')}."
                     ).strip()
 
-            # Garantir robustez de desc_limitacao e justificativa conforme parecer e regras periciais DPME
+            # Garantir robustez de desc_limitacao e justificativa conforme modelo de decisão do médico e regras DPME
             par_upper = (result.parecer or "").strip().upper()
             cargo_label = (result.cargo or "servidor").strip()
+            termo_peric = "periciada" if is_fem else "periciado"
+            mot_desc = (result.doenca_motivo or result.cid_descricao or "patologia clínica avaliada").strip()
+            cid_label = (result.cid or "").strip()
+
+            if "documental" in user_exame:
+                exame_modo = "documental"
+            elif "alterado" in user_exame:
+                exame_modo = "alterado"
+            elif "normal" in user_exame:
+                exame_modo = "normal"
+            else:
+                res_ef_curr = str(result.outros_resultado or result.exame_mental_resultado or "").strip().lower()
+                exame_modo = "alterado" if res_ef_curr == "alterado" else ("normal" if res_ef_curr == "normal" else "")
+
+            obs_clean = _remover_parenteses_texto(user_obs).strip(" .,;:") if user_obs else ""
+            if obs_clean and len(obs_clean) > 1:
+                obs_clean_low = obs_clean[0].lower() + obs_clean[1:] if not obs_clean[:2].isupper() else obs_clean
+            else:
+                obs_clean_low = ""
 
             if retro_invalida:
-                # Regra DPME estrita para Retroação Inválida (> 3 dias):
-                # Aplica obrigatoriamente o parecer CONTRÁRIO (não libera parecer favorável),
-                # porém mantém todo o atendimento do médico, as limitações e o exame físico como se fosse FAVORÁVEL,
-                # aplicando na justificativa o motivo da retroação sem utilizar parênteses ().
+                # MODELO G — Regra DPME estrita para Retroação Inválida (> 3 dias):
+                # Aplica obrigatoriamente o parecer CONTRÁRIO, mantém limitações e exame físico como FAVORÁVEL,
+                # e gera texto resumido de justificativa reconhecendo as limitações sem usar parênteses ().
                 result.parecer = "CONTRÁRIO"
                 result.limitacao_funcional = "Sim"
                 result.limitacao_rol = "Sim"
-                if not (decisao_medico and str(decisao_medico.get("exameFisicoResultado") or "").strip()):
+                if not user_exame:
                     result.outros_resultado = "Alterado"
+                    if is_mental_ef:
+                        result.exame_mental_resultado = "Alterado"
+
+                if not (result.exame_fisico_descricao or "").strip():
+                    obs_ef_retro = f", constatando-se {obs_clean_low}" if obs_clean_low else ""
+                    if is_mental_ef:
+                        result.exame_fisico_descricao = (
+                            f"Ao exame psíquico pericial atual, {termo_peric} vigil, com humor e afeto compatíveis com o quadro de {mot_desc}{obs_ef_retro}, "
+                            f"apresentando repercussão funcional temporária para as demandas ocupacionais habituais."
+                        )
+                    else:
+                        result.exame_fisico_descricao = (
+                            f"Ao exame físico pericial atual, {termo_peric} em regular estado geral, lúcido e orientado, "
+                            f"apresentando achados semiológicos compatíveis com {mot_desc}{obs_ef_retro} e limitação funcional temporária."
+                        )
 
                 lim_curr = (result.desc_limitacao or "").strip()
-                # Remover eventual trecho administrativo que a IA tenha inserido em desc_limitacao
                 lim_curr = re.sub(
                     r"\s*(?:Todavia|Contudo|Entretanto|Porém),?\s+em\s+raz[ãa]o\s+da\s+emiss[ãa]o\s+extempor[âa]nea.*$",
                     "",
@@ -8163,6 +8262,7 @@ def api_ai_preencher_ficha():
                 elif override_parecer_manual == "CONTRÁRIO" or par_bruto == "CONTRÁRIO" or (decisao_medico and "CONT" in str(decisao_medico.get("parecer") or "").upper()):
                     par_upper = "CONTRÁRIO"
                 is_fav = "FAV" in par_upper or par_upper == "FAVORÁVEL"
+
                 if is_fav:
                     result.parecer = "FAVORÁVEL"
                     is_acomp_fav = bool(esisla_pre.get("is_acompanhante")) or (result.cid or "").upper().startswith("Z76") or "acompanha" in str(result.doenca_motivo or "").lower() or (getattr(result, "tipo_atendimento_pericia", "") == "ACOMPANHANTE")
@@ -8182,54 +8282,265 @@ def api_ai_preencher_ficha():
                             f"justificando-se a concessão do afastamento para os indispensáveis cuidados e acompanhamento em saúde do dependente."
                         )
                     else:
-                        if not (result.limitacao_funcional or "").strip():
-                            result.limitacao_funcional = "Sim"
-                        if not (result.limitacao_rol or "").strip():
-                            result.limitacao_rol = "Sim"
-                        if not (result.capacidade or "").strip():
-                            result.capacidade = "Capacidade parcial e temporariamente prejudicada"
-                        if not (result.desc_limitacao or "").strip():
-                            result.desc_limitacao = _resolve_favorable_limitation(
+                        result.limitacao_funcional = "Sim"
+                        result.limitacao_rol = "Sim"
+                        result.capacidade = "Capacidade parcial e temporariamente prejudicada"
+
+                        if not exame_modo:
+                            exame_modo = "alterado"
+
+                        if exame_modo == "normal":
+                            result.outros_resultado = "Normal"
+                            if is_mental_ef:
+                                result.exame_mental_resultado = "Normal"
+                            if not (result.exame_fisico_descricao or "").strip():
+                                obs_ef = f" Constatação pericial: {obs_clean}." if obs_clean else ""
+                                result.exame_fisico_descricao = (
+                                    f"Ao exame clínico pericial atual, {termo_peric} em bom estado geral, lúcido e orientado, "
+                                    f"apresentando-se em fase de convalescença clínica e remissão dos sinais agudos relacionados a {mot_desc}.{obs_ef}"
+                                ).strip()
+                        elif exame_modo == "documental":
+                            result.outros_resultado = "Normal"
+                            if is_mental_ef:
+                                result.exame_mental_resultado = "Normal"
+                            if not (result.exame_fisico_descricao or "").strip():
+                                obs_ef = f" Constatação pericial: {obs_clean}." if obs_clean else ""
+                                result.exame_fisico_descricao = (
+                                    f"Avaliação médico-pericial fundamentada na análise técnica da documentação médica comprobatória, "
+                                    f"relatórios assistenciais e registros clínicos vinculados ao quadro de {mot_desc}.{obs_ef}"
+                                ).strip()
+                        else:
+                            result.outros_resultado = "Alterado"
+                            if is_mental_ef:
+                                result.exame_mental_resultado = "Alterado"
+                            if not (result.exame_fisico_descricao or "").strip():
+                                obs_ef = f", destacando-se {obs_clean_low}" if obs_clean_low else ""
+                                if is_mental_ef:
+                                    result.exame_fisico_descricao = (
+                                        f"Ao exame psíquico pericial atual, {termo_peric} vigil, orientado, com humor e afeto alterados compatíveis com {mot_desc}{obs_ef}, "
+                                        f"apresentando fragilidade emocional e repercussão funcional temporária sobre a atenção, tolerância ao estresse e desempenho laboral."
+                                    )
+                                elif "osteo" in ef_tipo_low:
+                                    result.exame_fisico_descricao = (
+                                        f"Ao exame físico osteomuscular pericial atual, {termo_peric} em regular estado geral, lúcido e orientado, "
+                                        f"apresentando limitação antálgica funcional e achados semiológicos compatíveis com {mot_desc}{obs_ef}, "
+                                        f"com restrição temporária para sobrecarga biomecânica e esforços físicos."
+                                    )
+                                else:
+                                    result.exame_fisico_descricao = (
+                                        f"Ao exame clínico pericial atual, {termo_peric} em regular estado geral, lúcido e orientado, "
+                                        f"apresentando achados clínicos objetivos compatíveis com {mot_desc}{obs_ef}, "
+                                        f"configurando restrição funcional temporária para as demandas habituais do cargo."
+                                    )
+
+                        if not (result.desc_limitacao or "").strip() or _is_contrary_limitation_text(result.desc_limitacao):
+                            base_lim = _resolve_favorable_limitation(
                                 {"cid": result.cid, "exame_fisico_tipo": result.exame_fisico_tipo, "desc_limitacao": result.sintomas_limitacao},
                                 cargo_label
                             )
+                            if obs_clean_low and obs_clean_low.lower() not in base_lim.lower():
+                                base_lim = re.sub(
+                                    r",\s*atividades estas constantes no Rol de Atividades",
+                                    f", associadas à constatação pericial de {obs_clean_low}, atividades estas constantes no Rol de Atividades",
+                                    base_lim,
+                                    count=1,
+                                )
+                            result.desc_limitacao = base_lim
                         elif "rol de atividades" not in result.desc_limitacao.lower():
                             result.desc_limitacao = f"{result.desc_limitacao.rstrip('.,; ')}, atividades estas constantes no Rol de Atividades do cargo de {cargo_label}."
 
-                        # Verificação de Perícia Retrospectiva (Exame Físico Normal no ato pericial com atestado e guia no prazo)
-                        is_exame_normal = (
-                            str(result.outros_resultado or "").strip().lower() == "normal"
-                            or "normal" in str(result.exame_fisico_descricao or "").lower()
-                            or "sem alterações" in str(result.exame_fisico_descricao or "").lower()
+                        cid_clause = f", CID {cid_label}," if cid_label and cid_label.lower() not in mot_desc.lower() else ""
+                        obs_just_clause = f", destacando-se ao exame pericial {obs_clean_low}" if obs_clean_low else ""
+                        reduz_clause = (
+                            f", sendo o período ajustado de {user_dias_str} dias tecnicamente suficiente para a estabilização clínica e recuperação funcional"
+                            if user_dias_modo == "reduzir" and user_dias_str
+                            else ""
                         )
-                        if is_exame_normal:
-                            cid_clause = f" (CID {result.cid})" if result.cid else ""
-                            mot_clause = result.doenca_motivo or "patologia clínica avaliada"
-                            result.justificativa = (
-                                f"Considerando o histórico clínico, a documentação médica comprobatória acostada e a sintomatologia referida à época compatível com {mot_clause}{cid_clause}, "
-                                f"embora no presente ato pericial o exame físico já se apresente sem alterações agudas em razão da convalescença clínica e do tempo decorrido, "
-                                f"considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}, referente ao período pleiteado."
+
+                        # Modelos Favoráveis: Normal (Retrospectivo), Documental ou Alterado
+                        is_exame_normal = (
+                            exame_modo == "normal"
+                            or (
+                                exame_modo != "alterado"
+                                and (
+                                    str(result.outros_resultado or "").strip().lower() == "normal"
+                                    or "sem alterações" in str(result.exame_fisico_descricao or "").lower()
+                                )
                             )
-                        elif not (result.justificativa or "").strip():
-                            cid_clause = f" (CID {result.cid})" if result.cid else ""
-                            mot_clause = result.doenca_motivo or "patologia clínica avaliada"
-                            result.justificativa = f"Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}, em razão de limitações funcionais decorrentes de {mot_clause}{cid_clause}, referente ao período pleiteado."
+                        )
+                        just_curr = (result.justificativa or "").strip()
+                        if is_exame_normal:
+                            if not just_curr or ("convalescença" not in just_curr.lower() and "retrospectiv" not in just_curr.lower() and "sem alterações agudas" not in just_curr.lower()):
+                                result.justificativa = (
+                                    f"Considerando o histórico clínico, a documentação médica comprobatória acostada e a sintomatologia referida à época compatível com {mot_desc}{cid_clause} "
+                                    f"embora no presente ato pericial o exame físico já se apresente sem alterações agudas em razão da convalescença clínica e do tempo decorrido{obs_just_clause}, "
+                                    f"considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}{reduz_clause}, referente ao período pleiteado."
+                                )
+                        elif exame_modo == "documental":
+                            if not just_curr or "capacidade laborativa preservada" in just_curr.lower():
+                                result.justificativa = (
+                                    f"Considerando a análise técnica da documentação médica comprobatória apresentada e a natureza clínica de {mot_desc}{cid_clause}{obs_just_clause}, "
+                                    f"considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}{reduz_clause}, referente ao período pleiteado."
+                                )
+                        elif not just_curr or "capacidade laborativa preservada" in just_curr.lower():
+                            result.justificativa = (
+                                f"Considero a capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol do cargo de {cargo_label}, "
+                                f"em razão das limitações funcionais e dos achados clínicos observados ao exame pericial decorrentes de {mot_desc}{cid_clause}{obs_just_clause}{reduz_clause}, referente ao período pleiteado."
+                            )
+                        else:
+                            if obs_clean_low and obs_clean_low.lower() not in just_curr.lower():
+                                just_curr = just_curr.rstrip(". ") + f", com ênfase na constatação pericial de {obs_clean_low}."
+                            if reduz_clause and "suficiente para" not in just_curr.lower() and f"{user_dias_str} dias" not in just_curr.lower():
+                                just_curr = just_curr.rstrip(". ") + f"{reduz_clause}."
+                            result.justificativa = just_curr
                 else:
+                    # MODELOS CONTRÁRIOS (Sem retroação):
+                    # - Modelo A: CONTRÁRIO + Exame Físico/Mental ALTERADO
+                    # - Modelo B: CONTRÁRIO + Exame Físico/Mental NORMAL
+                    # - Modelo C: CONTRÁRIO + Exame DOCUMENTAL
                     result.parecer = "CONTRÁRIO"
                     result.limitacao_funcional = "Não"
                     result.limitacao_rol = "Não"
                     result.capacidade = "Capacidade laborativa preservada"
                     result.atividades_comprometidas = ""
-                    if not (result.exame_fisico_descricao or "").strip():
-                        result.exame_fisico_descricao = "Ao exame clínico pericial atual, periciando em bom estado geral, lúcido, orientado, sem achados objetivos de descompensação aguda ou déficit funcional incapacitante no momento da avaliação."
-                    raw_lim = (result.desc_limitacao or "").strip()
-                    if not raw_lim or re.search(r"\b(?:inviabilizando|impossibilitando|incapacitando\s+transitoriamente)\b", raw_lim, flags=re.IGNORECASE):
-                        result.desc_limitacao = f"Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo_label}, constantes no rol de atividades."
-                    just_low = (result.justificativa or "").strip().lower()
-                    if not just_low or re.search(r"\b(?:parcial\s+e\s+temporariamente\s+prejudicada|parecer\s+favor[áa]vel)\b", just_low, flags=re.IGNORECASE):
-                        cid_clause = f", CID {result.cid}" if result.cid else ""
-                        mot_clause = f" avaliado para {result.doenca_motivo}{cid_clause}" if result.doenca_motivo else ""
-                        result.justificativa = f"Constato a capacidade laborativa preservada{mot_clause}, considerando que neste ato pericial não se observam alterações ou limitações incapacitantes para as atribuições rotineiras do cargo atual de {cargo_label}."
+
+                    cid_clause_c = f", CID {cid_label}," if cid_label and cid_label.lower() not in mot_desc.lower() else ""
+                    obs_clause_c = f", constatando-se {obs_clean_low}" if obs_clean_low else ""
+
+                    if exame_modo == "alterado":
+                        # MODELO A — PARECER CONTRÁRIO + EXAME FÍSICO/MENTAL ALTERADO
+                        result.outros_resultado = "Alterado"
+                        if is_mental_ef:
+                            result.exame_mental_resultado = "Alterado"
+
+                        ef_curr = (result.exame_fisico_descricao or "").strip()
+                        if not ef_curr or re.search(r"\b(?:sem\s+achados\s+objetivos|exame\s+f[íi]sico\s+normal|sem\s+altera[çc][õo]es\s+ao\s+exame)\b", ef_curr, flags=re.I):
+                            if is_mental_ef:
+                                result.exame_fisico_descricao = (
+                                    f"Ao exame psíquico pericial atual, {termo_peric} vigil, consciente e orientado globalmente, "
+                                    f"apresentando alterações emocionais reativas leves relacionadas a {mot_desc}{obs_clause_c}, "
+                                    f"porém com atenção, memória, pensamento lógico, juízo crítico da realidade e pragmatismo preservados, "
+                                    f"sem desorganização psíquica aguda ou sintomas psicóticos incapacitantes."
+                                )
+                            elif "osteo" in ef_tipo_low:
+                                result.exame_fisico_descricao = (
+                                    f"Ao exame físico osteomuscular pericial atual, {termo_peric} em bom estado geral, lúcido e orientado, "
+                                    f"apresentando alterações semiológicas discretas e localizadas relacionadas a {mot_desc}{obs_clause_c}, "
+                                    f"porém com marcha independente e funcional, força motora global preservada, estabilidade articular mantida "
+                                    f"e ausência de déficit neurológico focal ou sinais radiculares agudos incapacitantes."
+                                )
+                            else:
+                                result.exame_fisico_descricao = (
+                                    f"Ao exame clínico pericial atual, {termo_peric} em bom estado geral, lúcido e orientado, "
+                                    f"apresentando alterações clínicas discretas e estabilizadas compatíveis com {mot_desc}{obs_clause_c}, "
+                                    f"porém com estabilidade hemodinâmica e preservação da funcionalidade orgânica e global."
+                                )
+
+                        raw_lim = (result.desc_limitacao or "").strip()
+                        if (
+                            not raw_lim
+                            or re.search(r"\b(?:inviabilizando|impossibilitando|incapacitando\s+transitoriamente)\b", raw_lim, flags=re.I)
+                            or "do ponto de vista médico não se observa limitações" in raw_lim.lower()
+                            or "sem alterações objetivas ao exame" in raw_lim.lower()
+                        ):
+                            result.desc_limitacao = (
+                                f"Embora se observem alterações clínicas ao exame pericial relacionadas a {mot_desc}{obs_clause_c}, "
+                                f"tais achados apresentam repercussão funcional leve e clinicamente estabilizada, com preservação da funcionalidade global, "
+                                f"da força motora, da cognição e da autonomia, não configurando limitação funcional incapacitante para as atribuições "
+                                f"constantes no Rol de Atividades do cargo de {cargo_label}."
+                            )
+                        elif obs_clean_low and obs_clean_low.lower() not in raw_lim.lower():
+                            result.desc_limitacao = raw_lim.rstrip(". ") + f", destacando-se {obs_clean_low} sem repercussão incapacitante para o cargo de {cargo_label}."
+
+                        just_curr = (result.justificativa or "").strip()
+                        just_low = just_curr.lower()
+                        if (
+                            not just_low
+                            or re.search(r"\b(?:parcial\s+e\s+temporariamente\s+prejudicada|parecer\s+favor[áa]vel)\b", just_low, flags=re.I)
+                            or "não se observam alterações" in just_low
+                            or "sem alterações ao exame" in just_low
+                        ):
+                            result.justificativa = (
+                                f"Constato a capacidade laborativa preservada considerando as atribuições do rol do cargo de {cargo_label}, "
+                                f"uma vez que, embora o exame clínico pericial atual evidencie alterações relacionadas a {mot_desc}{cid_clause_c}{obs_clause_c}, "
+                                f"tais achados mostram-se clinicamente compensados e de repercussão funcional não incapacitante, "
+                                f"mantendo-se preservadas a estabilidade funcional e a aptidão para o desempenho habitual das atividades do cargo no período pleiteado."
+                            )
+                        elif obs_clean_low and obs_clean_low.lower() not in just_low:
+                            result.justificativa = (
+                                just_curr.rstrip(". ")
+                                + f", ressaltando-se ao exame pericial {obs_clean_low}, de repercussão funcional não incapacitante para o cargo de {cargo_label}."
+                            )
+
+                    elif exame_modo == "documental":
+                        # MODELO C — PARECER CONTRÁRIO + EXAME DOCUMENTAL
+                        result.outros_resultado = "Normal"
+                        if is_mental_ef:
+                            result.exame_mental_resultado = "Normal"
+
+                        if not (result.exame_fisico_descricao or "").strip():
+                            result.exame_fisico_descricao = (
+                                f"Avaliação médico-pericial fundamentada na análise técnica da documentação médica apresentada e na inspeção clínica referente a {mot_desc}{obs_clause_c}, "
+                                f"não se constatando registros objetivos de descompensação aguda ou déficit funcional incapacitante."
+                            )
+                        raw_lim = (result.desc_limitacao or "").strip()
+                        if not raw_lim or re.search(r"\b(?:inviabilizando|impossibilitando|incapacitando\s+transitoriamente)\b", raw_lim, flags=re.I):
+                            result.desc_limitacao = (
+                                f"Pela análise técnica pericial e documental referente ao quadro de {mot_desc}{obs_clause_c}, "
+                                f"não se evidenciam elementos clínicos objetivos de descompensação aguda ou restrição severa que configurem limitação funcional incapacitante "
+                                f"para as atribuições constantes no Rol de Atividades do cargo de {cargo_label}."
+                            )
+                        just_curr = (result.justificativa or "").strip()
+                        just_low = just_curr.lower()
+                        if not just_low or re.search(r"\b(?:parcial\s+e\s+temporariamente\s+prejudicada|parecer\s+favor[áa]vel)\b", just_low, flags=re.I):
+                            result.justificativa = (
+                                f"Constato a capacidade laborativa preservada considerando as atribuições do rol do cargo de {cargo_label}, "
+                                f"visto que a análise técnica pericial e documental referente ao quadro de {mot_desc}{cid_clause_c}{obs_clause_c} "
+                                f"não demonstra elementos objetivos de descompensação clínica aguda ou incapacidade laborativa temporária para o exercício das funções habituais no período pleiteado."
+                            )
+                        elif obs_clean_low and obs_clean_low.lower() not in just_low:
+                            result.justificativa = just_curr.rstrip(". ") + f", considerando a constatação pericial de {obs_clean_low}."
+
+                    else:
+                        # MODELO B — PARECER CONTRÁRIO + EXAME FÍSICO/MENTAL NORMAL
+                        result.outros_resultado = "Normal"
+                        if is_mental_ef:
+                            result.exame_mental_resultado = "Normal"
+
+                        if not (result.exame_fisico_descricao or "").strip():
+                            if is_mental_ef:
+                                result.exame_fisico_descricao = (
+                                    f"Ao exame psíquico pericial atual, {termo_peric} vigil, consciente e orientado globalmente, "
+                                    f"com atenção, memória, pensamento lógico, juízo crítico e pragmatismo preservados{obs_clause_c}, "
+                                    f"sem sinais objetivos de descompensação psíquica aguda no momento da avaliação."
+                                )
+                            elif "osteo" in ef_tipo_low:
+                                result.exame_fisico_descricao = (
+                                    f"Ao exame físico osteomuscular pericial atual, {termo_peric} em bom estado geral, lúcido e orientado, "
+                                    f"com marcha eutrófica sem claudicação, mobilidade funcional e força motora preservadas, "
+                                    f"sem sinais radiculares agudos ou déficit funcional incapacitante no momento da avaliação{obs_clause_c}."
+                                )
+                            else:
+                                result.exame_fisico_descricao = (
+                                    f"Ao exame clínico pericial atual, {termo_peric} em bom estado geral, lúcido, orientado, "
+                                    f"sem achados objetivos de descompensação aguda ou déficit funcional incapacitante no momento da avaliação{obs_clause_c}."
+                                )
+                        raw_lim = (result.desc_limitacao or "").strip()
+                        if not raw_lim or re.search(r"\b(?:inviabilizando|impossibilitando|incapacitando\s+transitoriamente)\b", raw_lim, flags=re.IGNORECASE):
+                            result.desc_limitacao = (
+                                f"O quadro referido de {mot_desc} apresenta-se clinicamente compensado e sem alterações objetivas incapacitantes ao exame pericial atual{obs_clause_c}, "
+                                f"não se observando limitações físicas ou mentais funcionais incapacitantes para as atribuições constantes no Rol de Atividades do cargo de {cargo_label}."
+                            )
+                        just_curr = (result.justificativa or "").strip()
+                        just_low = just_curr.lower()
+                        if not just_low or re.search(r"\b(?:parcial\s+e\s+temporariamente\s+prejudicada|parecer\s+favor[áa]vel)\b", just_low, flags=re.IGNORECASE):
+                            result.justificativa = (
+                                f"Constato a capacidade laborativa preservada considerando as atribuições do rol do cargo de {cargo_label}, "
+                                f"uma vez que o quadro avaliado de {mot_desc}{cid_clause_c} apresenta-se clinicamente estável ao exame pericial atual{obs_clause_c}, "
+                                f"não se observando alterações agudas ou limitações funcionais incapacitantes para as atribuições habituais do cargo no período pleiteado."
+                            )
+                        elif obs_clean_low and obs_clean_low.lower() not in just_low:
+                            result.justificativa = just_curr.rstrip(". ") + f", corroborado pela constatação pericial de {obs_clean_low}."
 
             if result.justificativa:
                 result.justificativa = _clean_justificativa_text(result.justificativa)

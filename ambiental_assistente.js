@@ -4582,8 +4582,9 @@ function abrirModalDecisaoMedicoIA2(origem, texto) {
         cFavCard.style.pointerEvents = "none";
         cFavCard.title = "Parecer Favorável bloqueado devido à retroação inválida da guia (> 3 dias)";
       }
+      ia2DecisaoExameManual = false;
       selecionarDecisaoParecerIA2("CONTRÁRIO");
-      selecionarDecisaoExameIA2("Alterado");
+      selecionarDecisaoExameIA2("Alterado", true);
       atualizarDecisaoDiasIA2("original");
     } else {
       if (alertRetro) alertRetro.style.display = "none";
@@ -4593,8 +4594,9 @@ function abrirModalDecisaoMedicoIA2(origem, texto) {
         cFavCard.style.pointerEvents = "auto";
         cFavCard.title = "";
       }
+      ia2DecisaoExameManual = false;
       selecionarDecisaoParecerIA2("FAVORÁVEL");
-      selecionarDecisaoExameIA2("Alterado");
+      selecionarDecisaoExameIA2("Alterado", true);
       atualizarDecisaoDiasIA2("original");
     }
 
@@ -4624,6 +4626,32 @@ function fecharModalDecisaoMedicoIA2() {
   }
 }
 
+let ia2DecisaoExameManual = false;
+
+function atualizarBannerModeloDecisaoIA2() {
+  const alertInfo = $("ia2DecisaoRetroInformativo");
+  if (!alertInfo) return;
+  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  if (isRetroInv) return;
+
+  const par = ia2DecisaoParecerEscolhido || "FAVORÁVEL";
+  const ex = ia2DecisaoExameEscolhido || "Alterado";
+
+  if (par === "CONTRÁRIO" && ex === "Alterado") {
+    alertInfo.innerHTML = `🧠 <strong>Modelo IA Sênior — Contrário + Exame Alterado:</strong> A IA descreverá os achados clínicos alterados constatados no exame físico/mental e fundamentará tecnicamente por que tais alterações estão compensadas e não configuram incapacidade laborativa para o cargo.`;
+  } else if (par === "CONTRÁRIO" && ex === "Documental") {
+    alertInfo.innerHTML = `🧠 <strong>Modelo IA Sênior — Contrário + Avaliação Documental:</strong> A IA fundamentará pela análise pericial e documental a ausência de descompensação aguda ou incapacidade laborativa para as atribuições do cargo.`;
+  } else if (par === "CONTRÁRIO") {
+    alertInfo.innerHTML = `🧠 <strong>Modelo IA Sênior — Contrário + Exame Normal:</strong> A IA redigirá propedêutica completa dentro da normalidade e fundamentará a capacidade laborativa preservada para o rol do cargo.`;
+  } else if (par === "FAVORÁVEL" && ex === "Normal") {
+    alertInfo.innerHTML = `🧠 <strong>Modelo IA Sênior — Favorável + Exame Normal (Perícia Retrospectiva):</strong> A IA descreverá a estabilidade clínica atual em convalescença e fundamentará a incapacidade temporária retrospectiva no período do atestado.`;
+  } else if (par === "FAVORÁVEL" && ex === "Documental") {
+    alertInfo.innerHTML = `🧠 <strong>Modelo IA Sênior — Favorável + Avaliação Documental:</strong> A IA fundamentará a incapacidade laborativa temporária com base na documentação médica comprobatória e nas demandas do cargo.`;
+  } else {
+    alertInfo.innerHTML = `🧠 <strong>Modelo IA Sênior — Favorável + Exame Alterado:</strong> A IA desenvolverá a propedêutica detalhada dos achados alterados, as limitações específicas no Rol de Atividades do cargo e a justificativa técnico-pericial.`;
+  }
+}
+
 function selecionarDecisaoParecerIA2(parecer) {
   const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   if (isRetroInv) {
@@ -4639,24 +4667,28 @@ function selecionarDecisaoParecerIA2(parecer) {
     if (ia2DecisaoDiasModo === "zero") {
       atualizarDecisaoDiasIA2("original");
     }
-    if (ia2DecisaoExameEscolhido === "Normal") {
-      selecionarDecisaoExameIA2("Alterado");
+    if (!ia2DecisaoExameManual && ia2DecisaoExameEscolhido === "Normal") {
+      selecionarDecisaoExameIA2("Alterado", true);
     }
   } else {
     if (cFav) cFav.className = "ia2-decision-card";
     if (cContr) cContr.className = "ia2-decision-card selected-contr";
     if (!isRetroInv) {
       atualizarDecisaoDiasIA2("zero");
-      if (ia2DecisaoExameEscolhido === "Alterado") {
-        selecionarDecisaoExameIA2("Normal");
+      if (!ia2DecisaoExameManual && ia2DecisaoExameEscolhido === "Alterado") {
+        selecionarDecisaoExameIA2("Normal", true);
       }
     } else {
       atualizarDecisaoDiasIA2("original");
     }
   }
+  atualizarBannerModeloDecisaoIA2();
 }
 
-function selecionarDecisaoExameIA2(tipo) {
+function selecionarDecisaoExameIA2(tipo, isAuto = false) {
+  if (!isAuto) {
+    ia2DecisaoExameManual = true;
+  }
   ia2DecisaoExameEscolhido = tipo;
   const cAlt = $("ia2DecisaoExameAlterado");
   const cNorm = $("ia2DecisaoExameNormal");
@@ -4665,6 +4697,7 @@ function selecionarDecisaoExameIA2(tipo) {
   if (cAlt) cAlt.className = (tipo === "Alterado" ? "ia2-decision-card selected-opt" : "ia2-decision-card");
   if (cNorm) cNorm.className = (tipo === "Normal" ? "ia2-decision-card selected-opt" : "ia2-decision-card");
   if (cDoc) cDoc.className = (tipo === "Documental" ? "ia2-decision-card selected-opt" : "ia2-decision-card");
+  atualizarBannerModeloDecisaoIA2();
 }
 
 function atualizarDecisaoDiasIA2(modo) {
@@ -6829,7 +6862,7 @@ function aplicarPreenchimentoIAResultado(dados) {
     state.aux.cidsSecundarios = rawSecList;
 
     state.exameFisicoTipo = dados.exame_fisico_tipo || state.exameFisicoTipo || "Outros";
-    state.exameMentalResultado = dados.exame_mental_resultado || state.exameMentalResultado || "";
+    state.exameMentalResultado = dados.exame_mental_resultado || (state.exameFisicoTipo === "Exame Mental" ? dados.outros_resultado : "") || state.exameMentalResultado || "";
     state.exameFisicoDescricao = dados.exame_fisico_descricao || state.exameFisicoDescricao || "";
 
     // Higienização e sanitização dos Sinais Vitais (evitar que inputs type="number" rejeitem strings com unidades ou texto)
@@ -7260,9 +7293,10 @@ function aplicarPreenchimentoIAResultado(dados) {
         regioesAfetadas = ["lombar"];
       }
 
-      const statusOsteo = parecerFav
+      const rawResOsteo = String(dados.outros_resultado || "").trim().toLowerCase();
+      const statusOsteo = rawResOsteo === "alterado"
         ? "Alterado"
-        : (String(dados.outros_resultado || "").toLowerCase() === "alterado" ? "Alterado" : "Normal");
+        : (rawResOsteo === "normal" ? "Normal" : (parecerFav ? "Alterado" : "Normal"));
 
       state.osteomuscularRegioes = {};
       regioesAfetadas.forEach(r => {
@@ -11865,11 +11899,15 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
   const isOsteo = st.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo";
   const regMap = st.osteomuscularRegioes || {};
   const alteradas = Object.keys(regMap).filter(k => regMap[k] === "Alterado" && DADOS_OSTEOMUSCULAR[k]);
-  const isOsteoAlterado = isOsteo && alteradas.length > 0;
+  const isOsteoAlterado = isOsteo && (alteradas.length > 0 || String(st.osteomuscularResultado || "").toLowerCase() === "alterado");
   const isMentalAlterado = isMental && st.exameMentalResultado === "Alterado";
+  const isOutrosAlterado = !isMental && !isOsteo && String(st.outrosResultado || "").toLowerCase() === "alterado";
+  const isExameAlterado = isOsteoAlterado || isMentalAlterado || isOutrosAlterado;
   const isRetroInv = Boolean(st.aux?.retroacaoInvalida || st.retroacaoInvalida);
   const pVal = String(st.parecer || v.parecer || (typeof getRadio === 'function' ? getRadio("parecer") : "") || "").toUpperCase();
-  const isFav = pVal === "F" || pVal.startsWith("FAV") || isOsteoAlterado || isMentalAlterado || isRetroInv;
+  const isExplicitContr = (pVal === "C" || pVal.startsWith("CONT")) && !isRetroInv;
+  const isFav = !isExplicitContr && (pVal === "F" || pVal.startsWith("FAV") || isOsteoAlterado || isMentalAlterado || isRetroInv);
+  const doencaMot = String(st.doencaMotivo || st.aux?.doencaMotivo || v.doencaMotivo || "patologia avaliada").trim();
 
   const isAcomp = !!(
     st.isAcompanhante ||
@@ -11908,6 +11946,9 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
       return `${ativ.replace(/[.;,]+$/, "")}, atividades estas constantes no Rol de Atividades do cargo de ${cargo}.`;
     } else {
       if (hasValidContraryLim) return existingLimRaw;
+      if (isExameAlterado) {
+        return `Embora se observem alterações emocionais reativas ao exame psíquico pericial relacionadas a ${doencaMot}, tais achados apresentam repercussão clínica leve e estabilizada, com preservação da cognição, do juízo crítico e do pragmatismo, não configurando limitação funcional incapacitante para as atribuições constantes no Rol de Atividades do cargo de ${cargo}.`;
+      }
       return `Do ponto de vista médico não se observa limitações mentais funcionais incapacitantes para as atribuições do cargo de ${cargo}, constantes no rol de atividades.`;
     }
   } else if (isOsteo) {
@@ -11935,6 +11976,9 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
       return `${ativ.replace(/[.;,]+$/, "")}, atividades estas constantes no Rol de Atividades do cargo de ${cargo}.`;
     } else {
       if (hasValidContraryLim) return existingLimRaw;
+      if (isExameAlterado) {
+        return `Embora se observem alterações semiológicas localizadas ao exame físico pericial relacionadas a ${doencaMot}, tais achados apresentam repercussão funcional leve e clinicamente compensada, com preservação da força motora global e da mobilidade funcional, não configurando limitação funcional incapacitante para as atribuições constantes no Rol de Atividades do cargo de ${cargo}.`;
+      }
       return `Do ponto de vista médico não se observa limitações físicas funcionais incapacitantes para as atribuições do cargo de ${cargo}, constantes no rol de atividades.`;
     }
   }
@@ -11961,6 +12005,9 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
     return `${ativ.replace(/[.;,]+$/, "")}, atividades estas constantes no Rol de Atividades do cargo de ${cargo}.`;
   } else {
     if (hasValidContraryLim) return existingLimRaw;
+    if (isExameAlterado) {
+      return `Embora se observem alterações clínicas ao exame pericial relacionadas a ${doencaMot}, tais achados apresentam repercussão funcional leve e clinicamente estabilizada, com preservação da funcionalidade global e da autonomia, não configurando limitação funcional incapacitante para as atribuições constantes no Rol de Atividades do cargo de ${cargo}.`;
+    }
     return `Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de ${cargo}, constantes no rol de atividades.`;
   }
 }
@@ -11968,8 +12015,14 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
 function gerarNarrativaJustificativaMelhoriaContinua(st, v) {
   v = v || {};
   st = st || state;
+  const cargo = st.cargo || v.cargo || "servidor";
   const isMental = st.exameFisicoTipo === "Exame Mental";
   const isOsteo = st.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo";
+  const regMap = st.osteomuscularRegioes || {};
+  const alteradas = Object.keys(regMap).filter(k => regMap[k] === "Alterado" && DADOS_OSTEOMUSCULAR[k]);
+  const isExameAlterado = (isOsteo && (alteradas.length > 0 || String(st.osteomuscularResultado || "").toLowerCase() === "alterado"))
+    || (isMental && st.exameMentalResultado === "Alterado")
+    || String(st.outrosResultado || "").toLowerCase() === "alterado";
   const isRetroInv = Boolean(st.aux?.retroacaoInvalida || st.retroacaoInvalida);
   if (isRetroInv && typeof construirJustificativaRetroacaoSemParentesesJS === "function") {
     return construirJustificativaRetroacaoSemParentesesJS(st, v);
@@ -12011,8 +12064,6 @@ function gerarNarrativaJustificativaMelhoriaContinua(st, v) {
       const descAtiv = ativ || "interatividade com grupos, manutenção da concentração e autocontrole em situações de conflito";
       return `Capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol, em razão de limitações na esfera psicoemocional que compromete para ${descAtiv}.`;
     } else if (isOsteo) {
-      const regMap = st.osteomuscularRegioes || {};
-      const alteradas = Object.keys(regMap).filter(k => regMap[k] === "Alterado" && DADOS_OSTEOMUSCULAR[k]);
       const lim = (typeof formatarLimitacoesOsteo === "function") ? formatarLimitacoesOsteo(alteradas.map(k => DADOS_OSTEOMUSCULAR[k]?.limitacao).filter(Boolean)) : "";
       const descAtiv = ativ || lim || "atividades com sobrecarga biomecânica ou esforço repetitivo";
       return `Capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol, em razão de limitações na esfera osteomuscular que compromete para ${descAtiv}.`;
@@ -12021,6 +12072,10 @@ function gerarNarrativaJustificativaMelhoriaContinua(st, v) {
       return `Capacidade laborativa parcial e temporariamente prejudicada considerando as atribuições do rol, em razão de limitações clínicas que compromete para ${descAtiv}.`;
     }
   } else {
+    if (isExameAlterado) {
+      const doencaMot = String(st.doencaMotivo || st.aux?.doencaMotivo || v.doencaMotivo || "patologia avaliada").trim();
+      return `Constato a capacidade laborativa preservada considerando as atribuições do rol do cargo de ${cargo}, uma vez que, embora o exame clínico pericial atual evidencie alterações relacionadas a ${doencaMot}, tais achados mostram-se clinicamente compensados e de repercussão funcional não incapacitante, mantendo-se preservadas a estabilidade funcional e a aptidão para o desempenho habitual das atividades do cargo no período pleiteado.`;
+    }
     if (isMental) {
       return "Capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações de ordem psíquica incapacitantes para as atribuições rotineiras do cargo atual.";
     } else if (isOsteo) {
@@ -12891,26 +12946,26 @@ function construirJustificativaRetroacaoSemParentesesJS(st, v) {
   const cargo = String(st.aux?.cargo || st.cargo || v.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor").trim();
   const cidVal = String(st.cid || st.aux?.cid || v.cid || $("agilCid")?.value || $("cid")?.value || "").trim().toUpperCase();
   const cidInfo = typeof findCID === "function" ? findCID(cidVal) : null;
-  const cidNome = (cidInfo?.n || st.aux?.doencaMotivo || v.doencaMotivo || "patologia em tratamento").trim();
-  
+  const doencaMot = String(st.doencaMotivo || st.aux?.doencaMotivo || v.doencaMotivo || cidInfo?.n || "").trim();
   const sintomasBruto = ($("agilSintomasLimitacao")?.value || st.aux?.sintomasLimitacao || st.sintomasLimitacao || st.descLimitacao || "").trim();
   const retroDias = st.aux?.retroacaoDias || st.retroacaoDias || "";
   const retroNum = parseInt(String(retroDias).replace(/\D/g, ""), 10) || 0;
-  const clausulaDias = retroNum > 0 ? `, totalizando ${retroNum} dias de retroação,` : "";
 
-  let fragSintomas = limparFragmentoClinicoRetroacaoJS(sintomasBruto);
-  if (fragSintomas && fragSintomas.toLowerCase().startsWith("relato de ")) {
-    fragSintomas = fragSintomas.slice(10).trim();
+  let quadroClean = limparFragmentoClinicoRetroacaoJS(doencaMot || sintomasBruto);
+  if (quadroClean && quadroClean.toLowerCase().startsWith("relato de ")) {
+    quadroClean = quadroClean.slice(10).trim();
   }
-  fragSintomas = fragSintomas.replace(/\s+e$/i, "").trim();
+  if (quadroClean.length > 75) {
+    quadroClean = quadroClean.slice(0, 75).replace(/\s+\S*$/, "").replace(/[.,;:]+$/, "");
+  }
+  quadroClean = (quadroClean || "patologia clínica avaliada").replace(/\s+e$/i, "").trim();
 
-  let justTexto = "";
-  if (fragSintomas && fragSintomas.length > 5 && !isContraryLimitationText(fragSintomas)) {
-    justTexto = `Embora o periciado apresente histórico e atestado médico com relato de ${fragSintomas}, caracterizando limitações funcionais temporárias para as atribuições habituais do cargo de ${cargo}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação em relação à data de emissão do atestado médico${clausulaDias} sem comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo e normativo do DPME SP, o parecer CONTRÁRIO.`;
-  } else {
-    const doencaIdent = cidVal ? `${cidVal} - ${cidNome}` : cidNome;
-    justTexto = `Embora o periciado apresente histórico clínico e atestado médico compatíveis com ${doencaIdent}, com limitações funcionais temporárias para as atribuições habituais do cargo de ${cargo}, constata-se que a guia pericial foi expedida com mais de 3 dias de retroação em relação à data de emissão do atestado médico${clausulaDias} sem comprovação documental de internamento hospitalar ou impedimento absoluto do servidor para emissão tempestiva da guia, ensejando, por estrito critério administrativo e normativo do DPME SP, o parecer CONTRÁRIO.`;
-  }
+  const cidClause = (cidVal && !quadroClean.toUpperCase().includes(cidVal)) ? ` sob CID ${cidVal}` : "";
+  const prazoClause = retroNum > 3
+    ? `a guia foi expedida com ${retroNum} dias de retroação`
+    : `a guia foi expedida com mais de 3 dias de retroação`;
+
+  let justTexto = `Embora o periciado apresente ${quadroClean}${cidClause} e limitações temporárias para o cargo de ${cargo}, ${prazoClause} sem internação hospitalar, ensejando parecer CONTRÁRIO por critério administrativo e normativo do DPME SP.`;
   justTexto = justTexto.replace(/\b([eE])\s+(?:e\b)+/g, "$1");
   return removerParentesesTextoJS(justTexto);
 }
