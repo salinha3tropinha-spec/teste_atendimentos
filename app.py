@@ -10952,15 +10952,8 @@ def api_save_atendimento(rid=None):
         
         if oldrow:
             current_version = int(oldrow.get("versao") or 1)
-            if expected_version is not None and expected_version != current_version:
-                cur.close()
-                return _error(
-                    "VERSION_CONFLICT",
-                    "Este atendimento foi atualizado em outro dispositivo. Recarregue a versão mais recente antes de continuar.",
-                    True,
-                    409,
-                    {"versao_servidor": current_version, "atualizado_em": str(oldrow.get("atualizado_em") or ""), "atualizado_por": str(oldrow.get("atualizado_por") or "")},
-                )
+            # Permite salvar sem bloqueio quando há múltiplos acessos ou dispositivos no mesmo login
+            # VERSION_CONFLICT bypass: permite concorrência sem lançar erro 409
             current = _normalize_workflow_state(oldrow["status"], "RASCUNHO")
             if current in {"FINALIZADO", "ARQUIVADO"} and incoming != current:
                 cur.close()
@@ -10985,9 +10978,15 @@ def api_save_atendimento(rid=None):
                 (number, json.dumps(payload, ensure_ascii=False), status, _patient_hash(payload), paciente_nome_db, paciente_cpf_db, str(payload.get("medico") or ""), str(a.get("cid") or ""), str(a.get("unidade") or ""), completeness, int(len(payload.get("aiAlertas") or [])), int(len(payload.get("inconsistencias") or [])), now, oldrow["finalizado_em"], next_version, request.user_id, oldrow["id"], current_version)
             )
             if cur.rowcount != 1:
-                db.rollback()
-                cur.close()
-                return _error("VERSION_CONFLICT", "Este atendimento foi alterado durante o salvamento. Recarregue a versão mais recente antes de continuar.", True, 409)
+                # VERSION_CONFLICT bypass: caso ocorra alteração simultânea durante o salvamento, obtém a versão atual e conclui o update
+                cur.execute("SELECT versao FROM atendimentos WHERE id=%s", (oldrow["id"],))
+                v_row = cur.fetchone()
+                current_version = int((v_row and v_row.get("versao")) or current_version)
+                next_version = current_version + 1
+                cur.execute(
+                    "UPDATE atendimentos SET numero=%s, payload_json=%s, status=%s, paciente_nome_hash=%s, paciente_nome=%s, paciente_cpf=%s, medico=%s, cid=%s, unidade=%s, completude=%s, alertas=%s, inconsistencias=%s, atualizado_em=%s, finalizado_em=%s, versao=%s, atualizado_por=%s WHERE id=%s",
+                    (number, json.dumps(payload, ensure_ascii=False), status, _patient_hash(payload), paciente_nome_db, paciente_cpf_db, str(payload.get("medico") or ""), str(a.get("cid") or ""), str(a.get("unidade") or ""), completeness, int(len(payload.get("aiAlertas") or [])), int(len(payload.get("inconsistencias") or [])), now, oldrow["finalizado_em"], next_version, request.user_id, oldrow["id"])
+                )
             real_id = oldrow["id"]
             if eff.get("is_impersonating"):
                 cur.execute("UPDATE atendimentos SET usuario_id=%s, medico=%s WHERE id=%s", (eff.get("id"), str(payload.get("medico") or ""), real_id))
@@ -11086,9 +11085,7 @@ def api_state_transition(rid):
         cur.close()
         return denied
     current_version=int(r.get("versao") or 1)
-    if expected_version is not None and expected_version != current_version:
-        cur.close()
-        return _error("VERSION_CONFLICT", "Este atendimento foi atualizado em outro dispositivo. Recarregue a versão mais recente antes de continuar.", True, 409, {"versao_servidor": current_version, "atualizado_em": str(r.get("atualizado_em") or "")})
+    # VERSION_CONFLICT bypass: permite transições entre sessões simultâneas do mesmo login sem bloqueio 409
     current=_normalize_workflow_state(r["status"], "RASCUNHO")
     if target==current:
         cur.close()

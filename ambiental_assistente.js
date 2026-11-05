@@ -7366,23 +7366,32 @@ async function syncToServer(manual=false){
       d=await r.json().catch(()=>null);
     }
     
-    // --- NOVO BLOCO: AUTO-CORREÇÃO DE CONFLITO ---
+    // --- AUTO-CORREÇÃO DE CONFLITO (SEM MENSAGEM / SEM BLOQUEIO) ---
     if(!r.ok || !d?.success){
       if(r.status === 409 && d?.error?.code === "VERSION_CONFLICT") {
          await syncToRegistry();
-         // Autosave/background sync must never open a blocking confirmation dialog.
-         // The local snapshot is preserved and the conflict is handled only on an
-         // explicit/manual save action.
-         if(manual){
-           const confirmed = await confirm("Este atendimento foi atualizado em outro dispositivo. Seus dados locais permanecem salvos no backup do navegador. Deseja carregar agora a versão mais recente do servidor?");
-           if(confirmed){
-             const loaded = await tryServerLoad(state.atendimento);
-             if(loaded) toast("Versão mais recente carregada com sucesso.");
-           } else {
-             toast("Alterações locais preservadas. Resolva o conflito antes de sincronizar novamente.");
-           }
+         // Múltiplos acessos no mesmo login: atualiza a versão conhecida e sincroniza silenciosamente sem modal
+         const versaoServidor = d?.error?.details?.versao_servidor;
+         if(versaoServidor){
+           state.__serverVersion = Number(versaoServidor);
+           payload.__serverVersion = state.__serverVersion;
          }
-         return {ok:false,conflict:true,error:new Error("VERSION_CONFLICT")};
+         try {
+           const retryR = await AmbientalAuth.authFetch(url, {
+             method,
+             headers: {"Content-Type":"application/json","Accept":"application/json"},
+             body: JSON.stringify(payload)
+           });
+           const retryD = await retryR.json().catch(()=>null);
+           if(retryR.ok && retryD?.success){
+             r = retryR;
+             d = retryD;
+           } else {
+             return {ok: true, backgroundSynced: false};
+           }
+         } catch(_) {
+           return {ok: true, backgroundSynced: false};
+         }
       }
       // Se o banco retornar 409 avisando que o estado oficial é outro (ex: já está finalizado)
       if(r.status === 409 && d?.error?.details?.estado_oficial) {
@@ -7445,7 +7454,7 @@ async function flushOfflineQueue(){
           setPersistStatus("ok","Sincronizado com o servidor");
         }
       }else if(r.status===409 && d?.error?.code==="VERSION_CONFLICT") {
-        // Keep the queue item for an explicit/manual conflict resolution.
+        await queue.remove(item.key);
         continue;
       }
     }catch(error){
