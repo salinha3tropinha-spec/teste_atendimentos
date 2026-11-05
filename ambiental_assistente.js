@@ -4367,7 +4367,7 @@ async function finalizarAtendimentoIA2(origem) {
     }
     syncState();
 
-    openFinalizeDialog();
+    abrirModalDecisaoMedicoIA2("escrita", txtUtil || rawTxt);
   }
 }
 
@@ -4605,6 +4605,9 @@ function abrirModalDecisaoMedicoIA2(origem, texto) {
   } finally {
     const modal = $("ia2ModalDecisaoMedico");
     if (modal) {
+      if (modal.parentElement && modal.parentElement.id === "finalizeProgressOverlay" && document.body) {
+        document.body.appendChild(modal);
+      }
       modal.classList.add("show");
       modal.setAttribute("aria-hidden", "false");
       modal.style.display = "flex";
@@ -4696,8 +4699,13 @@ function confirmarDecisaoEEstruturarIA2() {
 
 function atualizarOverlayIA2Passo(passo, mensagem, porcentagem) {
   const overlay = $("ia2LoadingOverlay");
-  if (overlay && overlay.style.display !== "flex") {
-    overlay.style.display = "flex";
+  if (overlay) {
+    if (overlay.parentElement && overlay.parentElement.id === "finalizeProgressOverlay" && document.body) {
+      document.body.appendChild(overlay);
+    }
+    if (overlay.style.display !== "flex") {
+      overlay.style.display = "flex";
+    }
   }
   const pBar = $("ia2ProgressBar");
   if (pBar && typeof porcentagem === "number") {
@@ -4917,6 +4925,9 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
 function abrirModalSucessoIA2(dados) {
   const m = $("ia2ModalSucesso");
   if (!m) return;
+  if (m.parentElement && m.parentElement.id === "finalizeProgressOverlay" && document.body) {
+    document.body.appendChild(m);
+  }
 
   const cid = state.cid || dados.cid || "—";
   const fCid = typeof findCID === "function" ? findCID(cid) : null;
@@ -8844,6 +8855,9 @@ function openFinalizeDialog(){
   `;
   const fo = $("finalizeOverlay");
   if(fo){
+    if (fo.parentElement && fo.parentElement.id === "finalizeProgressOverlay" && document.body) {
+      document.body.appendChild(fo);
+    }
     fo.classList.add("open");
     fo.setAttribute("aria-hidden", "false");
     fo.style.display = "flex";
