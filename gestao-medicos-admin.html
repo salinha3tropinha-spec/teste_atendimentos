@@ -1989,7 +1989,7 @@ main { min-width: 0; }
   }
 
   window.deleteIndividualAgenda = window.deleteSingleAgenda = async function(agendaId) {
-    if (!confirm('Deseja realmente remover este agendamento?')) return;
+    if (!await confirm('Deseja realmente remover este agendamento?')) return;
     try {
       busy(true);
       await (AmbientalAPI.admin.deleteAgenda ? AmbientalAPI.admin.deleteAgenda(agendaId) : AmbientalAPI.admin.deleteSingleAgenda(agendaId));
@@ -2008,7 +2008,7 @@ main { min-width: 0; }
   $('btnLimparAgendaDia').onclick = async () => {
     if (!activeAgendaDoctorId) return;
     const dataStr = $('agendaDataInput').value || todayYMD();
-    if (!confirm(`Atenção: Deseja apagar TODOS os agendamentos do dia ${dataStr} para este médico?`)) return;
+    if (!await confirm(`Atenção: Deseja apagar TODOS os agendamentos do dia ${dataStr} para este médico?`)) return;
     try {
       busy(true);
       const res = await (AmbientalAPI.admin.deleteDoctorAgendas || AmbientalAPI.admin.clearAgendas)(activeAgendaDoctorId, dataStr);
@@ -2351,7 +2351,7 @@ main { min-width: 0; }
     if (!r) return;
     const willActivate = Number(r.ativo) !== 1;
     const msg = willActivate ? `Reativar o acesso de ${r.nome}?` : `Suspender o acesso de ${r.nome}? O médico não conseguirá fazer login até ser reativado.`;
-    if (!confirm(msg)) return;
+    if (!await confirm(msg)) return;
     busy(true);
     try {
       await (AmbientalAPI.admin.toggleStatus ? AmbientalAPI.admin.toggleStatus(id) : AmbientalAPI.admin.updateMedicoStatus(id, willActivate));
@@ -2368,7 +2368,7 @@ main { min-width: 0; }
   async function removeDoctor(id) {
     const r = rows.find(x => String(x.id) === String(id));
     if (!r) return;
-    if (!confirm(`Deseja realmente remover a conta de ${r.nome}?\n\nOs atendimentos já realizados por este médico não serão excluídos.`)) return;
+    if (!await confirm(`Deseja realmente remover a conta de ${r.nome}?\n\nOs atendimentos já realizados por este médico não serão excluídos.`)) return;
     busy(true);
     try {
       await AmbientalAPI.admin.deleteMedico(id);

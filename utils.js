@@ -40,6 +40,16 @@
           <button id="customDialogConfirm" type="button">OK</button>
         </div>
       </div>`;
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) {
+        dialog.cancel();
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && overlay.classList.contains("open")) {
+        dialog.cancel();
+      }
+    });
     document.body.appendChild(overlay);
     return overlay;
   }
@@ -47,6 +57,10 @@
   const dialog = {
     resolve: null,
     open(title, message, isConfirm = false) {
+      if (dialog.resolve) {
+        try { dialog.resolve(false); } catch(_) {}
+        dialog.resolve = null;
+      }
       const overlay = ensureDialog();
       const titleEl = document.getElementById("customDialogTitle");
       const msgEl = document.getElementById("customDialogMessage");

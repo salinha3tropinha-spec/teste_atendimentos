@@ -4137,7 +4137,8 @@ async function confirmBatchDeleteAdmin() {
     return;
   }
   const confirmMsg = `ATENÇÃO: Deseja realmente EXCLUIR PERMANENTEMENTE ${ids.length} atendimento(s) do banco de dados?\n\nEsta ação apagará definitivamente os atendimentos de teste e não poderá ser desfeita.`;
-  if (!confirm(confirmMsg)) return;
+  const confirmed = await (window.CustomDialog ? window.CustomDialog.open("Confirmação de Exclusão", confirmMsg, true) : confirm(confirmMsg));
+  if (!confirmed) return;
 
   const btn = document.getElementById("btnBatchDeleteAdmin");
   if (btn) { btn.disabled = true; btn.textContent = "Excluindo..."; }
@@ -4207,7 +4208,8 @@ async function confirmSingleDeleteAdmin(encId) {
   const atdNumero = r ? String(r.atendimento || '') : '';
   const atdRealId = r ? String(r.id || '') : '';
   const confirmMsg = `ATENÇÃO: Deseja realmente EXCLUIR PERMANENTEMENTE o atendimento de "${patient}" (ID: ${id}) do banco de dados?\n\nEsta ação não poderá ser desfeita.`;
-  if (!confirm(confirmMsg)) return;
+  const confirmed = await (window.CustomDialog ? window.CustomDialog.open("Confirmação de Exclusão", confirmMsg, true) : confirm(confirmMsg));
+  if (!confirmed) return;
 
   try {
     const token = accessToken || (window.AmbientalAuth ? await AmbientalAuth.getAccessToken() : '');
