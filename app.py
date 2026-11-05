@@ -40,7 +40,7 @@ from blueprints import (
     generate_justificativa_stream
 )
 from flask_cors import CORS
-from pydantic import BaseModel, Field, ValidationError, ConfigDict
+from pydantic import BaseModel, Field, ValidationError, ConfigDict, model_validator
 
 try:
     from google import genai
@@ -1126,82 +1126,142 @@ class FinalReportTextResult(BaseModel):
 
 class MedicamentoItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    medicamento: str
-    dosagem: str
-    frequencia: str
-    observacao: str
+    medicamento: str = ""
+    dosagem: str = ""
+    frequencia: str = ""
+    observacao: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_nulls(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        return {k: ("" if v is None else str(v)) for k, v in data.items()}
 
 class CondicaoItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    nome: str
-    tratamento: str
+    nome: str = ""
+    tratamento: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_nulls(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        return {k: ("" if v is None else str(v)) for k, v in data.items()}
 
 class QuesitoPreenchimentoItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    id: int
-    pergunta: str
-    resposta: str
+    id: int = 1
+    pergunta: str = ""
+    resposta: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_nulls(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        out = dict(data)
+        try:
+            out["id"] = int(out.get("id") or 1)
+        except (TypeError, ValueError):
+            out["id"] = 1
+        out["pergunta"] = "" if out.get("pergunta") is None else str(out.get("pergunta"))
+        out["resposta"] = "" if out.get("resposta") is None else str(out.get("resposta"))
+        return out
 
 class PreenchimentoCompletoResult(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    nome_paciente: str
-    cpf_paciente: str
-    rg_paciente: str
-    data_nascimento: str
-    idade: str
-    sexo: str
-    cargo: str
-    tempo_cargo: str
-    tempo_unidade: str
-    readaptado: str
-    atividades_readaptado: str
+    nome_paciente: str = ""
+    cpf_paciente: str = ""
+    rg_paciente: str = ""
+    data_nascimento: str = ""
+    idade: str = ""
+    sexo: str = ""
+    cargo: str = ""
+    tempo_cargo: str = ""
+    tempo_unidade: str = ""
+    readaptado: str = ""
+    atividades_readaptado: str = ""
 
-    doenca_motivo: str
-    inicio_tratamento: str
-    freq_consultas: str
-    sintomas_limitacao: str
-    medications: list[MedicamentoItem]
-    alteracao_med: str
-    data_alteracao_med: str
-    obs_alteracao_med: str
-    psicoterapia: bool
-    fisioterapia: bool
-    obs_terapias: str
-    outras_doencas: str
-    conditions: list[CondicaoItem]
-    historico_pregresso: str
+    doenca_motivo: str = ""
+    inicio_tratamento: str = ""
+    freq_consultas: str = ""
+    sintomas_limitacao: str = ""
+    medications: list[MedicamentoItem] = Field(default_factory=list)
+    alteracao_med: str = ""
+    data_alteracao_med: str = ""
+    obs_alteracao_med: str = ""
+    psicoterapia: bool = False
+    fisioterapia: bool = False
+    obs_terapias: str = ""
+    outras_doencas: str = ""
+    conditions: list[CondicaoItem] = Field(default_factory=list)
+    historico_pregresso: str = ""
 
-    cid: str
-    cid_descricao: str
-    cids_secundarios: list[str]
-    crm_cro: str
-    nome_medico_assistente: str
-    data_documento: str
-    data_expedicao: str
-    dias_solicitados: str
-    obs_documentos: str
+    cid: str = ""
+    cid_descricao: str = ""
+    cids_secundarios: list[str] = Field(default_factory=list)
+    crm_cro: str = ""
+    nome_medico_assistente: str = ""
+    data_documento: str = ""
+    data_expedicao: str = ""
+    dias_solicitados: str = ""
+    obs_documentos: str = ""
 
-    exame_fisico_tipo: str
-    outros_subtipo: str
-    outros_resultado: str
-    exame_mental_resultado: str
-    exame_fisico_descricao: str
-    alteracoes_clinicas_exames: str
-    pressao_sistolica: str
-    pressao_diastolica: str
-    pulso: str
-    altura: str
-    peso: str
+    exame_fisico_tipo: str = ""
+    outros_subtipo: str = ""
+    outros_resultado: str = ""
+    exame_mental_resultado: str = ""
+    exame_fisico_descricao: str = ""
+    alteracoes_clinicas_exames: str = ""
+    pressao_sistolica: str = ""
+    pressao_diastolica: str = ""
+    pulso: str = ""
+    altura: str = ""
+    peso: str = ""
 
-    limitacao_funcional: str
-    limitacao_rol: str
-    desc_limitacao: str
-    atividades_comprometidas: str
+    limitacao_funcional: str = ""
+    limitacao_rol: str = ""
+    desc_limitacao: str = ""
+    atividades_comprometidas: str = ""
 
-    quesitos: list[QuesitoPreenchimentoItem]
-    capacidade: str
-    parecer: str
-    justificativa: str
+    quesitos: list[QuesitoPreenchimentoItem] = Field(default_factory=list)
+    capacidade: str = ""
+    parecer: str = ""
+    justificativa: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        out = dict(data)
+        bool_fields = {"psicoterapia", "fisioterapia"}
+        list_fields = {"medications", "conditions", "cids_secundarios", "quesitos"}
+        for k, v in list(out.items()):
+            if k in bool_fields:
+                if isinstance(v, bool):
+                    out[k] = v
+                elif v is None:
+                    out[k] = False
+                elif isinstance(v, str):
+                    out[k] = v.strip().lower() in ("true", "1", "sim", "yes")
+                else:
+                    out[k] = bool(v)
+            elif k in list_fields:
+                if not isinstance(v, list):
+                    out[k] = []
+                elif k == "cids_secundarios":
+                    out[k] = [str(item).strip() for item in v if item is not None and str(item).strip()]
+                else:
+                    out[k] = [item for item in v if isinstance(item, (dict, BaseModel))]
+            else:
+                if v is None:
+                    out[k] = ""
+                elif not isinstance(v, str):
+                    out[k] = str(v)
+        return out
 
 _CID_CATALOG: dict[str, dict[str, str]] | None = None
 
@@ -2086,6 +2146,9 @@ def _parse_ai_response(response, schema):
     text = (getattr(response, "text", "") or "").strip()
     if not text:
         raise ValueError("O provedor retornou resposta vazia.")
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text).strip()
     try:
         return schema.model_validate(json.loads(text))
     except (json.JSONDecodeError, ValidationError) as exc:
@@ -7132,6 +7195,8 @@ def gerar_relatorio_final():
     except Exception as exc:
         if isinstance(exc, ValueError):
             return jsonify({"error": "invalid_request", "detail": str(exc)}), 400
+        return _provider_error(exc)
+
 def _detectar_todas_regioes_osteomusculares(cid: str, texto: str, doenca: str, exame: str, cids_secundarios: list[str] | None = None) -> list[str]:
     combined = f"{cid or ''} {' '.join(cids_secundarios or [])} {texto or ''} {doenca or ''} {exame or ''}".lower()
     cids_all = [(cid or "").upper().strip()] + [str(c or "").upper().strip() for c in (cids_secundarios or [])]
@@ -7506,8 +7571,12 @@ def api_ai_preencher_ficha():
                     dec_inst += f"- Parecer definido pelo médico: {decisao_medico['parecer']}\n"
                 if decisao_medico.get("exameFisicoResultado"):
                     dec_inst += f"- Avaliação do exame físico pelo perito: {decisao_medico['exameFisicoResultado']}\n"
-                if decisao_medico.get("diasConcedidos") is not None and str(decisao_medico.get("diasConcedidos")) not in ("1", "0"):
-                    dec_inst += f"- Dias concedidos pelo médico: {decisao_medico['diasConcedidos']}\n"
+                if decisao_medico.get("diasConcedidos") is not None:
+                    d_conc_str = str(decisao_medico.get("diasConcedidos")).strip()
+                    if d_conc_str == "0":
+                        dec_inst += "- Dias concedidos pelo médico: 0 (Parecer CONTRÁRIO - manter dias_solicitados apenas com o valor original do atestado se houver, ou '0' como string)\n"
+                    elif d_conc_str != "1":
+                        dec_inst += f"- Dias concedidos pelo médico: {decisao_medico['diasConcedidos']}\n"
                 if decisao_medico.get("observacoesMedico"):
                     dec_inst += f"- Observações clínicas / anotações confidenciais do perito: {decisao_medico['observacoesMedico']}\n"
                 if pre_retro_invalida:
@@ -7518,7 +7587,7 @@ def api_ai_preencher_ficha():
                         "Aplique o motivo do parecer CONTRÁRIO (retroação > 3 dias) APENAS no campo 'justificativa', sem usar parênteses ().\n"
                     )
                 else:
-                    dec_inst += "ATENÇÃO: A decisão do médico perito acima É SOBERANA. Você deve alinhar estritamente o parecer, exame clínico, justificativa e limitações a essas escolhas do perito, integrando-as com os fatos relatados na consulta.\n"
+                    dec_inst += "ATENÇÃO: A decisão do médico perito acima É SOBERANA. Você deve alinhar estritamente o parecer, exame clínico, justificativa e limitações a essas escolhas do perito, integrando-as com os fatos relatados na consulta. Todos os campos string devem ser retornados como string (use \"\" se vazio, nunca null).\n"
                 instruction += dec_inst
             elif pre_retro_invalida:
                 instruction += (
@@ -7528,7 +7597,18 @@ def api_ai_preencher_ficha():
                     "Aplique o motivo do parecer CONTRÁRIO (retroação > 3 dias) APENAS no campo 'justificativa', sem usar parênteses ().\n"
                 )
 
-            result = _generate_structured(instruction, PreenchimentoCompletoResult)
+            try:
+                result = _generate_structured(instruction, PreenchimentoCompletoResult)
+            except Exception as gen_exc:
+                app.logger.warning(
+                    "Fallback determinístico ativado em preencher-ficha após falha na geração estruturada: %s",
+                    gen_exc,
+                )
+                result = PreenchimentoCompletoResult(
+                    doenca_motivo=str(ctx_atual.get("doencaMotivo") or "").strip(),
+                    exame_fisico_descricao=texto_bruto[:1800].strip(),
+                    parecer=str(decisao_medico.get("parecer") or "").strip() if isinstance(decisao_medico, dict) else "",
+                )
 
             # Mesclagem determinística de dados cadastrais e de guia extraídos do texto bruto / contexto atual
             if not (result.nome_paciente or "").strip():
@@ -8097,9 +8177,13 @@ def api_ai_preencher_ficha():
                     result.limitacao_funcional = "Não"
                     result.limitacao_rol = "Não"
                     result.capacidade = "Capacidade laborativa preservada"
+                    result.atividades_comprometidas = ""
+                    if not (result.exame_fisico_descricao or "").strip():
+                        result.exame_fisico_descricao = "Ao exame clínico pericial atual, periciando em bom estado geral, lúcido, orientado, sem achados objetivos de descompensação aguda ou déficit funcional incapacitante no momento da avaliação."
                     if not (result.desc_limitacao or "").strip() or not _is_contrary_limitation_text(result.desc_limitacao):
                         result.desc_limitacao = f"Do ponto de vista médico não se observa limitações físicas ou mentais funcionais incapacitantes para as atribuições do cargo de {cargo_label}, constantes no rol de atividades."
-                    if not (result.justificativa or "").strip():
+                    just_low = (result.justificativa or "").strip().lower()
+                    if not just_low or any(t in just_low for t in ("prejudicada", "favorável", "favoravel", "incapacidade temporária", "incapacidade temporaria")):
                         result.justificativa = f"Constato a capacidade laborativa preservada, considerando que neste ato pericial não se observam alterações ou limitações incapacitantes para as atribuições rotineiras do cargo atual de {cargo_label}."
 
             if result.justificativa:
@@ -8122,6 +8206,12 @@ def api_ai_preencher_ficha():
                 ]
 
             body = result.model_dump()
+            if (result.parecer or "").strip().upper() == "CONTRÁRIO":
+                body["dias_concedidos"] = "0"
+                body["diasConcedidos"] = "0"
+            elif isinstance(decisao_medico, dict) and decisao_medico.get("diasConcedidos") is not None:
+                body["dias_concedidos"] = str(decisao_medico.get("diasConcedidos")).strip()
+                body["diasConcedidos"] = str(decisao_medico.get("diasConcedidos")).strip()
             body["cids_secundarios"] = all_secondary
             body["cidsSecundarios"] = [
                 {
@@ -8160,8 +8250,11 @@ def api_ai_preencher_ficha():
             body["finalizado"] = False
             return jsonify({"dados": body, "meta": {"endpoint": "preencher-ficha"}}), 200
     except Exception as exc:
+        app.logger.exception("Erro em api_ai_preencher_ficha: %s", exc)
         if isinstance(exc, ValueError):
             return jsonify({"error": "invalid_request", "detail": str(exc)}), 400
+        return _provider_error(exc)
+
 def _calcular_tempo_cargo_ingresso(data_ingresso: str, ref_date: datetime | None = None) -> tuple[str, str]:
     if not data_ingresso:
         return "", ""

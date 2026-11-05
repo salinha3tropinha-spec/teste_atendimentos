@@ -4639,11 +4639,17 @@ function selecionarDecisaoParecerIA2(parecer) {
     if (ia2DecisaoDiasModo === "zero") {
       atualizarDecisaoDiasIA2("original");
     }
+    if (ia2DecisaoExameEscolhido === "Normal") {
+      selecionarDecisaoExameIA2("Alterado");
+    }
   } else {
     if (cFav) cFav.className = "ia2-decision-card";
     if (cContr) cContr.className = "ia2-decision-card selected-contr";
     if (!isRetroInv) {
       atualizarDecisaoDiasIA2("zero");
+      if (ia2DecisaoExameEscolhido === "Alterado") {
+        selecionarDecisaoExameIA2("Normal");
+      }
     } else {
       atualizarDecisaoDiasIA2("original");
     }
@@ -4873,6 +4879,7 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
       const parecerEfetivo = isRetroFinal ? "CONTRÁRIO" : (decisaoMedico.parecer || state.parecer);
       if (parecerEfetivo) {
         state.parecer = parecerEfetivo;
+        state.parecerManualOverride = isRetroFinal ? "" : parecerEfetivo;
         if (!state.aux) state.aux = {};
         state.aux.parecer = parecerEfetivo;
         if ($("parecer")) $("parecer").value = parecerEfetivo;
@@ -4880,6 +4887,22 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
         if (typeof setRadio === "function") {
           setRadio("parecer", parecerEfetivo);
           setRadio("agilParecer", parecerEfetivo);
+        }
+        if (parecerEfetivo === "CONTRÁRIO" && !isRetroFinal) {
+          state.limitacaoFuncional = "Não";
+          state.limitacaoRol = "Não";
+          state.capacidade = "Capacidade laborativa preservada";
+          state.aux.limitacaoFuncional = "Não";
+          state.aux.limitacaoRol = "Não";
+          state.aux.capacidade = "Capacidade laborativa preservada";
+          if (typeof setRadio === "function") {
+            setRadio("limitacaoFuncional", "Não");
+            setRadio("limitacaoRol", "Não");
+          }
+          if ($("capacidade")) $("capacidade").value = "Capacidade laborativa preservada";
+        }
+        if (typeof ajustarQuesitosPorParecerEReadaptacao === "function") {
+          ajustarQuesitosPorParecerEReadaptacao();
         }
       }
       if (typeof decisaoMedico.diasConcedidos !== "undefined" && decisaoMedico.diasConcedidos !== null) {
@@ -12195,13 +12218,16 @@ function ensureAgileBackgroundDefaults() {
   const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
   const curParecerStr = String(state.parecer || state.aux?.parecer || (typeof getRadio === 'function' ? getRadio("parecer") : "") || "").toUpperCase();
   const manualOverride = state.parecerManualOverride || (curParecerStr.startsWith("FAV") ? "FAVORÁVEL" : (curParecerStr.startsWith("CONT") ? "CONTRÁRIO" : ""));
+  const isExplicitContrary = (manualOverride === "CONTRÁRIO" || curParecerStr.startsWith("CONT")) && !isRetroInv;
 
-  const isFavGeneral = curParecerStr.startsWith("FAV")
+  const isFavGeneral = !isExplicitContrary && (
+    curParecerStr.startsWith("FAV")
     || manualOverride === "FAVORÁVEL"
     || isRetroInv
     || (state.exameFisicoTipo === "Exame Mental" && state.exameMentalResultado === "Alterado")
     || (state.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo" && Object.values(state.osteomuscularRegioes || {}).some(v => v === "Alterado"))
-    || (state.exameFisicoTipo === "Outros" && state.outrosResultado === "Alterado");
+    || (state.exameFisicoTipo === "Outros" && state.outrosResultado === "Alterado")
+  );
 
   if (!state.aux.sintomasLimitacao || state.aux.sintomasLimitacao.trim() === "" || (isFavGeneral && isContraryLimitationText(state.aux.sintomasLimitacao))) {
     let limText = "";
