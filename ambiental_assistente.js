@@ -540,26 +540,56 @@ async function deleteAtendimento() {
     
     try {
         const idToArchive = state.__serverId || state.atendimento;
-        if (idToArchive && state.__serverId) {
+        if (idToArchive) {
             const res = await AmbientalAuth.authFetch(`${getApiBase()}/api/atendimentos/${encodeURIComponent(idToArchive)}`, {
                 method: 'DELETE',
                 headers: { 'Accept': 'application/json' }
             });
             const body = await res.json().catch(()=>null);
-            if (!res.ok) {
+            if (!res.ok && res.status !== 404) {
                 throw new Error(body?.error?.message || body?.message || `Não foi possível arquivar o atendimento (${res.status}).`);
             }
         }
         
         // Remove backups locais do atendimento após o arquivamento no servidor.
-        await window.AmbientalUtils?.DraftStore?.remove?.(`atendimento:${state.atendimento}`);
+        const keysToRemove = [state.atendimento, state.__serverId].filter(Boolean).map(String);
+        for (const k of keysToRemove) {
+            await window.AmbientalUtils?.DraftStore?.remove?.(`atendimento:${k}`);
+        }
         window.AmbientalUtils?.legacyStorage?.remove?.("ambiental_lts_v2");
         window.AmbientalUtils?.legacyStorage?.remove?.("ambiental_lts_v1");
+        
+        // Limpa também do REGISTRY_KEY (ambiental_atendimentos_v1) e caches de gestão
+        try {
+            const raw = localStorage.getItem("ambiental_atendimentos_v1");
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    const filtered = parsed.filter(item => !keysToRemove.includes(String(item?.atendimento || item?.id || '')));
+                    localStorage.setItem("ambiental_atendimentos_v1", JSON.stringify(filtered));
+                } else if (parsed && typeof parsed === 'object') {
+                    keysToRemove.forEach(k => delete parsed[k]);
+                    Object.keys(parsed).forEach(k => {
+                        const item = parsed[k];
+                        if (keysToRemove.includes(String(item?.atendimento || item?.id || k || ''))) {
+                            delete parsed[k];
+                        }
+                    });
+                    localStorage.setItem("ambiental_atendimentos_v1", JSON.stringify(parsed));
+                }
+            }
+        } catch (_) {}
+        
+        try {
+            sessionStorage.removeItem('ambiental.gestao.dataset_version');
+            sessionStorage.removeItem('ambiental.gestao.atendimentos_cache');
+            localStorage.removeItem('ambiental.gestao.atendimentos_cache');
+        } catch (_) {}
         
         toast("Atendimento excluído com sucesso!");
         
         // Redireciona para a central ou portal médico após o arquivamento
-        setTimeout(() => { openManagement(); }, 1500);
+        setTimeout(() => { openManagement(); }, 1200);
         
     } catch (e) {
         toast(e.message || "Erro ao excluir o atendimento.");

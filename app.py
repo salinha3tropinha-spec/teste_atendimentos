@@ -11085,28 +11085,45 @@ def api_delete_atendimento(rid):
 
 @app.delete("/api/admin/atendimentos/<rid>")
 def api_admin_purge_atendimento(rid):
-    denied = _require_admin()
-    if denied: return denied
+    user_role = getattr(request, "user_role", None)
+    if user_role not in ("Administrador", "Coordenador", "Gestor") and not _has_permission("delete"):
+        return _error("PERMISSION_DENIED", "Apenas administradores ou gestores podem excluir atendimentos do banco.", False, 403)
     rid = str(rid or "").strip()
     if not rid: return _error("VALIDATION_ERROR", "Atendimento inválido.", False, 400)
     db = get_db(); cur = db.cursor()
-    cur.execute("SELECT id FROM atendimentos WHERE id=%s OR numero=%s", (rid, rid))
+    cur.execute("SELECT id, numero FROM atendimentos WHERE id=%s OR numero=%s", (rid, rid))
     row = cur.fetchone()
     if not row:
         cur.close()
         return _error("NOT_FOUND", "Atendimento não encontrado.", False, 404)
     real_id = row["id"]
-    cur.execute("DELETE FROM atendimentos WHERE id=%s", (real_id,))
-    db.commit()
+    atd_num = str(row.get("numero") or rid).strip()
+    all_keys = list({real_id, atd_num, rid})
+    try:
+        cur.execute("UPDATE agendas SET atendimento_id=NULL, protocolo=NULL WHERE atendimento_id = ANY(%s) OR protocolo = ANY(%s)", (all_keys, all_keys))
+        cur.execute("DELETE FROM logs_ia WHERE atendimento_id = ANY(%s)", (all_keys,))
+        cur.execute("DELETE FROM documentos WHERE atendimento_id = %s", (real_id,))
+        cur.execute("DELETE FROM quesitos WHERE atendimento_id = %s", (real_id,))
+        cur.execute("DELETE FROM historico_atendimento WHERE atendimento_id = %s", (real_id,))
+        cur.execute("DELETE FROM auditoria_acessos WHERE atendimento_id = %s", (real_id,))
+        cur.execute("DELETE FROM relatorios WHERE atendimento_id = %s", (real_id,))
+        cur.execute("DELETE FROM atendimentos WHERE id=%s", (real_id,))
+        db.commit()
+    except Exception as e_del:
+        db.rollback()
+        cur.close()
+        app.logger.exception("Erro ao excluir atendimento %s do banco: %s", rid, e_del)
+        return _error("DB_ERROR", f"Falha ao excluir atendimento do banco: {str(e_del)}", True, 500)
     _invalidate_stats_cache()
     cur.close()
-    return _ok({"deleted": True, "id": real_id, "mensagem": "Atendimento excluído permanentemente do banco de dados."})
+    return _ok({"deleted": True, "id": real_id, "numero": atd_num, "mensagem": "Atendimento excluído permanentemente do banco de dados."})
 
 @app.post("/api/admin/atendimentos/batch-delete")
 @app.delete("/api/admin/atendimentos/batch")
 def api_admin_batch_purge_atendimentos():
-    denied = _require_admin()
-    if denied: return denied
+    user_role = getattr(request, "user_role", None)
+    if user_role not in ("Administrador", "Coordenador", "Gestor") and not _has_permission("delete"):
+        return _error("PERMISSION_DENIED", "Apenas administradores ou gestores podem excluir atendimentos do banco.", False, 403)
     data = request.get_json(silent=True) or {}
     ids = data.get("ids") or []
     if not isinstance(ids, list) or not ids:
@@ -11117,20 +11134,36 @@ def api_admin_batch_purge_atendimentos():
         return _error("VALIDATION_ERROR", "Nenhum ID válido informado.", False, 400)
         
     db = get_db(); cur = db.cursor()
-    cur.execute("SELECT id FROM atendimentos WHERE id = ANY(%s) OR numero = ANY(%s)", (clean_ids, clean_ids))
+    cur.execute("SELECT id, numero FROM atendimentos WHERE id = ANY(%s) OR numero = ANY(%s)", (clean_ids, clean_ids))
     rows = cur.fetchall()
     real_ids = [r["id"] for r in rows]
+    real_nums = [str(r.get("numero") or "").strip() for r in rows if r.get("numero")]
+    all_keys = list(set(real_ids + real_nums + clean_ids))
     deleted_count = 0
     if real_ids:
-        cur.execute("DELETE FROM atendimentos WHERE id = ANY(%s)", (real_ids,))
-        deleted_count = cur.rowcount
-        db.commit()
+        try:
+            cur.execute("UPDATE agendas SET atendimento_id=NULL, protocolo=NULL WHERE atendimento_id = ANY(%s) OR protocolo = ANY(%s)", (all_keys, all_keys))
+            cur.execute("DELETE FROM logs_ia WHERE atendimento_id = ANY(%s)", (all_keys,))
+            cur.execute("DELETE FROM documentos WHERE atendimento_id = ANY(%s)", (real_ids,))
+            cur.execute("DELETE FROM quesitos WHERE atendimento_id = ANY(%s)", (real_ids,))
+            cur.execute("DELETE FROM historico_atendimento WHERE atendimento_id = ANY(%s)", (real_ids,))
+            cur.execute("DELETE FROM auditoria_acessos WHERE atendimento_id = ANY(%s)", (real_ids,))
+            cur.execute("DELETE FROM relatorios WHERE atendimento_id = ANY(%s)", (real_ids,))
+            cur.execute("DELETE FROM atendimentos WHERE id = ANY(%s)", (real_ids,))
+            deleted_count = cur.rowcount
+            db.commit()
+        except Exception as e_bdel:
+            db.rollback()
+            cur.close()
+            app.logger.exception("Erro ao excluir lote de atendimentos: %s", e_bdel)
+            return _error("DB_ERROR", f"Falha ao excluir lote de atendimentos: {str(e_bdel)}", True, 500)
         _invalidate_stats_cache()
     cur.close()
     return _ok({
         "deleted": True,
         "count": deleted_count,
         "ids": real_ids,
+        "numeros": real_nums,
         "mensagem": f"{deleted_count} atendimento(s) excluído(s) permanentemente do banco de dados."
     })
 

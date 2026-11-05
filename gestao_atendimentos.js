@@ -1224,7 +1224,7 @@ function renderStats(s) {
     renderDoctorProduction(Array.isArray(s.por_medico) ? s.por_medico : []);
 }
 function row(r){const v=values(r),st=statusOf(r),cls=st==='FINALIZADO'?'done':st==='EM_REVISÃO'?'review':st==='REABERTO'?'reopened':st==='ARQUIVADO'?'archived':'';const id=v.atd||r.atendimento||r.id||'';const isSelected=selectedAtdIds.has(String(id));const adminMode=isAdmin();let more='';if(st==='RASCUNHO')more+=`<button onclick="openModoIA2('${encodeURIComponent(v.atd)}')">🚀 Modo IA 2.0</button><button onclick="openEval('${encodeURIComponent(v.atd)}')">Continuar</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='EM_REVISÃO'||st==='REABERTO')more+=`<button onclick="openModoIA2('${encodeURIComponent(v.atd)}')">🚀 Modo IA 2.0</button><button onclick="openEval('${encodeURIComponent(v.atd)}')">Continuar</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='FINALIZADO')more+=`<button onclick="openReason('reopen','${encodeURIComponent(v.atd)}')">Reabrir</button><button onclick="openDocument('${encodeURIComponent(v.atd)}')">Visualizar documento</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='ARQUIVADO')more+=`<button onclick="openReason('restore','${encodeURIComponent(v.atd)}')">Restaurar</button>`;if(adminMode)more+=`<button onclick="confirmSingleDeleteAdmin('${encodeURIComponent(id)}')" style="color:#DC2626;font-weight:700">🗑️ Excluir do Banco</button>`;const selectTd=`<td class="admin-td-select"><input type="checkbox" class="row-select-checkbox" data-id="${esc(id)}" onchange="toggleRowSelect('${esc(id)}', this.checked)" ${isSelected?'checked':''} style="cursor:pointer;width:16px;height:16px" title="Selecionar para exclusão"></td>`;const nameParts=String(v.patient||'P').trim().split(/\s+/).filter(Boolean);const ini=((nameParts[0]?nameParts[0][0]:'')+(nameParts[1]?nameParts[1][0]:'')).toUpperCase()||'P';let rawDoc=String(v.doctor||'Médico não informado').trim();let cleanDoc=rawDoc.replace(/\s*-\s*CRM.*$/i,'').replace(/\s*CRM[:\s]*\d+.*$/i,'').trim();let crmMatch=rawDoc.match(/CRM[:\s]*([0-9A-Z\/\-]+)/i);let crmVal=v.crm||(crmMatch?crmMatch[1]:'');let cleanUnit=String(v.unidade||'').replace(/^0+\d*\s*-\s*/,'').trim();return`<tr>${selectTd}<td class="col-patient"><div class="patient-cell-wrap"><div class="patient-avatar">${esc(ini)}</div><div class="patient-info"><span class="main-id">${esc(v.patient||'Paciente não informado')}</span>${v.cpf?`<span class="patient-cpf-pill">CPF ${esc(v.cpf)}</span>`:''}<span class="sub sub-clamp" title="${esc(v.doenca||'Avaliação médico-pericial')}">${esc(v.doenca||'Avaliação médico-pericial')}</span></div></div></td><td><div class="date-cell-wrap"><strong class="date-val">${esc(date(v.date))}</strong>${v.time?`<span class="time-badge">⏰ ${esc(v.time)}</span>`:'<span class="sub" style="color:#94A3B8">Início pendente</span>'}</div></td><td><div class="doctor-cell-wrap"><span class="main-name doctor-name-title">${esc(cleanDoc||'Médico não informado')}</span>${crmVal?`<span class="doctor-crm-tag">CRM ${esc(crmVal)}</span>`:''}</div></td><td><div class="data-cell-wrap"><b class="cargo-title">${esc(v.cargo&&v.cargo!=='—'?v.cargo:'Cargo não informado')}</b>${cleanUnit?`<span class="unit-row" title="${esc(cleanUnit)}">🏢 ${esc(cleanUnit)}</span>`:''}<div class="pills-row"><span class="sub-tag-cid">CID ${esc(v.cid||'—')}</span><span class="sub-tag-age">${esc(v.idade||'—')}a</span>${v.dias?`<span class="sub-tag-days">⏱️ ${esc(v.dias)} dias</span>`:''}</div></div></td><td><span class="badge ${cls}"><span class="dot"></span>${esc(stateLabel[st]||st)}</span></td><td><strong class="updated-date">${esc(dt(v.updated))}</strong></td><td><div class="row-actions"><button class="row-btn-open" type="button" onclick="generateEsisla('${encodeURIComponent(v.atd)}')" title="Gerar e abrir diretamente a Ficha e-SISLA pela IA"><span>Abrir ficha</span><span class="row-btn-arrow">→</span></button><button class="row-btn-viewmore" type="button" onclick="view('${encodeURIComponent(v.atd)}')" title="Visualizar prontuário e detalhes completos deste atendimento"><span>Ver mais</span></button><details class="more"><summary class="row-btn-more" title="Mais opções para este atendimento"><span>Mais</span><span class="more-caret">▾</span></summary><div class="more-menu">${more}<button onclick="view('${encodeURIComponent(v.atd)}')">Ver prontuário completo</button><button onclick="openHistory('${encodeURIComponent(v.atd)}')">Ver histórico</button></div></details></div></td></tr>`}
-function find(id){return serverItems.find(x=>String(x.atendimento)===id)}
+function find(id){const sid = String(id || ''); return serverItems.find(x=>String(x.atendimento)===sid || String(x.id)===sid)}
 async function view(enc){
     const id=decodeURIComponent(enc),r=find(id);
     if(!r)return;
@@ -4037,6 +4037,99 @@ function updateBulkToolbar() {
   }
 }
 
+function removerDeLocalStorage(idOrIds) {
+  if (!idOrIds) return;
+  const targetIds = (Array.isArray(idOrIds) ? idOrIds : [idOrIds])
+    .filter(Boolean)
+    .map(x => String(x).trim());
+  if (!targetIds.length) return;
+
+  // 1. Remove do REGISTRY_KEY (ambiental_atendimentos_v1) tanto se for Objeto/Dicionário quanto Array
+  try {
+    const raw = localStorage.getItem(REGISTRY_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter(item => {
+          const atd = String(item?.atendimento || item?.id || '').trim();
+          const id = String(item?.id || '').trim();
+          return !targetIds.includes(atd) && !targetIds.includes(id);
+        });
+        localStorage.setItem(REGISTRY_KEY, JSON.stringify(filtered));
+      } else if (parsed && typeof parsed === 'object') {
+        let changed = false;
+        targetIds.forEach(k => {
+          if (k in parsed) {
+            delete parsed[k];
+            changed = true;
+          }
+        });
+        Object.keys(parsed).forEach(k => {
+          const item = parsed[k];
+          const atd = String(item?.atendimento || item?.id || k || '').trim();
+          const id = String(item?.id || k || '').trim();
+          if (targetIds.includes(k) || targetIds.includes(atd) || targetIds.includes(id)) {
+            delete parsed[k];
+            changed = true;
+          }
+        });
+        if (changed) {
+          localStorage.setItem(REGISTRY_KEY, JSON.stringify(parsed));
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Aviso ao remover do LocalStorage:", e);
+  }
+
+  // 2. Limpa dos caches de atendimentos (sessionStorage e localStorage)
+  const cleanCacheKey = (storage) => {
+    try {
+      const cacheRaw = storage.getItem('ambiental.gestao.atendimentos_cache');
+      if (cacheRaw) {
+        const cData = JSON.parse(cacheRaw);
+        if (Array.isArray(cData?.items)) {
+          cData.items = cData.items.filter(item => {
+            const atd = String(item?.atendimento || item?.id || '').trim();
+            const id = String(item?.id || '').trim();
+            return !targetIds.includes(atd) && !targetIds.includes(id);
+          });
+          storage.setItem('ambiental.gestao.atendimentos_cache', JSON.stringify(cData));
+        }
+      }
+    } catch (_) {}
+  };
+
+  cleanCacheKey(sessionStorage);
+  cleanCacheKey(localStorage);
+
+  // 3. Limpa também possíveis caches de portal médico no localStorage
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('portal_medico_cache_') || key.startsWith('ambiental.portal_medico.'))) {
+        try {
+          const pmRaw = localStorage.getItem(key);
+          if (pmRaw) {
+            const pmData = JSON.parse(pmRaw);
+            if (Array.isArray(pmData?.list)) {
+              pmData.list = pmData.list.filter(item => {
+                const atd = String(item?.atendimento || item?.id || '').trim();
+                const id = String(item?.id || '').trim();
+                return !targetIds.includes(atd) && !targetIds.includes(id);
+              });
+              localStorage.setItem(key, JSON.stringify(pmData));
+            }
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+
+  // 4. Atualiza localItems imediatamente
+  localItems = lerLocalStorage();
+}
+
 async function confirmBatchDeleteAdmin() {
   const ids = Array.from(selectedAtdIds);
   if (!ids.length) {
@@ -4050,7 +4143,7 @@ async function confirmBatchDeleteAdmin() {
   if (btn) { btn.disabled = true; btn.textContent = "Excluindo..."; }
 
   try {
-    const token = accessToken || await AmbientalAuth.getAccessToken();
+    const token = accessToken || (window.AmbientalAuth ? await AmbientalAuth.getAccessToken() : '');
     const res = await fetch("/api/admin/atendimentos/batch-delete", {
       method: "POST",
       headers: {
@@ -4064,12 +4157,32 @@ async function confirmBatchDeleteAdmin() {
       throw new Error(data?.error?.message || data?.detail || "Falha ao excluir atendimentos do banco.");
     }
 
+    const retIds = Array.isArray(data.data?.ids) ? data.data.ids.map(String) : [];
+    const retNums = Array.isArray(data.data?.numeros) ? data.data.numeros.map(String) : [];
+    const allDeletedKeys = Array.from(new Set([...ids.map(String), ...retIds, ...retNums]));
+
+    // Remove do localStorage, sessionStorage e caches para nunca ressuscitar
+    removerDeLocalStorage(allDeletedKeys);
+
+    // Evacua imediatamente da memória ativa
+    serverItems = (serverItems || []).filter(item => {
+      const atd = String(item.atendimento || item.id || '').trim();
+      const iid = String(item.id || '').trim();
+      return !allDeletedKeys.includes(atd) && !allDeletedKeys.includes(iid);
+    });
+    localItems = (localItems || []).filter(item => {
+      const atd = String(item.atendimento || item.id || '').trim();
+      const iid = String(item.id || '').trim();
+      return !allDeletedKeys.includes(atd) && !allDeletedKeys.includes(iid);
+    });
+
+    // Invalida cache de versão do dataset
+    lastServerDatasetVersion = null;
     try {
-      let locals = JSON.parse(localStorage.getItem(REGISTRY_KEY) || "[]");
-      locals = locals.filter(item => !ids.includes(String(item.atendimento || item.id || "")));
-      localStorage.setItem(REGISTRY_KEY, JSON.stringify(locals));
-      localItems = locals;
-    } catch(e) {}
+      sessionStorage.removeItem('ambiental.gestao.dataset_version');
+      sessionStorage.removeItem('ambiental.gestao.atendimentos_cache');
+      localStorage.removeItem('ambiental.gestao.atendimentos_cache');
+    } catch (_) {}
 
     selectedAtdIds.clear();
     updateBulkToolbar();
@@ -4078,8 +4191,8 @@ async function confirmBatchDeleteAdmin() {
     } else {
       alert(data.data?.mensagem || `${ids.length} atendimento(s) excluído(s) com sucesso!`);
     }
-    await fetchServer();
-    refresh();
+    await fetchServer({ force: true });
+    refresh(true);
   } catch(err) {
     alert("Erro ao excluir: " + (err.message || err));
   } finally {
@@ -4091,11 +4204,13 @@ async function confirmSingleDeleteAdmin(encId) {
   const id = decodeURIComponent(encId);
   const r = find(id);
   const patient = r ? (values(r).patient || id) : id;
+  const atdNumero = r ? String(r.atendimento || '') : '';
+  const atdRealId = r ? String(r.id || '') : '';
   const confirmMsg = `ATENÇÃO: Deseja realmente EXCLUIR PERMANENTEMENTE o atendimento de "${patient}" (ID: ${id}) do banco de dados?\n\nEsta ação não poderá ser desfeita.`;
   if (!confirm(confirmMsg)) return;
 
   try {
-    const token = accessToken || await AmbientalAuth.getAccessToken();
+    const token = accessToken || (window.AmbientalAuth ? await AmbientalAuth.getAccessToken() : '');
     const res = await fetch(`/api/admin/atendimentos/${encodeURIComponent(id)}`, {
       method: "DELETE",
       headers: {
@@ -4107,26 +4222,54 @@ async function confirmSingleDeleteAdmin(encId) {
       throw new Error(data?.error?.message || data?.detail || "Falha ao excluir atendimento do banco.");
     }
 
-    try {
-      let locals = JSON.parse(localStorage.getItem(REGISTRY_KEY) || "[]");
-      locals = locals.filter(item => String(item.atendimento || item.id || "") !== id);
-      localStorage.setItem(REGISTRY_KEY, JSON.stringify(locals));
-      localItems = locals;
-    } catch(e) {}
+    const allKeysToDelete = Array.from(new Set([
+      id,
+      atdNumero,
+      atdRealId,
+      data.data?.id ? String(data.data.id) : null,
+      data.data?.numero ? String(data.data.numero) : null
+    ].filter(Boolean)));
+
+    // Remove do localStorage, sessionStorage e caches para nunca ressuscitar
+    removerDeLocalStorage(allKeysToDelete);
 
     selectedAtdIds.delete(id);
+    if (atdNumero) selectedAtdIds.delete(atdNumero);
+    if (atdRealId) selectedAtdIds.delete(atdRealId);
     updateBulkToolbar();
+
+    // Evacua imediatamente da memória ativa
+    serverItems = (serverItems || []).filter(item => {
+      const atd = String(item.atendimento || item.id || '').trim();
+      const iid = String(item.id || '').trim();
+      return !allKeysToDelete.includes(atd) && !allKeysToDelete.includes(iid);
+    });
+    localItems = (localItems || []).filter(item => {
+      const atd = String(item.atendimento || item.id || '').trim();
+      const iid = String(item.id || '').trim();
+      return !allKeysToDelete.includes(atd) && !allKeysToDelete.includes(iid);
+    });
+
+    // Invalida cache de versão do dataset
+    lastServerDatasetVersion = null;
+    try {
+      sessionStorage.removeItem('ambiental.gestao.dataset_version');
+      sessionStorage.removeItem('ambiental.gestao.atendimentos_cache');
+      localStorage.removeItem('ambiental.gestao.atendimentos_cache');
+    } catch (_) {}
+
     if (window.AmbientalUtils?.toast) {
       AmbientalUtils.toast("Atendimento excluído permanentemente do banco de dados!");
     } else {
       alert("Atendimento excluído permanentemente do banco de dados!");
     }
-    await fetchServer();
-    refresh();
+    await fetchServer({ force: true });
+    refresh(true);
   } catch(err) {
     alert("Erro ao excluir: " + (err.message || err));
   }
 }
+
 
 function generateEsislaPDF() {
   const text = document.getElementById('esislaText')?.value || '';
