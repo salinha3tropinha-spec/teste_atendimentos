@@ -1498,6 +1498,46 @@ tbody tr:hover {
 .row-btn-open:hover .row-btn-arrow {
   transform: translateX(2px);
 }
+.row-btn-esisla-lancado {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 9px;
+  padding: 6.5px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .16s ease;
+}
+.row-btn-esisla-lancado.is-pending {
+  background: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+.row-btn-esisla-lancado.is-pending:hover {
+  background: #FEF3C7;
+  border-color: #F59E0B;
+  color: #92400E;
+  transform: translateY(-1px);
+}
+.row-btn-esisla-lancado.is-lancado {
+  background: #ECFDF5;
+  color: #047857;
+  border: 1px solid #6EE7B7;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.14);
+}
+.row-btn-esisla-lancado.is-lancado:hover {
+  background: #D1FAE5;
+  border-color: #10B981;
+  color: #065F46;
+  transform: translateY(-1px);
+}
+.row-btn-esisla-lancado:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+}
 .row-btn-viewmore {
   display: inline-flex;
   align-items: center;

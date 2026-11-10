@@ -11408,6 +11408,9 @@ def api_list_atendimentos():
             "protocolo": payload.get("protocolo") or aux.get("protocolo") or aux.get("agenda_protocolo") or "",
             "ficha_esisla": payload.get("ficha_esisla") or aux.get("fichaEsisla") or aux.get("ficha_esisla") or "",
             "ficha_esisla_gerada_em": payload.get("ficha_esisla_gerada_em") or aux.get("fichaEsislaGeradaEm") or "",
+            "esisla_lancado": bool(payload.get("esisla_lancado") or aux.get("esislaLancado")),
+            "esisla_lancado_em": payload.get("esisla_lancado_em") or aux.get("esislaLancadoEm") or "",
+            "esisla_lancado_por": payload.get("esisla_lancado_por") or aux.get("esislaLancadoPor") or "",
             # Metadados de leitura rápida para a Gestão; o prontuário completo continua no endpoint detalhado.
             "aux": {
                 "dataAtd": aux.get("dataAtd"),
@@ -11446,6 +11449,9 @@ def api_list_atendimentos():
                 "parecer": payload.get("parecer") or aux.get("parecer") or "",
                 "fichaEsisla": payload.get("ficha_esisla") or aux.get("fichaEsisla") or aux.get("ficha_esisla") or "",
                 "fichaEsislaGeradaEm": payload.get("ficha_esisla_gerada_em") or aux.get("fichaEsislaGeradaEm") or "",
+                "esislaLancado": bool(payload.get("esisla_lancado") or aux.get("esislaLancado")),
+                "esislaLancadoEm": payload.get("esisla_lancado_em") or aux.get("esislaLancadoEm") or "",
+                "esislaLancadoPor": payload.get("esisla_lancado_por") or aux.get("esislaLancadoPor") or "",
             },
         })
 
@@ -11726,6 +11732,16 @@ def api_save_atendimento(rid=None):
                     payload["ficha_esisla_gerada_em"] = saved_ficha_ts
                     a["fichaEsislaGeradaEm"] = saved_ficha_ts
 
+            if "esisla_lancado" not in payload and "esislaLancado" not in a:
+                old_lancado = bool(old.get("esisla_lancado") or old_aux_d.get("esislaLancado"))
+                if old_lancado:
+                    payload["esisla_lancado"] = True
+                    payload["esisla_lancado_em"] = old.get("esisla_lancado_em") or old_aux_d.get("esislaLancadoEm") or ""
+                    payload["esisla_lancado_por"] = old.get("esisla_lancado_por") or old_aux_d.get("esislaLancadoPor") or ""
+                    a["esislaLancado"] = True
+                    a["esislaLancadoEm"] = payload["esisla_lancado_em"]
+                    a["esislaLancadoPor"] = payload["esisla_lancado_por"]
+
             # Preservar dados da ficha vinculada (data do atestado, expedição e dias solicitados originais)
             is_vinculado_old = bool(
                 old_aux_d.get("fichaVinculada") or
@@ -11960,6 +11976,77 @@ def api_state_transition(rid):
     _invalidate_stats_cache()
     cur.close()
     return _ok({"status":target,"atualizado_em":now,"changed":True,"payload":p,"versao":next_version})
+
+@app.post("/api/atendimentos/<rid>/esisla-lancado")
+def api_toggle_esisla_lancado(rid):
+    denied = _require_permission("view")
+    if denied:
+        return denied
+    if getattr(request, "user_role", None) == "Consulta":
+        return _error("PERMISSION_DENIED", "Perfil de consulta não pode alterar marcações de lançamento.", False, 403)
+    body = request.get_json(silent=True) or {}
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT * FROM atendimentos WHERE id=%s OR numero=%s FOR UPDATE", (rid, rid))
+    r = cur.fetchone()
+    if not r:
+        cur.close()
+        return _error("NOT_FOUND", "Atendimento não encontrado.", False, 404)
+    denied = _require_record_access(r, write=False)
+    if denied:
+        cur.close()
+        return denied
+    p = r["payload_json"] if isinstance(r["payload_json"], dict) else json.loads(r["payload_json"] or "{}")
+    if not isinstance(p, dict):
+        p = {}
+    aux = p.setdefault("aux", {}) if isinstance(p.get("aux"), dict) else {}
+    p["aux"] = aux
+    current_flag = bool(p.get("esisla_lancado") or aux.get("esislaLancado"))
+    if "lancado" in body:
+        target_flag = bool(body.get("lancado"))
+    else:
+        target_flag = not current_flag
+
+    now = _utc_now()
+    user_nome = getattr(request, "user_name", None) or "Usuário"
+    next_version = int(r.get("versao") or 1) + 1
+
+    p["esisla_lancado"] = target_flag
+    p["esisla_lancado_em"] = now if target_flag else ""
+    p["esisla_lancado_por"] = user_nome if target_flag else ""
+    aux["esislaLancado"] = target_flag
+    aux["esislaLancadoEm"] = p["esisla_lancado_em"]
+    aux["esislaLancadoPor"] = p["esisla_lancado_por"]
+
+    cur.execute(
+        "UPDATE atendimentos SET payload_json=%s, atualizado_em=%s, versao=%s, atualizado_por=%s WHERE id=%s",
+        (json.dumps(p, ensure_ascii=False), now, next_version, getattr(request, "user_id", None), r["id"]),
+    )
+    cur.execute(
+        "INSERT INTO historico_atendimento(atendimento_id, usuario_id, usuario_nome, campo, valor_anterior, novo_valor, origem, criado_em) VALUES(%s, %s, %s, %s, %s, %s, %s, %s)",
+        (
+            r["id"],
+            getattr(request, "user_id", None),
+            user_nome,
+            "esislaLancado",
+            "Lançado no e-SISLA" if current_flag else "Pendente",
+            "Lançado no e-SISLA" if target_flag else "Pendente",
+            "GESTAO_ADM",
+            now,
+        ),
+    )
+    db.commit()
+    _invalidate_stats_cache()
+    cur.close()
+    return _ok({
+        "id": r["id"],
+        "atendimento": r["numero"],
+        "esisla_lancado": target_flag,
+        "esisla_lancado_em": p["esisla_lancado_em"],
+        "esisla_lancado_por": p["esisla_lancado_por"],
+        "atualizado_em": now,
+        "versao": next_version,
+    })
 
 @app.delete("/api/atendimentos/<rid>")
 def api_delete_atendimento(rid):

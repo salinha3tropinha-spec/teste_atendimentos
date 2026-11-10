@@ -23,7 +23,7 @@ let tab='all',serverItems=[],localItems=[];
 const stateLabel={RASCUNHO:'RASCUNHO',EM_REVISÃO:'EM REVISÃO',REABERTO:'REABERTO',FINALIZADO:'FINALIZADO',ARQUIVADO:'ARQUIVADO'};
 function date(v){if(!v)return'—';const p=String(v).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:'—'}
 function dt(v){try{return new Date(v).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}catch{return'—'}}
-function values(r){const a=r.aux||{};return{atd:r.atendimento||'—',date:a.dataAtd||'',time:a.horaAtd||'',doctor:r.medico||'—',crm:a.crmResponsavel||'',patient:a.nomePaciente||r.nomePaciente||r.paciente_nome||'',cpf:a.cpfPaciente||r.cpfPaciente||r.paciente_cpf||'',cargo:a.cargo||'—',idade:a.idade||'',cid:a.cid||'',unidade:a.unidade||'',dias:a.diasSolicitados||'',q:r.queixaDuracao||a.queixaDuracao||'',doenca:a.doencaMotivo||'',hist:a.historicoPregresso||'',sint:a.sintomasLimitacao||'',examType:r.exameFisicoTipo||'',exam:r.alteracoesClinicasExames||'',lim:r.descLimitacao||a.descLimitacao||'',ativ:r.atividadesComprometidas||'',cap:r.capacidade||'—',parecer:r.parecer||'—',just:a.justificativa||'',docs:arr(r.documentosComplementares),meds:arr(r.medications),conds:arr(r.conditions),ques:arr(r.quesitos),updated:r.__registryAt||r.atualizado_em||''}}
+function values(r){const a=r.aux||{};return{atd:r.atendimento||'—',date:a.dataAtd||'',time:a.horaAtd||'',doctor:r.medico||'—',crm:a.crmResponsavel||'',patient:a.nomePaciente||r.nomePaciente||r.paciente_nome||'',cpf:a.cpfPaciente||r.cpfPaciente||r.paciente_cpf||'',cargo:a.cargo||'—',idade:a.idade||'',cid:a.cid||'',unidade:a.unidade||'',dias:a.diasSolicitados||'',q:r.queixaDuracao||a.queixaDuracao||'',doenca:a.doencaMotivo||'',hist:a.historicoPregresso||'',sint:a.sintomasLimitacao||'',examType:r.exameFisicoTipo||'',exam:r.alteracoesClinicasExames||'',lim:r.descLimitacao||a.descLimitacao||'',ativ:r.atividadesComprometidas||'',cap:r.capacidade||'—',parecer:r.parecer||'—',just:a.justificativa||'',docs:arr(r.documentosComplementares),meds:arr(r.medications),conds:arr(r.conditions),ques:arr(r.quesitos),esislaLancado:Boolean(r.esisla_lancado||a.esislaLancado),esislaLancadoEm:r.esisla_lancado_em||a.esislaLancadoEm||'',esislaLancadoPor:r.esisla_lancado_por||a.esislaLancadoPor||'',updated:r.__registryAt||r.atualizado_em||''}}
 function statusOf(r){return String(r?.status||r?.workflowStatus||'RASCUNHO').toUpperCase().replace('REVISÃO','EM_REVISÃO').replace('EM_PREENCHIMENTO','RASCUNHO')}
 function hay(r,q){if(!q)return true;const v=values(r);const blob=JSON.stringify(v).toLowerCase();const qn=q.toLowerCase();const qcpf=qn.replace(/\D/g,'');return blob.includes(qn)|| (qcpf.length>=3 && String(v.cpf||'').replace(/\D/g,'').includes(qcpf))}
 function lerLocalStorage(){try{const raw=localStorage.getItem(REGISTRY_KEY);const reg=raw?JSON.parse(raw):{};if(!reg||typeof reg!=="object")return [];return Object.values(reg).filter(r=>r&&typeof r==="object"&&r.atendimento).map(r=>({...r,__source:"local"}));}catch(e){console.warn("Falha ao ler LocalStorage",e);return [];}}
@@ -1223,7 +1223,105 @@ function renderStats(s) {
 
     renderDoctorProduction(Array.isArray(s.por_medico) ? s.por_medico : []);
 }
-function row(r){const v=values(r),st=statusOf(r),cls=st==='FINALIZADO'?'done':st==='EM_REVISÃO'?'review':st==='REABERTO'?'reopened':st==='ARQUIVADO'?'archived':'';const id=v.atd||r.atendimento||r.id||'';const isSelected=selectedAtdIds.has(String(id));const adminMode=isAdmin();let more='';if(st==='RASCUNHO')more+=`<button onclick="openModoIA2('${encodeURIComponent(v.atd)}')">🚀 Modo IA 2.0</button><button onclick="openEval('${encodeURIComponent(v.atd)}')">Continuar</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='EM_REVISÃO'||st==='REABERTO')more+=`<button onclick="openModoIA2('${encodeURIComponent(v.atd)}')">🚀 Modo IA 2.0</button><button onclick="openEval('${encodeURIComponent(v.atd)}')">Continuar</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='FINALIZADO')more+=`<button onclick="openReason('reopen','${encodeURIComponent(v.atd)}')">Reabrir</button><button onclick="openDocument('${encodeURIComponent(v.atd)}')">Visualizar documento</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='ARQUIVADO')more+=`<button onclick="openReason('restore','${encodeURIComponent(v.atd)}')">Restaurar</button>`;if(adminMode)more+=`<button onclick="confirmSingleDeleteAdmin('${encodeURIComponent(id)}')" style="color:#DC2626;font-weight:700">🗑️ Excluir do Banco</button>`;const selectTd=`<td class="admin-td-select"><input type="checkbox" class="row-select-checkbox" data-id="${esc(id)}" onchange="toggleRowSelect('${esc(id)}', this.checked)" ${isSelected?'checked':''} style="cursor:pointer;width:16px;height:16px" title="Selecionar para exclusão"></td>`;const nameParts=String(v.patient||'P').trim().split(/\s+/).filter(Boolean);const ini=((nameParts[0]?nameParts[0][0]:'')+(nameParts[1]?nameParts[1][0]:'')).toUpperCase()||'P';let rawDoc=String(v.doctor||'Médico não informado').trim();let cleanDoc=rawDoc.replace(/\s*-\s*CRM.*$/i,'').replace(/\s*CRM[:\s]*\d+.*$/i,'').trim();let crmMatch=rawDoc.match(/CRM[:\s]*([0-9A-Z\/\-]+)/i);let crmVal=v.crm||(crmMatch?crmMatch[1]:'');let cleanUnit=String(v.unidade||'').replace(/^0+\d*\s*-\s*/,'').trim();return`<tr>${selectTd}<td class="col-patient"><div class="patient-cell-wrap"><div class="patient-avatar">${esc(ini)}</div><div class="patient-info"><span class="main-id">${esc(v.patient||'Paciente não informado')}</span>${v.cpf?`<span class="patient-cpf-pill">CPF ${esc(v.cpf)}</span>`:''}<span class="sub sub-clamp" title="${esc(v.doenca||'Avaliação médico-pericial')}">${esc(v.doenca||'Avaliação médico-pericial')}</span></div></div></td><td><div class="date-cell-wrap"><strong class="date-val">${esc(date(v.date))}</strong>${v.time?`<span class="time-badge">⏰ ${esc(v.time)}</span>`:'<span class="sub" style="color:#94A3B8">Início pendente</span>'}</div></td><td><div class="doctor-cell-wrap"><span class="main-name doctor-name-title">${esc(cleanDoc||'Médico não informado')}</span>${crmVal?`<span class="doctor-crm-tag">CRM ${esc(crmVal)}</span>`:''}</div></td><td><div class="data-cell-wrap"><b class="cargo-title">${esc(v.cargo&&v.cargo!=='—'?v.cargo:'Cargo não informado')}</b>${cleanUnit?`<span class="unit-row" title="${esc(cleanUnit)}">🏢 ${esc(cleanUnit)}</span>`:''}<div class="pills-row"><span class="sub-tag-cid">CID ${esc(v.cid||'—')}</span><span class="sub-tag-age">${esc(v.idade||'—')}a</span>${v.dias?`<span class="sub-tag-days">⏱️ ${esc(v.dias)} dias</span>`:''}</div></div></td><td><span class="badge ${cls}"><span class="dot"></span>${esc(stateLabel[st]||st)}</span></td><td><strong class="updated-date">${esc(dt(v.updated))}</strong></td><td><div class="row-actions"><button class="row-btn-open" type="button" onclick="generateEsisla('${encodeURIComponent(v.atd)}')" title="Gerar e abrir diretamente a Ficha e-SISLA pela IA"><span>Abrir ficha</span><span class="row-btn-arrow">→</span></button><button class="row-btn-viewmore" type="button" onclick="view('${encodeURIComponent(v.atd)}')" title="Visualizar prontuário e detalhes completos deste atendimento"><span>Ver mais</span></button><details class="more"><summary class="row-btn-more" title="Mais opções para este atendimento"><span>Mais</span><span class="more-caret">▾</span></summary><div class="more-menu">${more}<button onclick="view('${encodeURIComponent(v.atd)}')">Ver prontuário completo</button><button onclick="openHistory('${encodeURIComponent(v.atd)}')">Ver histórico</button></div></details></div></td></tr>`}
+function row(r){const v=values(r),st=statusOf(r),cls=st==='FINALIZADO'?'done':st==='EM_REVISÃO'?'review':st==='REABERTO'?'reopened':st==='ARQUIVADO'?'archived':'';const id=v.atd||r.atendimento||r.id||'';const isSelected=selectedAtdIds.has(String(id));const adminMode=isAdmin();let more='';if(st==='RASCUNHO')more+=`<button onclick="openModoIA2('${encodeURIComponent(v.atd)}')">🚀 Modo IA 2.0</button><button onclick="openEval('${encodeURIComponent(v.atd)}')">Continuar</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='EM_REVISÃO'||st==='REABERTO')more+=`<button onclick="openModoIA2('${encodeURIComponent(v.atd)}')">🚀 Modo IA 2.0</button><button onclick="openEval('${encodeURIComponent(v.atd)}')">Continuar</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='FINALIZADO')more+=`<button onclick="openReason('reopen','${encodeURIComponent(v.atd)}')">Reabrir</button><button onclick="openDocument('${encodeURIComponent(v.atd)}')">Visualizar documento</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='ARQUIVADO')more+=`<button onclick="openReason('restore','${encodeURIComponent(v.atd)}')">Restaurar</button>`;if(adminMode)more+=`<button onclick="confirmSingleDeleteAdmin('${encodeURIComponent(id)}')" style="color:#DC2626;font-weight:700">🗑️ Excluir do Banco</button>`;const selectTd=`<td class="admin-td-select"><input type="checkbox" class="row-select-checkbox" data-id="${esc(id)}" onchange="toggleRowSelect('${esc(id)}', this.checked)" ${isSelected?'checked':''} style="cursor:pointer;width:16px;height:16px" title="Selecionar para exclusão"></td>`;const nameParts=String(v.patient||'P').trim().split(/\s+/).filter(Boolean);const ini=((nameParts[0]?nameParts[0][0]:'')+(nameParts[1]?nameParts[1][0]:'')).toUpperCase()||'P';let rawDoc=String(v.doctor||'Médico não informado').trim();let cleanDoc=rawDoc.replace(/\s*-\s*CRM.*$/i,'').replace(/\s*CRM[:\s]*\d+.*$/i,'').trim();let crmMatch=rawDoc.match(/CRM[:\s]*([0-9A-Z\/\-]+)/i);let crmVal=v.crm||(crmMatch?crmMatch[1]:'');let cleanUnit=String(v.unidade||'').replace(/^0+\d*\s*-\s*/,'').trim();const esislaLancado=Boolean(v.esislaLancado);const esislaTitle=esislaLancado?`Já lançado no e-SISLA${v.esislaLancadoPor?` por ${v.esislaLancadoPor}`:''}${v.esislaLancadoEm?` em ${dt(v.esislaLancadoEm)}`:''}. Clique para desmarcar.`:'Não lançado no e-SISLA. Clique para marcar como já lançado.';const esislaBtn=`<button class="row-btn-esisla-lancado ${esislaLancado?'is-lancado':'is-pending'}" type="button" onclick="toggleEsislaLancado('${encodeURIComponent(id)}', this)" title="${esc(esislaTitle)}"><span>${esislaLancado?'✓ Lançado e-SISLA':'☐ e-SISLA'}</span></button>`;return`<tr>${selectTd}<td class="col-patient"><div class="patient-cell-wrap"><div class="patient-avatar">${esc(ini)}</div><div class="patient-info"><span class="main-id">${esc(v.patient||'Paciente não informado')}</span>${v.cpf?`<span class="patient-cpf-pill">CPF ${esc(v.cpf)}</span>`:''}<span class="sub sub-clamp" title="${esc(v.doenca||'Avaliação médico-pericial')}">${esc(v.doenca||'Avaliação médico-pericial')}</span></div></div></td><td><div class="date-cell-wrap"><strong class="date-val">${esc(date(v.date))}</strong>${v.time?`<span class="time-badge">⏰ ${esc(v.time)}</span>`:'<span class="sub" style="color:#94A3B8">Início pendente</span>'}</div></td><td><div class="doctor-cell-wrap"><span class="main-name doctor-name-title">${esc(cleanDoc||'Médico não informado')}</span>${crmVal?`<span class="doctor-crm-tag">CRM ${esc(crmVal)}</span>`:''}</div></td><td><div class="data-cell-wrap"><b class="cargo-title">${esc(v.cargo&&v.cargo!=='—'?v.cargo:'Cargo não informado')}</b>${cleanUnit?`<span class="unit-row" title="${esc(cleanUnit)}">🏢 ${esc(cleanUnit)}</span>`:''}<div class="pills-row"><span class="sub-tag-cid">CID ${esc(v.cid||'—')}</span><span class="sub-tag-age">${esc(v.idade||'—')}a</span>${v.dias?`<span class="sub-tag-days">⏱️ ${esc(v.dias)} dias</span>`:''}</div></div></td><td><span class="badge ${cls}"><span class="dot"></span>${esc(stateLabel[st]||st)}</span></td><td><strong class="updated-date">${esc(dt(v.updated))}</strong></td><td><div class="row-actions">${esislaBtn}<button class="row-btn-open" type="button" onclick="generateEsisla('${encodeURIComponent(v.atd)}')" title="Gerar e abrir diretamente a Ficha e-SISLA pela IA"><span>Abrir ficha</span><span class="row-btn-arrow">→</span></button><button class="row-btn-viewmore" type="button" onclick="view('${encodeURIComponent(v.atd)}')" title="Visualizar prontuário e detalhes completos deste atendimento"><span>Ver mais</span></button><details class="more"><summary class="row-btn-more" title="Mais opções para este atendimento"><span>Mais</span><span class="more-caret">▾</span></summary><div class="more-menu">${more}<button onclick="view('${encodeURIComponent(v.atd)}')">Ver prontuário completo</button><button onclick="openHistory('${encodeURIComponent(v.atd)}')">Ver histórico</button></div></details></div></td></tr>`}
+
+async function toggleEsislaLancado(enc, btnEl) {
+    const id = decodeURIComponent(enc);
+    const rec = find(id);
+    if (!rec) return;
+    const currentlyLaunched = Boolean(rec.esisla_lancado || rec.aux?.esislaLancado);
+    const targetLaunched = !currentlyLaunched;
+
+    if (btnEl) {
+        btnEl.disabled = true;
+    }
+    try {
+        let updatedMeta = {
+            esisla_lancado: targetLaunched,
+            esisla_lancado_em: targetLaunched ? new Date().toISOString() : '',
+            esisla_lancado_por: targetLaunched ? (currentUserProfile?.nome || 'Gestão') : ''
+        };
+
+        if (rec.__source === 'server') {
+            const resp = await AmbientalAuth.authFetch('/api/atendimentos/' + encodeURIComponent(id) + '/esisla-lancado', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lancado: targetLaunched })
+            });
+            const body = await resp.json().catch(() => null);
+            if (!resp.ok || !body?.success) {
+                throw new Error(body?.error?.message || 'Não foi possível atualizar o status de lançamento no e-SISLA.');
+            }
+            if (body.data) {
+                updatedMeta = {
+                    esisla_lancado: Boolean(body.data.esisla_lancado),
+                    esisla_lancado_em: body.data.esisla_lancado_em || '',
+                    esisla_lancado_por: body.data.esisla_lancado_por || ''
+                };
+                if (body.data.atualizado_em) rec.atualizado_em = body.data.atualizado_em;
+                if (body.data.versao) rec.versao = body.data.versao;
+            }
+        }
+
+        rec.esisla_lancado = updatedMeta.esisla_lancado;
+        rec.esisla_lancado_em = updatedMeta.esisla_lancado_em;
+        rec.esisla_lancado_por = updatedMeta.esisla_lancado_por;
+        if (!rec.aux || typeof rec.aux !== 'object') rec.aux = {};
+        rec.aux.esislaLancado = updatedMeta.esisla_lancado;
+        rec.aux.esislaLancadoEm = updatedMeta.esisla_lancado_em;
+        rec.aux.esislaLancadoPor = updatedMeta.esisla_lancado_por;
+        if (rec.payload && typeof rec.payload === 'object') {
+            rec.payload.esisla_lancado = updatedMeta.esisla_lancado;
+            rec.payload.esisla_lancado_em = updatedMeta.esisla_lancado_em;
+            rec.payload.esisla_lancado_por = updatedMeta.esisla_lancado_por;
+            if (rec.payload.aux && typeof rec.payload.aux === 'object') {
+                rec.payload.aux.esislaLancado = updatedMeta.esisla_lancado;
+                rec.payload.aux.esislaLancadoEm = updatedMeta.esisla_lancado_em;
+                rec.payload.aux.esislaLancadoPor = updatedMeta.esisla_lancado_por;
+            }
+        }
+
+        try {
+            const rawCache = sessionStorage.getItem('ambiental.gestao.atendimentos_cache') || localStorage.getItem('ambiental.gestao.atendimentos_cache');
+            if (rawCache) {
+                const parsed = JSON.parse(rawCache);
+                if (Array.isArray(parsed?.items)) {
+                    const hit = parsed.items.find(x => String(x.atendimento) === String(rec.atendimento) || String(x.id) === String(rec.id));
+                    if (hit) {
+                        hit.esisla_lancado = updatedMeta.esisla_lancado;
+                        hit.esisla_lancado_em = updatedMeta.esisla_lancado_em;
+                        hit.esisla_lancado_por = updatedMeta.esisla_lancado_por;
+                        if (hit.aux && typeof hit.aux === 'object') {
+                            hit.aux.esislaLancado = updatedMeta.esisla_lancado;
+                            hit.aux.esislaLancadoEm = updatedMeta.esisla_lancado_em;
+                            hit.aux.esislaLancadoPor = updatedMeta.esisla_lancado_por;
+                        }
+                        const serialized = JSON.stringify(parsed);
+                        sessionStorage.setItem('ambiental.gestao.atendimentos_cache', serialized);
+                        localStorage.setItem('ambiental.gestao.atendimentos_cache', serialized);
+                    }
+                }
+            }
+        } catch (_) {}
+
+        renderTablePage();
+        if (window.AmbientalUtils?.toast) {
+            AmbientalUtils.toast(
+                updatedMeta.esisla_lancado
+                    ? 'Atendimento marcado como lançado no e-SISLA!'
+                    : 'Marcação de lançamento no e-SISLA removida.',
+                updatedMeta.esisla_lancado ? 'success' : 'info'
+            );
+        }
+    } catch (err) {
+        if (btnEl) btnEl.disabled = false;
+        if (window.AmbientalUtils?.toast) {
+            AmbientalUtils.toast(err.message || 'Erro ao salvar marcação no e-SISLA.', 'error');
+        } else {
+            alert(err.message || 'Erro ao salvar marcação no e-SISLA.');
+        }
+    }
+}
 function find(id){const sid = String(id || ''); return serverItems.find(x=>String(x.atendimento)===sid || String(x.id)===sid)}
 async function view(enc){
     const id=decodeURIComponent(enc),r=find(id);
@@ -4645,6 +4743,7 @@ const HISTORY_LABELS={
   'justificativa':'Justificativa',
   'quesitos':'Quesitos',
   'documentosComplementares':'Documentos complementares',
+  'esislaLancado':'Lançamento no e-SISLA',
   'workflow_status':'Status do atendimento'
 };
 const HISTORY_STATUS={RASCUNHO:'Rascunho',EM_REVISÃO:'Em revisão',REABERTO:'Reaberto',FINALIZADO:'Finalizado',ARQUIVADO:'Arquivado'};
