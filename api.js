@@ -285,6 +285,7 @@
           return data;
         });
       },
+      desvincularAgenda: (payload) => request('/api/esisla/desvincular-agenda', { method: 'POST', body: JSON.stringify(payload || {}) }),
       importarAgenda: (payload) => request('/api/esisla/importar-agenda', { method: 'POST', body: JSON.stringify(payload) })
     }
   };

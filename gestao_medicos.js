@@ -1671,7 +1671,7 @@
             <b class="agenda-patient-name" title="${nomeStr}">${nomeStr}</b>
             ${isRead ? `<span class="badge-tag amber">🔄 Readaptado</span>` : ''}
             ${isAcomp ? `<span class="badge-tag purple">👥 Acompanhante</span>` : ''}
-            ${hasAtd && !isFinalizado ? `<span class="badge-tag linked">📄 Ficha Vinculada</span>` : ''}
+            ${hasAtd && !isFinalizado ? `<span class="badge-tag linked" style="display:inline-flex;align-items:center;gap:4px">📄 Ficha Vinculada <button type="button" onclick="event.stopPropagation(); desvincularFichaAgendaItem(${it.id}, '${esc(it.nome_periciado)}')" title="Remover ficha vinculada deste agendamento" style="border:none;background:rgba(0,0,0,.08);color:inherit;border-radius:4px;padding:0 4px;cursor:pointer;font-size:10px;line-height:1.4;font-weight:900">✕</button></span>` : ''}
             ${isFinalizado ? `<span class="badge-tag green-solid">✓ Laudo Concluído</span>` : ''}
           </div>
           <div class="agenda-patient-actions">
@@ -2064,6 +2064,53 @@
       showToast(err.message || 'Erro ao processar lote de arquivos e-SISLA.');
       btn.disabled = false;
       btn.innerHTML = '<span>Tentar novamente</span>';
+    }
+  };
+
+  window.desvincularFichaAgendaItem = async function(agendaId, nomePericiado) {
+    if (!agendaId) return;
+    const label = nomePericiado ? `"${nomePericiado}"` : 'este agendamento';
+    if (!confirm(`Deseja remover a ficha e-SISLA vinculada a ${label}? O rascunho vinculado será removido para que você possa vincular a ficha atualizada.`)) {
+      return;
+    }
+    try {
+      const impId = sessionStorage.getItem('ambiental.impersonate_medico_id');
+      const payload = { agenda_id: agendaId, data: currentAgendaSelectedDate || todayISO() };
+      if (impId) payload.medico_id = impId;
+      const res = await AmbientalAPI.esisla.desvincularAgenda(payload);
+      showToast(res?.mensagem || 'Ficha e-SISLA desvinculada com sucesso.');
+      await loadDoctorDayAgenda(currentAgendaSelectedDate);
+    } catch (err) {
+      showToast(err.message || 'Erro ao desvincular ficha e-SISLA.');
+    }
+  };
+
+  window.desvincularFichasDiaAgenda = async function() {
+    const dt = currentAgendaSelectedDate || todayISO();
+    if (!confirm(`Deseja remover todas as fichas e-SISLA vinculadas (em rascunho) da data ${dateDisplay(dt)}? Os atendimentos já finalizados não serão alterados.`)) {
+      return;
+    }
+    const btn = $('btnDesvincularFichasDia');
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '⏳ Removendo…';
+    }
+    try {
+      const impId = sessionStorage.getItem('ambiental.impersonate_medico_id');
+      const payload = { data: dt };
+      if (impId) payload.medico_id = impId;
+      const res = await AmbientalAPI.esisla.desvincularAgenda(payload);
+      showToast(res?.mensagem || 'Fichas vinculadas do dia removidas com sucesso.');
+      if ($('esislaResultsReport')) $('esislaResultsReport').style.display = 'none';
+      await loadDoctorDayAgenda(currentAgendaSelectedDate);
+    } catch (err) {
+      showToast(err.message || 'Erro ao remover fichas vinculadas do dia.');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+      }
     }
   };
 

@@ -9750,55 +9750,78 @@ def api_esisla_vincular_agenda_batch():
                         except Exception:
                             existing_payload = {}
 
-                    # Mesclar campos
-                    if not existing_payload.get("nomePaciente") or existing_payload["nomePaciente"] == "Não informado":
-                        existing_payload["nomePaciente"] = dados.get("nome_paciente") or matched_agenda["nome_periciado"]
-                    if not existing_payload.get("cpfPaciente") and dados.get("cpf_paciente"):
+                    # Sobrescrever campos da ficha e-SISLA com os dados atualizados do novo PDF
+                    existing_payload["nomePaciente"] = dados.get("nome_paciente") or matched_agenda["nome_periciado"] or existing_payload.get("nomePaciente", "")
+                    if dados.get("cpf_paciente"):
                         existing_payload["cpfPaciente"] = dados["cpf_paciente"]
-                    if not existing_payload.get("cargo") and dados.get("cargo"):
+                    if dados.get("cargo"):
                         existing_payload["cargo"] = dados["cargo"]
-                    if not existing_payload.get("tempoCargo") and dados.get("tempo_cargo"):
+                    if dados.get("tempo_cargo"):
                         existing_payload["tempoCargo"] = str(dados["tempo_cargo"])
-                    if not existing_payload.get("tempoUnidade") and dados.get("tempo_unidade"):
+                    if dados.get("tempo_unidade"):
                         existing_payload["tempoUnidade"] = str(dados["tempo_unidade"])
-                    if not existing_payload.get("idade") and dados.get("idade"):
+                    if dados.get("idade"):
                         existing_payload["idade"] = dados["idade"]
-                    if not existing_payload.get("cid") and dados.get("cid"):
+                    if dados.get("readaptado"):
+                        existing_payload["readaptado"] = dados["readaptado"]
+                    if dados.get("cid"):
                         existing_payload["cid"] = dados["cid"]
+                    if dados.get("crm_cro"):
+                        existing_payload["crmCro"] = dados["crm_cro"]
                     if dados.get("data_documento"):
                         existing_payload["dataDocumento"] = dados["data_documento"]
-                    if dados.get("data_expedicao"):
-                        existing_payload["dataExpedicao"] = dados["data_expedicao"]
-                    if dados.get("data_expedicao_iso"):
-                        existing_payload["dataExpedicaoIso"] = dados["data_expedicao_iso"]
-                    if not existing_payload.get("diasSolicitados") and dados.get("dias_solicitados"):
+                    if "data_expedicao" in dados:
+                        existing_payload["dataExpedicao"] = dados.get("data_expedicao") or ""
+                    if "data_expedicao_iso" in dados:
+                        existing_payload["dataExpedicaoIso"] = dados.get("data_expedicao_iso") or ""
+                    if dados.get("dias_solicitados"):
                         existing_payload["diasSolicitados"] = str(dados["dias_solicitados"])
-                    if not existing_payload.get("diasConcedidos") and dados.get("dias_solicitados"):
                         existing_payload["diasConcedidos"] = str(dados["dias_solicitados"])
-                    if not existing_payload.get("doencaMotivo") and (dados.get("tipo_atendimento_pericia") == "ACOMPANHANTE" or dados.get("is_acompanhante")) and dados.get("doenca_motivo"):
+                    if (dados.get("tipo_atendimento_pericia") == "ACOMPANHANTE" or dados.get("is_acompanhante")) and dados.get("doenca_motivo"):
                         existing_payload["doencaMotivo"] = dados["doenca_motivo"]
+                    existing_payload["retroacaoInvalida"] = bool(dados.get("retroacao_invalida"))
+                    existing_payload["retroacaoDias"] = dados.get("retroacao_dias", 0)
+                    if dados.get("parecer") and not existing_payload.get("exameFisicoDescricao"):
+                        existing_payload["parecer"] = dados["parecer"]
+                    if dados.get("justificativa") and not existing_payload.get("exameFisicoDescricao"):
+                        existing_payload["justificativa"] = dados["justificativa"]
 
                     if "aux" not in existing_payload or not isinstance(existing_payload["aux"], dict):
                         existing_payload["aux"] = {}
                     aux = existing_payload["aux"]
                     for k_esisla, v_esisla in dados.items():
-                        if v_esisla and not aux.get(k_esisla):
+                        if v_esisla is not None and v_esisla != "":
                             aux[k_esisla] = v_esisla
-                    if dados.get("tempo_cargo") and not aux.get("tempoCargo"):
+                    if dados.get("tempo_cargo"):
                         aux["tempoCargo"] = str(dados["tempo_cargo"])
-                    if dados.get("tempo_unidade") and not aux.get("tempoUnidade"):
+                    if dados.get("tempo_unidade"):
                         aux["tempoUnidade"] = str(dados["tempo_unidade"])
-                    if dados.get("data_ingresso") and not aux.get("dataIngresso"):
+                    if dados.get("data_ingresso"):
                         aux["dataIngresso"] = str(dados["data_ingresso"])
                         aux["ingresso"] = str(dados["data_ingresso"])
                     if dados.get("data_documento"):
                         aux["dataDocumento"] = dados["data_documento"]
-                    if dados.get("data_expedicao"):
-                        aux["dataExpedicao"] = dados["data_expedicao"]
-                    if dados.get("data_expedicao_iso"):
-                        aux["dataExpedicaoIso"] = dados["data_expedicao_iso"]
-                    if dados.get("dias_solicitados") and not aux.get("diasSolicitados"):
+                        aux["dataInicioAfastamento"] = dados["data_documento"]
+                    if "data_expedicao" in dados:
+                        aux["dataExpedicao"] = dados.get("data_expedicao") or ""
+                        aux["data_expedicao"] = dados.get("data_expedicao") or ""
+                    if "data_expedicao_iso" in dados:
+                        aux["dataExpedicaoIso"] = dados.get("data_expedicao_iso") or ""
+                        aux["data_expedicao_iso"] = dados.get("data_expedicao_iso") or ""
+                    if "local_expedicao" in dados:
+                        aux["localExpedicao"] = dados.get("local_expedicao") or ""
+                    if dados.get("dias_solicitados"):
                         aux["diasSolicitados"] = str(dados["dias_solicitados"])
+                        aux["diasConcedidos"] = str(dados["dias_solicitados"])
+                    if dados.get("cid"):
+                        aux["cid"] = dados["cid"]
+                    if dados.get("crm_cro"):
+                        aux["crmCro"] = dados["crm_cro"]
+                    if dados.get("nome_medico_assistente"):
+                        aux["medicoAssistenteNome"] = dados["nome_medico_assistente"]
+                    aux["retroacaoInvalida"] = bool(dados.get("retroacao_invalida"))
+                    aux["retroacaoDias"] = dados.get("retroacao_dias", 0)
+                    aux["retroacaoMotivo"] = dados.get("retroacao_motivo", "")
                     aux["cpfPaciente"] = dados.get("cpf_paciente") or aux.get("cpfPaciente", "")
                     aux["rg"] = dados.get("rg_paciente") or aux.get("rg", "")
                     aux["orgao"] = dados.get("orgao") or aux.get("orgao", "")
@@ -9808,6 +9831,37 @@ def api_esisla_vincular_agenda_batch():
                     aux["cargo"] = dados.get("cargo") or aux.get("cargo", "")
                     aux["protocolo"] = dados.get("protocolo") or aux.get("protocolo", "")
                     aux["ni"] = dados.get("ni") or aux.get("ni", "")
+                    aux["fichaVinculada"] = True
+                    aux["dadosFichaVinculada"] = {
+                        "nomePaciente": existing_payload.get("nomePaciente", ""),
+                        "cpfPaciente": aux.get("cpfPaciente", ""),
+                        "rg": aux.get("rg", ""),
+                        "dataNascimento": dados.get("data_nascimento") or aux.get("dataNascimento", ""),
+                        "idade": str(existing_payload.get("idade") or aux.get("idade") or ""),
+                        "sexo": dados.get("sexo") or aux.get("sexo", ""),
+                        "protocolo": aux.get("protocolo", ""),
+                        "ni": aux.get("ni", ""),
+                        "cargo": aux.get("cargo", ""),
+                        "tempoCargo": aux.get("tempoCargo", ""),
+                        "tempoUnidade": aux.get("tempoUnidade", ""),
+                        "dataIngresso": aux.get("dataIngresso", ""),
+                        "orgao": aux.get("orgao", ""),
+                        "unidade": aux.get("unidade", ""),
+                        "municipio": aux.get("municipio", ""),
+                        "regimeJuridico": aux.get("regimeJuridico", ""),
+                        "situacao": dados.get("situacao") or aux.get("situacao", ""),
+                        "readaptado": existing_payload.get("readaptado") or aux.get("readaptado", "Não"),
+                        "cid": existing_payload.get("cid") or aux.get("cid", ""),
+                        "crmCro": existing_payload.get("crmCro") or aux.get("crmCro", ""),
+                        "medicoAssistenteNome": aux.get("medicoAssistenteNome", ""),
+                        "dataDocumento": existing_payload.get("dataDocumento") or aux.get("dataDocumento", ""),
+                        "dataExpedicao": existing_payload.get("dataExpedicao") or aux.get("dataExpedicao", ""),
+                        "dataExpedicaoIso": existing_payload.get("dataExpedicaoIso") or aux.get("dataExpedicaoIso", ""),
+                        "diasSolicitados": existing_payload.get("diasSolicitados") or aux.get("diasSolicitados", ""),
+                        "pessoa": dados.get("pessoa") or aux.get("pessoa", "O PROPRIO"),
+                        "isAcompanhante": bool(dados.get("is_acompanhante")),
+                        "nomeDependente": dados.get("nome_dependente") or aux.get("nome_dependente", ""),
+                    }
                     aux["origemCriacao"] = "IMPORTACAO_ESISLA_AGENDA_BATCH"
 
                     cur.execute("""
@@ -9828,6 +9882,7 @@ def api_esisla_vincular_agenda_batch():
                         request.user_id,
                         atd_id
                     ))
+                    _sync_child_tables(db, atd_id, existing_payload)
                     cur.execute("""
                         UPDATE agendas
                            SET atendimento_id = %s,
@@ -9919,6 +9974,37 @@ def api_esisla_vincular_agenda_batch():
                             "retroacaoInvalida": bool(dados.get("retroacao_invalida")),
                             "retroacaoDias": dados.get("retroacao_dias", 0),
                             "retroacaoMotivo": dados.get("retroacao_motivo", ""),
+                            "fichaVinculada": True,
+                            "dadosFichaVinculada": {
+                                "nomePaciente": dados.get("nome_paciente") or matched_agenda["nome_periciado"],
+                                "cpfPaciente": dados.get("cpf_paciente", ""),
+                                "rg": dados.get("rg_paciente", ""),
+                                "dataNascimento": dados.get("data_nascimento", ""),
+                                "idade": str(dados.get("idade", "")),
+                                "sexo": dados.get("sexo", "Masculino"),
+                                "protocolo": dados.get("protocolo") or matched_agenda.get("protocolo", ""),
+                                "ni": dados.get("ni") or matched_agenda.get("ni", ""),
+                                "cargo": dados.get("cargo", ""),
+                                "tempoCargo": str(dados.get("tempo_cargo", "")),
+                                "tempoUnidade": str(dados.get("tempo_unidade", "Anos") if dados.get("tempo_cargo") else ""),
+                                "dataIngresso": str(dados.get("data_ingresso", "")),
+                                "orgao": dados.get("orgao", ""),
+                                "unidade": dados.get("unidade", ""),
+                                "municipio": dados.get("municipio", ""),
+                                "regimeJuridico": dados.get("regime_juridico", ""),
+                                "situacao": dados.get("situacao", ""),
+                                "readaptado": dados.get("readaptado", "Não"),
+                                "cid": dados.get("cid", ""),
+                                "crmCro": dados.get("crm_cro", "Em anexo"),
+                                "medicoAssistenteNome": dados.get("nome_medico_assistente", ""),
+                                "dataDocumento": dados.get("data_documento", dt_atd),
+                                "dataExpedicao": dados.get("data_expedicao", ""),
+                                "dataExpedicaoIso": dados.get("data_expedicao_iso", ""),
+                                "diasSolicitados": str(dados.get("dias_solicitados", "1")),
+                                "pessoa": dados.get("pessoa", "O PROPRIO"),
+                                "isAcompanhante": bool(dados.get("is_acompanhante")),
+                                "nomeDependente": dados.get("nome_dependente", ""),
+                            },
                             "origemCriacao": "IMPORTACAO_ESISLA_AGENDA_BATCH",
                             "exameFisicoTipo": "",
                             "exameFisicoDescricao": "",
@@ -9987,6 +10073,91 @@ def api_esisla_vincular_agenda_batch():
     except Exception as exc:
         app.logger.error("Erro ao vincular lote de e-SISLA à agenda: %s", exc)
         return _error("INTERNAL_ERROR", f"Falha ao vincular arquivos e-SISLA à agenda: {str(exc)}", False, 500)
+
+
+@app.post("/api/esisla/desvincular-agenda")
+def api_esisla_desvincular_agenda():
+    try:
+        eff = _get_effective_user()
+        if eff["role"] not in {"Médico", "Administrador"} and getattr(request, "user_role", None) not in {"Médico", "Administrador", "Gestor", "Coordenador"}:
+            return _error("PERMISSION_DENIED", "Apenas médicos e administradores podem desvincular fichas e-SISLA da agenda.", False, 403)
+
+        b = _json_body()
+        agenda_id = b.get("agenda_id")
+        medico_id = str(b.get("medico_id") or eff["id"] or "").strip()
+        data_str = str(b.get("data") or datetime.now().strftime("%Y-%m-%d")).strip()
+
+        db = get_db()
+        cur = db.cursor()
+        now = _utc_now()
+
+        if agenda_id:
+            cur.execute("""
+                SELECT a.id, a.medico_id, a.data::text AS data, a.protocolo, a.atendimento_id,
+                       atd.id AS atd_id, atd.numero AS atd_num, atd.status AS atd_status
+                  FROM agendas a
+                  LEFT JOIN atendimentos atd ON (atd.id = a.atendimento_id OR (a.protocolo IS NOT NULL AND a.protocolo <> '' AND atd.numero = a.protocolo))
+                 WHERE a.id = %s
+            """, (int(agenda_id),))
+        else:
+            cur.execute("""
+                SELECT a.id, a.medico_id, a.data::text AS data, a.protocolo, a.atendimento_id,
+                       atd.id AS atd_id, atd.numero AS atd_num, atd.status AS atd_status
+                  FROM agendas a
+                  LEFT JOIN atendimentos atd ON (atd.id = a.atendimento_id OR (a.protocolo IS NOT NULL AND a.protocolo <> '' AND atd.numero = a.protocolo))
+                 WHERE a.medico_id = %s AND a.data = %s
+            """, (medico_id, data_str))
+
+        rows = [dict(r) for r in cur.fetchall()]
+        agendas_desvinculadas = []
+        atd_ids_to_delete = set()
+        all_keys_to_clean = set()
+
+        for r in rows:
+            if r.get("atd_status") == "FINALIZADO":
+                continue
+            has_link = bool(r.get("atendimento_id") or r.get("atd_id"))
+            if not has_link:
+                continue
+            agendas_desvinculadas.append(r["id"])
+            if r.get("atd_id"):
+                atd_ids_to_delete.add(str(r["atd_id"]))
+                all_keys_to_clean.add(str(r["atd_id"]))
+            if r.get("atd_num"):
+                all_keys_to_clean.add(str(r["atd_num"]))
+            if r.get("atendimento_id"):
+                all_keys_to_clean.add(str(r["atendimento_id"]))
+
+        if agendas_desvinculadas:
+            cur.execute(
+                "UPDATE agendas SET atendimento_id = NULL, atualizado_em = %s WHERE id = ANY(%s)",
+                (now, agendas_desvinculadas)
+            )
+
+        if atd_ids_to_delete:
+            real_ids = list(atd_ids_to_delete)
+            keys_list = list(all_keys_to_clean)
+            cur.execute("DELETE FROM logs_ia WHERE atendimento_id = ANY(%s)", (keys_list,))
+            cur.execute("DELETE FROM documentos WHERE atendimento_id = ANY(%s)", (real_ids,))
+            cur.execute("DELETE FROM quesitos WHERE atendimento_id = ANY(%s)", (real_ids,))
+            cur.execute("DELETE FROM historico_atendimento WHERE atendimento_id = ANY(%s)", (real_ids,))
+            cur.execute("DELETE FROM auditoria_acessos WHERE atendimento_id = ANY(%s)", (real_ids,))
+            cur.execute("DELETE FROM relatorios WHERE atendimento_id = ANY(%s)", (real_ids,))
+            cur.execute("DELETE FROM atendimentos WHERE id = ANY(%s) AND status <> 'FINALIZADO'", (real_ids,))
+
+        db.commit()
+        _invalidate_stats_cache()
+        cur.close()
+
+        return _ok({
+            "desvinculados": len(agendas_desvinculadas),
+            "agenda_ids": agendas_desvinculadas,
+            "atendimentos_removidos": len(atd_ids_to_delete),
+            "mensagem": f"{len(agendas_desvinculadas)} ficha(s) e-SISLA desvinculada(s) com sucesso."
+        })
+    except Exception as exc:
+        app.logger.error("Erro ao desvincular ficha e-SISLA da agenda: %s", exc)
+        return _error("INTERNAL_ERROR", f"Falha ao desvincular ficha e-SISLA: {str(exc)}", False, 500)
 
 @app.post("/api/ai/transcribe")
 def api_ai_transcribe():

@@ -769,8 +769,13 @@
       </div>
     </div>
 
-    <div class="modal-foot" style="background:#f8fafc;border-top:1px solid var(--surface-border);display:flex;justify-content:space-between;align-items:center">
-      <button class="btn-sm" type="button" onclick="fecharModalImportarEsislaAgenda()">Fechar</button>
+    <div class="modal-foot" style="background:#f8fafc;border-top:1px solid var(--surface-border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-sm" type="button" onclick="fecharModalImportarEsislaAgenda()">Fechar</button>
+        <button class="btn-sm" id="btnDesvincularFichasDia" type="button" onclick="desvincularFichasDiaAgenda()" style="color:var(--accent-red);border-color:#fecaca;background:#fef2f2;font-weight:800" title="Remove todas as fichas e-SISLA vinculadas em rascunho desta data para vincular novas atualizadas">
+          🗑️ Remover Fichas Vinculadas do Dia
+        </button>
+      </div>
       <div style="display:flex;gap:8px">
         <button class="btn primary" id="btnExecutarVinculacaoEsisla" type="button" onclick="executarVinculacaoBatchEsisla()" style="padding:8px 18px;font-size:11.5px;font-weight:900" disabled>
           <span>⚡ Processar e Vincular à Agenda</span>
@@ -782,6 +787,6 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/gestao_medicos.js?v=2.0.0"></script>
+<script src="/gestao_medicos.js?v=2.0.1"></script>
 </body>
 </html>
