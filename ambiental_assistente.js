@@ -4458,17 +4458,31 @@ function extrairDadosAtestadoTextoBrutoJS(texto) {
     }
   }
 
-  // 5. Data de expedição da guia
-  const mExp = s.match(/(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i);
+  // 5. Data de expedição da guia (suporta DD/MM/AAAA, YYYY-MM-DD e formato GPM por extenso ex: "06 Novembro 2026")
+  const mExp = s.match(/(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o\s+da\s+Guia|Expedi[çc\ufffd]?[ãa\ufffd]?o\s*[:\-]|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i);
   if (mExp) {
     const d = mExp[1].padStart(2, "0"), mo = mExp[2].padStart(2, "0"), y = mExp[3];
     res.dataExpedicaoIso = `${y}-${mo}-${d}`;
     res.dataExpedicaoBr = `${d}/${mo}/${y}`;
   } else {
-    const mExpIso = s.match(/(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{4})-(\d{2})-(\d{2})/i);
+    const mExpIso = s.match(/(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o\s+da\s+Guia|Expedi[çc\ufffd]?[ãa\ufffd]?o\s*[:\-]|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{4})-(\d{2})-(\d{2})/i);
     if (mExpIso) {
       res.dataExpedicaoIso = `${mExpIso[1]}-${mExpIso[2]}-${mExpIso[3]}`;
       res.dataExpedicaoBr = `${mExpIso[3]}/${mExpIso[2]}/${mExpIso[1]}`;
+    } else {
+      const mesesPt = { janeiro: "01", fevereiro: "02", marco: "03", março: "03", abril: "04", maio: "05", junho: "06", julho: "07", agosto: "08", setembro: "09", outubro: "10", novembro: "11", dezembro: "12" };
+      const idxSec = s.search(/Local\s+e\s+Data\s+(?:da\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o|V[áa\ufffd]lida\s+at[ée\ufffd]\s+o\s+final\s+do\s+expediente/i);
+      const winStr = idxSec >= 0
+        ? s.slice(Math.max(0, idxSec - 180), Math.min(s.length, idxSec + 280)).split(/Parecer\s+do\s+M|Data\s+(?:de\s+)?Emiss/i)[0]
+        : s;
+      const mExt = winStr.match(/(?:,\s*|[A-Za-zÀ-ÖØ-öø-ÿ\s]{2,35},\s*)?(\d{1,2})\s+(?:de\s+)?(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+(?:de\s+)?(\d{4})\s*,?/i);
+      if (mExt && (idxSec >= 0 || /,|expedi/i.test(mExt[0]))) {
+        const d = mExt[1].padStart(2, "0");
+        const mo = mesesPt[mExt[2].toLowerCase()] || "01";
+        const y = mExt[3];
+        res.dataExpedicaoIso = `${y}-${mo}-${d}`;
+        res.dataExpedicaoBr = `${d}/${mo}/${y}`;
+      }
     }
   }
 
@@ -5284,14 +5298,23 @@ function preservarDadosFichaVinculada() {
   state.aux.fichaVinculada = true;
   state.aux.dadosFichaVinculada = v;
 
+  const toIso = (val) => {
+    if (!val) return "";
+    const s = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
+    return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : s;
+  };
+
   if (v.dataDocumento) {
-    state.dataDocumento = v.dataDocumento;
-    state.aux.dataDocumento = v.dataDocumento;
-    if ($("dataDocumento")) $("dataDocumento").value = v.dataDocumento;
-    if ($("agilDataDocumento")) $("agilDataDocumento").value = v.dataDocumento;
+    const docIso = toIso(v.dataDocumento);
+    state.dataDocumento = docIso;
+    state.aux.dataDocumento = docIso;
+    if ($("dataDocumento")) $("dataDocumento").value = docIso;
+    if ($("agilDataDocumento")) $("agilDataDocumento").value = docIso;
   }
   if (v.dataExpedicao || v.dataExpedicaoIso) {
-    const exp = v.dataExpedicaoIso || v.dataExpedicao;
+    const exp = toIso(v.dataExpedicaoIso || v.dataExpedicao);
     state.dataExpedicao = exp;
     state.aux.dataExpedicao = v.dataExpedicao || exp;
     state.aux.dataExpedicaoIso = exp;
@@ -6144,36 +6167,53 @@ function aplicarDadosEsisla(dados) {
 
     if (dados.nome_medico_assistente) state.aux.medicoAssistenteNome = dados.nome_medico_assistente;
 
-    const isVinculado = (typeof hasFichaVinculada === "function") && hasFichaVinculada();
-    if (isVinculado) {
+    const isoExp = toIsoDate(dados.data_expedicao_iso || dados.data_expedicao);
+    if (isoExp) {
+      state.aux.dataExpedicao = dados.data_expedicao || isoExp;
+      state.aux.dataExpedicaoIso = isoExp;
+      state.dataExpedicao = isoExp;
+      if ($("dataExpedicao")) $("dataExpedicao").value = isoExp;
+      if ($("agilDataExpedicao")) $("agilDataExpedicao").value = isoExp;
+    } else if (dados.data_expedicao) {
+      state.aux.dataExpedicao = dados.data_expedicao;
+      state.dataExpedicao = dados.data_expedicao;
+    }
+
+    const isoDoc = toIsoDate(dados.data_documento || dados.data_documento_br);
+    if (isoDoc) {
+      state.dataDocumento = isoDoc;
+      state.aux.dataDocumento = isoDoc;
+      if ($("dataDocumento")) $("dataDocumento").value = isoDoc;
+      if ($("agilDataDocumento")) $("agilDataDocumento").value = isoDoc;
+    }
+
+    if (dados.dias_solicitados) {
+      const diasVal = String(dados.dias_solicitados);
+      state.diasSolicitados = diasVal;
+      state.diasConcedidos = diasVal;
+      state.aux.diasSolicitados = diasVal;
+      state.aux.diasConcedidos = diasVal;
+      if ($("diasSolicitados")) $("diasSolicitados").value = diasVal;
+      if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = diasVal;
+    }
+
+    if (isoExp || isoDoc || dados.dias_solicitados) {
+      state.aux.fichaVinculada = true;
+      state.aux.esislaReimportado = true;
+      state.aux.dadosFichaVinculada = {
+        ...(state.aux.dadosFichaVinculada || {}),
+        dataDocumento: isoDoc || state.dataDocumento || state.aux.dataDocumento || "",
+        dataExpedicao: dados.data_expedicao || isoExp || state.aux.dataExpedicao || "",
+        dataExpedicaoIso: isoExp || state.aux.dataExpedicaoIso || "",
+        diasSolicitados: dados.dias_solicitados ? String(dados.dias_solicitados) : (state.diasSolicitados || state.aux.diasSolicitados || ""),
+        crmCro: dados.crm_cro || state.crmCro || state.aux.crmCro || "",
+        medicoAssistenteNome: dados.nome_medico_assistente || state.aux.medicoAssistenteNome || "",
+        tempoCargo: state.tempoCargo || state.aux.tempoCargo || "",
+        tempoUnidade: state.tempoUnidade || state.aux.tempoUnidade || "Anos",
+        dataIngresso: state.aux.dataIngresso || state.aux.ingresso || ""
+      };
+    } else if ((typeof hasFichaVinculada === "function") && hasFichaVinculada()) {
       if (typeof preservarDadosFichaVinculada === "function") preservarDadosFichaVinculada();
-    } else {
-      const isoExp = toIsoDate(dados.data_expedicao_iso || dados.data_expedicao);
-      if (isoExp) {
-        state.aux.dataExpedicao = dados.data_expedicao || isoExp;
-        state.aux.dataExpedicaoIso = isoExp;
-        state.dataExpedicao = dados.data_expedicao || isoExp;
-        if ($("dataExpedicao")) $("dataExpedicao").value = isoExp;
-        if ($("agilDataExpedicao")) $("agilDataExpedicao").value = isoExp;
-      } else if (dados.data_expedicao) {
-        state.aux.dataExpedicao = dados.data_expedicao;
-        state.dataExpedicao = dados.data_expedicao;
-      }
-
-      const isoDoc = toIsoDate(dados.data_documento || dados.data_documento_br);
-      if (isoDoc) {
-        state.aux.dataDocumento = isoDoc;
-        if ($("dataDocumento")) $("dataDocumento").value = isoDoc;
-        if ($("agilDataDocumento")) $("agilDataDocumento").value = isoDoc;
-      }
-
-      if (dados.dias_solicitados) {
-        const diasVal = String(dados.dias_solicitados);
-        state.aux.diasSolicitados = diasVal;
-        state.aux.diasConcedidos = diasVal;
-        if ($("diasSolicitados")) $("diasSolicitados").value = diasVal;
-        if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = diasVal;
-      }
     }
 
     // Abrir o subpainel de atestado do assistente e calcular as datas

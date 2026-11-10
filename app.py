@@ -8783,13 +8783,22 @@ def parse_esisla_text(text: str) -> dict:
 
     m = re.search(r'UA:\s*([^\n\r]+)', text, re.I)
     if m and m.group(1).strip() and not m.group(1).strip().startswith(('Endere', 'CEP')):
-        data['unidade'] = re.sub(r'\s+', ' ', m.group(1)).strip()
+        raw_ua = re.sub(r'\s+', ' ', m.group(1)).strip()
+        raw_ua = re.split(r'\s+CEP:', raw_ua, flags=re.I)[0].strip()
+        data['unidade'] = raw_ua
 
-    m = re.search(r'Munic[íi\ufffd]?pio:\s*([^\n\r]+)', text, re.I)
-    if m and m.group(1).strip() and not m.group(1).strip().startswith(('Bairro', 'Regime')):
-        raw_mun = re.sub(r'\s+', ' ', m.group(1)).strip()
-        raw_mun = re.split(r'\s+Regime', raw_mun, flags=re.I)[0].strip()
-        data['municipio'] = raw_mun
+    for m_mun in re.finditer(r'Munic[íi\ufffd]?pio:\s*([^\n\r]+)', text, re.I):
+        cand_mun = m_mun.group(1).strip()
+        if cand_mun and not cand_mun.startswith(('Bairro', 'Regime', 'CEP', 'Fone')):
+            raw_mun = re.sub(r'\s+', ' ', cand_mun).strip()
+            raw_mun = re.split(r'\s+(?:Regime|Bairro|CEP|Fone|Hospital)', raw_mun, flags=re.I)[0].strip()
+            if raw_mun and not raw_mun.endswith(':'):
+                data['municipio'] = raw_mun
+                break
+
+    m_lic = re.search(r'(?:Licen[çc\ufffd]?as:\s*(\d+)|(\d+)\s*Licen[çc\ufffd]?as:)', text, re.I)
+    if m_lic:
+        data['licencas'] = (m_lic.group(1) or m_lic.group(2)).strip()
 
     m = re.search(r'Regime Jur[íi\ufffd]?dico:\s*([^\n\r]+)', text, re.I)
     if m and m.group(1).strip() and not m.group(1).strip().startswith(('Cargo', 'Ingresso')):
@@ -8812,19 +8821,19 @@ def parse_esisla_text(text: str) -> dict:
         val_lines = [l.strip() for l in s_func.splitlines() if l.strip() and not l.endswith(':') and not any(k in l for k in ['Ingresso:', 'Cargo/Fun', 'Regime Jur'])]
         for vl in val_lines:
             if not data.get('unidade') and re.match(r'^\d{8,16}\s*-', vl):
-                data['unidade'] = vl
+                data['unidade'] = re.split(r'\s+CEP:', vl, flags=re.I)[0].strip()
             elif not data.get('orgao') and re.match(r'^\d{4,6}\s*-', vl):
                 data['orgao'] = vl
-            elif (not data.get('cargo') or not data.get('regime_juridico')) and re.search(r'(AUT[ÁA]RQUICO|CLT|EFETIVO|ESTATUT[ÁA]RIO|LEI\s*500\/74)\b', vl, re.I):
-                m_cr = re.search(r'(AUT[ÁA]RQUICO|CLT|EFETIVO|ESTATUT[ÁA]RIO|LEI\s*500\/74)\b', vl, re.I)
+            elif (not data.get('cargo') or not data.get('regime_juridico')) and re.search(r'(AUT[ÁA]RQUICO|CLT|EFETIVO|ESTATUT[ÁA]RIO|COMISS[ÃA]O|TEMPOR[ÁA]RIO|CATEGORIA\s*[A-Z]|LEI\s*500\/74|LEI\s*\d+\/\d+)\b', vl, re.I):
+                m_cr = re.search(r'(AUT[ÁA]RQUICO|CLT|EFETIVO|ESTATUT[ÁA]RIO|COMISS[ÃA]O|TEMPOR[ÁA]RIO|CATEGORIA\s*[A-Z]|LEI\s*500\/74|LEI\s*\d+\/\d+)\b', vl, re.I)
                 data['regime_juridico'] = m_cr.group(1).strip()
                 c_nom = (vl[:m_cr.start()].strip() or vl[m_cr.end():].strip())
                 if c_nom:
                     c_clean = re.sub(r'^\d+\s*[-–]?\s*', '', c_nom).strip()
                     data['cargo'] = c_clean or c_nom
                     data['cargo_codigo'] = c_nom
-            elif not data.get('municipio') and vl.isalpha() and vl.isupper():
-                data['municipio'] = vl
+            elif not data.get('municipio') and re.match(r'^[A-ZÀ-Ú][A-ZÀ-Ú\s\'\-]{2,35}$', vl) and not re.search(r'\b(?:PROFESSOR|AGENTE|OFICIAL|DIRETOR|SECRETARIA|AUXILIAR|TECNICO|ANALISTA|MEDICO|ENFERMEIRO)\b', vl):
+                data['municipio'] = vl.strip()
 
     # Ingresso e cálculo de tempo no cargo
     m_ing = re.search(r'Ingresso:?\s*(\d{2}/\d{2}/\d{4})', text, re.I)
@@ -8944,34 +8953,44 @@ def parse_esisla_text(text: str) -> dict:
         data['data_documento_br'] = f"{d:02d}/{mo:02d}/{y}"
         data['data_documento'] = f"{y}-{mo:02d}-{d:02d}"
 
-    # 14. Motivo Perícia
+    # 14. Motivo Perícia, Data Perícia e Local da Perícia
     m = re.search(r'Motivo:\s*([^\n\r]+)', text, re.I)
     if m:
         raw_mot = re.sub(r'\s+', ' ', m.group(1)).strip()
-        raw_mot = re.split(r'\s+Local', raw_mot, flags=re.I)[0].strip()
+        raw_mot = re.split(r'\s+(?:Local|Munic[íi\ufffd]?pio|Data\s+Per)', raw_mot, flags=re.I)[0].strip()
         data['motivo_pericia'] = raw_mot
+
+    m_dt_per = re.search(r'Data\s+Per[íi\ufffd]?cia:\s*(\d{2}/\d{2}/\d{4})(?:\s+(\d{2}:\d{2}))?', text, re.I)
+    if m_dt_per:
+        data['data_pericia_br'] = m_dt_per.group(1).strip()
+        data['data_pericia'] = f"{m_dt_per.group(1).strip()} {m_dt_per.group(2).strip()}".strip() if m_dt_per.group(2) else m_dt_per.group(1).strip()
+
+    m_loc_per = re.search(r'Local\s+da\s+Per[íi\ufffd]?cia:\s*([^\n\r]+)', text, re.I)
+    if m_loc_per:
+        data['local_pericia'] = re.sub(r'\s+', ' ', m_loc_per.group(1)).strip()
 
     # 15. Tipo Perícia
     m = re.search(r'Tipo:\s*([^\n\r]+)', text, re.I)
     if m:
         raw_tip = re.sub(r'\s+', ' ', m.group(1)).strip()
+        raw_tip = re.split(r'\s+Motivo:', raw_tip, flags=re.I)[0].strip()
         if not raw_tip or 'Pessoa' in raw_tip:
             m_tip_next = re.search(r'Pessoa a ser periciada:\s*\n([^\n\r]+)', text, re.I)
             if m_tip_next:
-                raw_tip = m_tip_next.group(1).strip()
+                raw_tip = re.split(r'\s+Motivo:', m_tip_next.group(1).strip(), flags=re.I)[0].strip()
         data['tipo_pericia'] = raw_tip
 
     # 16. Finalidade
     m = re.search(r'Finalidade:\s*([^\n\r]+)', text, re.I)
     if m: data['finalidade'] = re.sub(r'\s+', ' ', m.group(1)).strip()
 
-    # 17. Data Expedição & Local da Expedição (e-SISLA e Texto Bruto)
+    # 17. Data Expedição & Local da Expedição (GPM / e-SISLA e Texto Bruto)
     found_exp_br = None
     found_exp_iso = None
 
     # 17a. Rótulo explícito de Data de Expedição (DD/MM/AAAA, YYYY-MM-DD ou por extenso após "guia expedida...")
     m_exp_lbl = re.search(
-        r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})',
+        r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o\s+da\s+Guia|Expedi[çc\ufffd]?[ãa\ufffd]?o\s*[:\-]|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})',
         text,
         re.I
     )
@@ -8982,7 +9001,7 @@ def parse_esisla_text(text: str) -> dict:
             found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
     else:
         m_exp_iso_lbl = re.search(
-            r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{4})-(\d{2})-(\d{2})',
+            r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o\s+da\s+Guia|Expedi[çc\ufffd]?[ãa\ufffd]?o\s*[:\-]|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{4})-(\d{2})-(\d{2})',
             text,
             re.I
         )
@@ -8993,7 +9012,7 @@ def parse_esisla_text(text: str) -> dict:
                 found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
         else:
             m_exp_ext_lbl = re.search(
-                r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(\d{1,2})\s+(?:de\s+)?([A-Za-zçÇ]+)\s+(?:de\s+)?(\d{4})',
+                r'(?:Data\s+(?:da\s+|de\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o(?:\s+da\s+Guia)?|Expedi[çc\ufffd]?[ãa\ufffd]?o\s+da\s+Guia|Expedi[çc\ufffd]?[ãa\ufffd]?o\s*[:\-]|Guia(?:\s+pericial)?\s+expedida(?:\s+[a-zà-ú]+){0,4}?\s+(?:em|no\s+dia)|expedida\s+pelo\s+setor\s+(?:em|no\s+dia))\s*[:\-]?\s*(?:[A-Za-zÀ-ÖØ-öø-ÿ\s]{2,35},\s*)?(\d{1,2})\s+(?:de\s+)?([A-Za-zçÇ]+)\s+(?:de\s+)?(\d{4})',
                 text,
                 re.I
             )
@@ -9005,58 +9024,114 @@ def parse_esisla_text(text: str) -> dict:
                     found_exp_br = f"{d:02d}/{mo:02d}/{y}"
                     found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
 
-    # 17b. Seção "Local e Data da Expedição" ou "Data Expedição" do e-SISLA
+    # 17b. Seção "Local e Data da Expedição" ou "Válida até o final do expediente..." do GPM / e-SISLA
     if not found_exp_br:
         snippets = []
         m_exp_sec = re.search(r'Local\s+e\s+Data\s+(?:da\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o', text, re.I)
         if m_exp_sec:
-            after_s = text[m_exp_sec.end():min(len(text), m_exp_sec.end() + 260)]
-            before_raw = text[max(0, m_exp_sec.start() - 150):m_exp_sec.start()]
-            # Remove linhas de atestado/nascimento/licença do trecho anterior para não confundir com expedição
-            before_lines = [
-                ln for ln in before_raw.splitlines()
-                if not re.search(r'atestado|nascimento|ingresso|[úu]ltima\s+licen|in[íi]cio:|fim:', ln, re.I)
-            ]
-            snippets.append(after_s)
+            after_raw = text[m_exp_sec.end():min(len(text), m_exp_sec.end() + 300)]
+            # Cortar o bloco posterior antes de "Parecer do Médico Assistente" / "Sobre a Perícia" / "Data de Emissão do Atestado"
+            after_raw = re.split(
+                r'(?:Parecer\s+do\s+M[ée\ufffd]?dico|Sobre\s+a\s+Per[íi\ufffd]?cia|CRM\s*:|CID\s*10\s*:|Data\s+(?:de\s+)?Emiss[ãa\ufffd]?o|Data\s+Per[íi\ufffd]?cia|Registro\s+da\s+Per[íi\ufffd]?cia|Queixa\s+e\s+Dura|Emiss[ãa\ufffd]?o\s*:\s*\d)',
+                after_raw,
+                maxsplit=1,
+                flags=re.I
+            )[0]
+
+            before_raw = text[max(0, m_exp_sec.start() - 220):m_exp_sec.start()]
+            # Se houver Readaptado: ou Hospital/Domiciliar: antes, considerar apenas o trecho posterior a esses campos
+            m_cut_before = list(re.finditer(r'(?:Readaptad[oa]:[^\n\r]*|Hospital\/Domiciliar:[^\n\r]*)', before_raw, re.I))
+            if m_cut_before:
+                before_raw = before_raw[m_cut_before[-1].end():]
+
+            exclude_rx = re.compile(r'atestado|nascimento|ingresso|[úu]ltima\s+licen|in[íi]cio:|fim:|data\s+per[íi\ufffd]?cia|emiss[ãa\ufffd]?o\s*:\s*\d', re.I)
+            before_lines = [ln for ln in before_raw.splitlines() if ln.strip() and not exclude_rx.search(ln)]
+            after_lines = [ln for ln in after_raw.splitlines() if ln.strip() and not exclude_rx.search(ln)]
+
+            # Extrair Local da Expedição e Documento gerado por (quando presentes no GPM)
+            m_loc_exp = re.search(r'^\s*([^\n\r]+?)\s+Documento\s+gerado\s+por:', after_raw, re.I | re.M)
+            if m_loc_exp and m_loc_exp.group(1).strip():
+                data['local_expedicao'] = re.sub(r'\s+', ' ', m_loc_exp.group(1)).strip()
+            m_gerado = re.search(r'Documento\s+gerado\s+por:\s*(?:\r?\n\s*)*([^\n\r]+)', after_raw, re.I)
+            if m_gerado:
+                ger_line = re.sub(r'(?:[A-Za-zÀ-ÖØ-öø-ÿ\s]+\s*,\s*)?\d{1,2}\s+(?:de\s+)?[A-Za-zçÇ]+\s+(?:de\s+)?\d{4}\s*,?', '', m_gerado.group(1), flags=re.I).strip()
+                if ger_line and not re.search(r'V[áa\ufffd]lida\s+at[ée\ufffd]', ger_line, re.I):
+                    data['documento_gerado_por'] = re.sub(r'\s+', ' ', ger_line).strip()
+
+            # No pypdf padrão, a data por extenso ("06 Novembro 2026,") fica imediatamente ANTES do cabeçalho "Local e Data da Expedição"
             if before_lines:
                 snippets.append("\n".join(before_lines))
+            if after_lines:
+                snippets.append("\n".join(after_lines))
         else:
             m_exp_direct = re.search(r'Data\s+(?:da\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o', text, re.I)
             if m_exp_direct:
-                snippets.append(text[m_exp_direct.end():min(len(text), m_exp_direct.end() + 160)])
+                after_dir = text[m_exp_direct.end():min(len(text), m_exp_direct.end() + 160)]
+                after_dir = re.split(r'(?:Parecer\s+do\s+M|Data\s+(?:de\s+)?Emiss|CRM\s*:)', after_dir, maxsplit=1, flags=re.I)[0]
+                snippets.append(after_dir)
 
+        m_valida = re.search(r'V[áa\ufffd]lida\s+at[ée\ufffd]\s+o\s+final\s+do\s+expediente[^\n\r]*', text, re.I)
+        if m_valida:
+            val_win = text[max(0, m_valida.start() - 120):min(len(text), m_valida.end() + 120)]
+            val_win = re.split(r'(?:Parecer\s+do\s+M|Data\s+(?:de\s+)?Emiss|CRM\s*:)', val_win, maxsplit=1, flags=re.I)[0]
+            snippets.append(val_win)
+
+        # 1ª Passada em todos os snippets: Data por extenso (padrão oficial GPM: "06 Novembro 2026," ou "CAMPINAS , 06 Novembro 2026" ou "06 de Novembro de 2026")
         for target in snippets:
-            m_txt = re.search(r'(?:[A-Za-zÀ-ÖØ-öø-ÿ\s]{2,40},\s*)?(\d{1,2})\s+(?:de\s+)?([A-Za-zçÇ]+)\s+(?:de\s+)?(\d{4})', target, re.I)
+            m_txt = re.search(r'(?:,\s*|[A-Za-zÀ-ÖØ-öø-ÿ\s]{2,40},\s*)?(\d{1,2})\s+(?:de\s+)?([A-Za-zçÇ]+)\s+(?:de\s+)?(\d{4})\s*,?', target, re.I)
             if m_txt and m_txt.group(2).lower() in meses_pt:
                 d = int(m_txt.group(1))
                 mo = meses_pt[m_txt.group(2).lower()]
                 y = int(m_txt.group(3))
-                found_exp_br = f"{d:02d}/{mo:02d}/{y}"
-                found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
-                break
-
-            m_num = re.search(r'(?:Data\s+(?:da\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o:?\s*|[A-Za-zÀ-ÖØ-öø-ÿ\s]{2,40},\s*)?(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})', target, re.I)
-            if m_num:
-                d = int(m_num.group(1))
-                mo = int(m_num.group(2))
-                y = int(m_num.group(3))
-                if 1 <= d <= 31 and 1 <= mo <= 12 and 1990 <= y <= 2100:
+                if 1 <= d <= 31 and 1990 <= y <= 2100:
                     found_exp_br = f"{d:02d}/{mo:02d}/{y}"
                     found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
                     break
 
-    # 17c. Fallback estrito: Data por extenso precedida OBRIGATORIAMENTE por "CIDADE, DD de Mês de AAAA"
-    # (Exige a vírgula após o nome do município para jamais capturar datas clínicas como "piorou dia 12 de janeiro de 2026")
+        # 2ª Passada nos snippets (somente se não houver data por extenso): Data numérica DD/MM/AAAA dentro do bloco isolado de expedição
+        if not found_exp_br:
+            for target in snippets:
+                m_num = re.search(r'(?:Data\s+(?:da\s+)?Expedi[çc\ufffd]?[ãa\ufffd]?o:?\s*|[A-Za-zÀ-ÖØ-öø-ÿ\s]{2,40},\s*)?(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{4})', target, re.I)
+                if m_num:
+                    d = int(m_num.group(1))
+                    mo = int(m_num.group(2))
+                    y = int(m_num.group(3))
+                    if 1 <= d <= 31 and 1 <= mo <= 12 and 1990 <= y <= 2100:
+                        found_exp_br = f"{d:02d}/{mo:02d}/{y}"
+                        found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
+                        break
+
+    # 17c. Fallback estrito: Data por extenso do GPM ("CIDADE, DD [de] Mês [de] AAAA", ", DD Mês AAAA" ou "DD Mês AAAA,")
     if not found_exp_br:
-        m_txt_global = re.search(r'(?:^|\n)\s*([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ\s]{1,35}),\s*(\d{1,2})\s+de\s+([A-Za-zçÇ]+)\s+de\s+(\d{4})', text, re.I)
+        m_txt_global = re.search(
+            r'(?:^|\n)\s*([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ\s\'\-]{1,35}?)\s*,\s*(\d{1,2})\s+(?:de\s+)?([A-Za-zçÇ]+)\s+(?:de\s+)?(\d{4})\b',
+            text,
+            re.I
+        )
         if m_txt_global and m_txt_global.group(3).lower() in meses_pt:
             prefix_city = m_txt_global.group(1).strip().lower()
             if not re.search(r'\b(?:piorou|iniciou|desde|dor|exame|resson[âa]ncia|cirurgia|atestado|consulta|tratamento)\b', prefix_city):
                 d = int(m_txt_global.group(2))
                 mo = meses_pt[m_txt_global.group(3).lower()]
                 y = int(m_txt_global.group(4))
-                found_exp_br = f"{d:02d}/{mo:02d}/{y}"
-                found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
+                if 1 <= d <= 31 and 1990 <= y <= 2100:
+                    found_exp_br = f"{d:02d}/{mo:02d}/{y}"
+                    found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
+        if not found_exp_br:
+            m_gpm_comma_line = re.search(
+                r'(?:^|\n)\s*(?:,\s*(\d{1,2})\s+(?:de\s+)?([A-Za-zçÇ]+)\s+(?:de\s+)?(\d{4})|(\d{1,2})\s+(?:de\s+)?([A-Za-zçÇ]+)\s+(?:de\s+)?(\d{4})\s*,)\s*(?:$|\r?\n)',
+                text,
+                re.I
+            )
+            if m_gpm_comma_line:
+                d_s = m_gpm_comma_line.group(1) or m_gpm_comma_line.group(4)
+                m_s = (m_gpm_comma_line.group(2) or m_gpm_comma_line.group(5) or '').lower()
+                y_s = m_gpm_comma_line.group(3) or m_gpm_comma_line.group(6)
+                if m_s in meses_pt:
+                    d, mo, y = int(d_s), meses_pt[m_s], int(y_s)
+                    if 1 <= d <= 31 and 1990 <= y <= 2100:
+                        found_exp_br = f"{d:02d}/{mo:02d}/{y}"
+                        found_exp_iso = f"{y}-{mo:02d}-{d:02d}"
 
     if found_exp_br:
         data['data_expedicao'] = found_exp_br
@@ -9073,10 +9148,11 @@ def parse_esisla_text(text: str) -> dict:
     # 19. Pessoa da Perícia (detecta se é acompanhante de familiar/filhos)
     m = re.search(r'(?:Pessoa|Pessoa a ser periciada):\s*([^\n\r]+)', text, re.I)
     raw_pessoa = re.sub(r'\s+', ' ', m.group(1)).strip() if m else ""
+    raw_pessoa = re.split(r'\s+Nome:\s*$', raw_pessoa, flags=re.I)[0].strip()
     if not raw_pessoa or raw_pessoa.upper() in ('A PEDIDO', 'CONVOCACAO'):
         m_p_nome = re.search(r'Pessoa a ser periciada:[\s\S]*?Nome:\s*([^\n\r]+)', text, re.I)
         if m_p_nome:
-            raw_pessoa = m_p_nome.group(1).strip()
+            raw_pessoa = re.split(r'\s+Motivo:', m_p_nome.group(1).strip(), flags=re.I)[0].strip()
 
     if raw_pessoa:
         data['pessoa'] = raw_pessoa
@@ -9245,11 +9321,16 @@ def api_esisla_parse_pdf():
                 mimetype = b.get("mimetype", "application/pdf")
 
         # Se temos arquivo binário PDF, extrair estritamente da primeira página (página 0) onde estão todos os dados
+        layout_text = ""
         if file_bytes and pypdf:
             try:
                 reader = pypdf.PdfReader(BytesIO(file_bytes))
                 if reader.pages:
                     raw_text = (reader.pages[0].extract_text() or "").strip()
+                    try:
+                        layout_text = (reader.pages[0].extract_text(extraction_mode="layout") or "").strip()
+                    except Exception:
+                        layout_text = ""
             except Exception as e:
                 app.logger.warning("pypdf extraction error: %s", e)
 
@@ -9257,6 +9338,11 @@ def api_esisla_parse_pdf():
             return _error("VALIDATION_ERROR", "Envie o arquivo PDF ou o texto da Consulta Perícia Licença do e-SISLA.", False, 400)
 
         dados = parse_esisla_text(raw_text)
+        if layout_text and (not dados.get("data_expedicao") or not dados.get("municipio") or not dados.get("nome_paciente")):
+            dados_layout = parse_esisla_text(layout_text)
+            for k_lay, v_lay in dados_layout.items():
+                if v_lay and not dados.get(k_lay):
+                    dados[k_lay] = v_lay
 
         # Fallback multimodal Gemini se faltar dados chave e tivermos arquivo binário
         if (not dados.get("nome_paciente") or not dados.get("cpf_paciente")) and file_bytes:
@@ -9306,7 +9392,16 @@ def api_esisla_parse_pdf():
                                         dados["retroacao_invalida"] = True
                                         dados["parecer"] = "CONTRÁRIO"
                                         dados["sugestao_parecer"] = "CONTRÁRIO"
-                                        dados["justificativa"] = "Guia com mais de 3 dias de retroação, não havendo comprovação de internamento hospitalar ou impedimento absoluto do servidor para emissão da guia."
+                                        dados["justificativa"] = _construir_justificativa_retroacao(
+                                            is_fem=str(dados.get("sexo") or "").lower().startswith("f"),
+                                            cargo=str(dados.get("cargo") or "servidor"),
+                                            doenca_motivo=str(dados.get("doenca_motivo") or dados.get("cid_descricao") or ""),
+                                            cid=str(dados.get("cid") or ""),
+                                            sintomas="",
+                                            doc_date_br=d_doc.strftime("%d/%m/%Y"),
+                                            exp_date_br=d_ref.strftime("%d/%m/%Y"),
+                                            retro_dias=diff,
+                                        )
                                         dados["sugestao_justificativa"] = dados["justificativa"]
                                 except Exception:
                                     pass
@@ -9356,13 +9451,17 @@ def api_esisla_criar_atendimento():
             "cid": dados.get("cid", ""),
             "crmCro": dados.get("crm_cro", "Em anexo"),
             "dataDocumento": dados.get("data_documento", dt_atd),
+            "dataExpedicao": dados.get("data_expedicao", ""),
+            "dataExpedicaoIso": dados.get("data_expedicao_iso", ""),
             "diasSolicitados": str(dados.get("dias_solicitados", "1")),
             "diasConcedidos": str(dados.get("dias_solicitados", "1")),
             "doencaMotivo": dados.get("doenca_motivo") if (dados.get("tipo_atendimento_pericia") == "ACOMPANHANTE" or dados.get("is_acompanhante")) else "",
             "exameFisicoTipo": "",
             "exameFisicoDescricao": "",
-            "parecer": "",
-            "justificativa": "",
+            "parecer": dados.get("parecer", ""),
+            "justificativa": dados.get("justificativa", ""),
+            "retroacaoInvalida": bool(dados.get("retroacao_invalida")),
+            "retroacaoDias": dados.get("retroacao_dias", 0),
             "isAcompanhante": bool(dados.get("is_acompanhante")),
             "nomeDependente": dados.get("nome_dependente", ""),
             "pessoa": dados.get("pessoa", "O PROPRIO"),
@@ -9411,6 +9510,7 @@ def api_esisla_criar_atendimento():
                 "ultimaLicencaFim": dados.get("ultima_licenca_fim", ""),
                 "dataExpedicao": dados.get("data_expedicao", ""),
                 "dataExpedicaoIso": dados.get("data_expedicao_iso", ""),
+                "localExpedicao": dados.get("local_expedicao", ""),
                 "retroacaoInvalida": bool(dados.get("retroacao_invalida")),
                 "retroacaoDias": dados.get("retroacao_dias", 0),
                 "retroacaoMotivo": dados.get("retroacao_motivo", ""),
@@ -9422,8 +9522,8 @@ def api_esisla_criar_atendimento():
                 "exameMentalResultado": "",
                 "outrosSubtipo": "",
                 "outrosResultado": "",
-                "justificativa": "",
-                "parecer": ""
+                "justificativa": dados.get("justificativa", ""),
+                "parecer": dados.get("parecer", "")
             }
         }
 
@@ -9535,15 +9635,25 @@ def api_esisla_vincular_agenda_batch():
 
             # Extração de texto (estritamente da 1ª página onde estão os dados)
             raw_text = ""
+            layout_text = ""
             if pypdf:
                 try:
                     reader = pypdf.PdfReader(BytesIO(file_bytes))
                     if reader.pages:
                         raw_text = (reader.pages[0].extract_text() or "").strip()
+                        try:
+                            layout_text = (reader.pages[0].extract_text(extraction_mode="layout") or "").strip()
+                        except Exception:
+                            layout_text = ""
                 except Exception as e:
                     app.logger.warning("Erro pypdf no arquivo %s: %s", fname, e)
 
             dados = parse_esisla_text(raw_text) if raw_text else {}
+            if layout_text and (not dados.get("data_expedicao") or not dados.get("municipio") or not dados.get("nome_paciente")):
+                dados_layout = parse_esisla_text(layout_text)
+                for k_lay, v_lay in dados_layout.items():
+                    if v_lay and not dados.get(k_lay):
+                        dados[k_lay] = v_lay
 
             # Se campos principais não foram encontrados e temos IA disponível
             if (not dados.get("nome_paciente") or not dados.get("cpf_paciente")) and file_bytes:
@@ -9552,7 +9662,8 @@ def api_esisla_vincular_agenda_batch():
                     prompt = (
                         "Extraia os dados deste formulário do e-SISLA: Nome Completo, CPF, RG, Protocolo, NI, "
                         "Data de Nascimento, Idade, Sexo, Órgão, UA, Município, Regime Jurídico, Cargo, Situação, "
-                        "Readaptação, CRM Médico, Nome do Médico Assistente, CID 10, Nº Dias, Data de emissão do atestado, Pessoa."
+                        "Readaptação, CRM Médico, Nome do Médico Assistente, CID 10, Nº Dias, Data de emissão do atestado, "
+                        "Local e Data da Expedição (campo data_expedicao no formato DD/MM/AAAA), Pessoa."
                     )
                     config = types.GenerateContentConfig(
                         temperature=0.0,
@@ -9619,6 +9730,7 @@ def api_esisla_vincular_agenda_batch():
             if dados.get("regime_juridico"): campos_adiantados.append("Regime")
             if dados.get("cid"): campos_adiantados.append(f"CID {dados['cid']}")
             if dados.get("dias_solicitados"): campos_adiantados.append(f"{dados['dias_solicitados']} dias")
+            if dados.get("data_expedicao"): campos_adiantados.append(f"Expedição ({dados['data_expedicao']})")
             if dados.get("nome_medico_assistente"): campos_adiantados.append("Médico Assistente")
             if dados.get("is_acompanhante"): campos_adiantados.append("Acompanhante")
 
@@ -9653,6 +9765,12 @@ def api_esisla_vincular_agenda_batch():
                         existing_payload["idade"] = dados["idade"]
                     if not existing_payload.get("cid") and dados.get("cid"):
                         existing_payload["cid"] = dados["cid"]
+                    if dados.get("data_documento"):
+                        existing_payload["dataDocumento"] = dados["data_documento"]
+                    if dados.get("data_expedicao"):
+                        existing_payload["dataExpedicao"] = dados["data_expedicao"]
+                    if dados.get("data_expedicao_iso"):
+                        existing_payload["dataExpedicaoIso"] = dados["data_expedicao_iso"]
                     if not existing_payload.get("diasSolicitados") and dados.get("dias_solicitados"):
                         existing_payload["diasSolicitados"] = str(dados["dias_solicitados"])
                     if not existing_payload.get("diasConcedidos") and dados.get("dias_solicitados"):
@@ -9673,6 +9791,14 @@ def api_esisla_vincular_agenda_batch():
                     if dados.get("data_ingresso") and not aux.get("dataIngresso"):
                         aux["dataIngresso"] = str(dados["data_ingresso"])
                         aux["ingresso"] = str(dados["data_ingresso"])
+                    if dados.get("data_documento"):
+                        aux["dataDocumento"] = dados["data_documento"]
+                    if dados.get("data_expedicao"):
+                        aux["dataExpedicao"] = dados["data_expedicao"]
+                    if dados.get("data_expedicao_iso"):
+                        aux["dataExpedicaoIso"] = dados["data_expedicao_iso"]
+                    if dados.get("dias_solicitados") and not aux.get("diasSolicitados"):
+                        aux["diasSolicitados"] = str(dados["dias_solicitados"])
                     aux["cpfPaciente"] = dados.get("cpf_paciente") or aux.get("cpfPaciente", "")
                     aux["rg"] = dados.get("rg_paciente") or aux.get("rg", "")
                     aux["orgao"] = dados.get("orgao") or aux.get("orgao", "")
@@ -9730,6 +9856,8 @@ def api_esisla_vincular_agenda_batch():
                         "cid": dados.get("cid", ""),
                         "crmCro": dados.get("crm_cro", "Em anexo"),
                         "dataDocumento": dados.get("data_documento", dt_atd),
+                        "dataExpedicao": dados.get("data_expedicao", ""),
+                        "dataExpedicaoIso": dados.get("data_expedicao_iso", ""),
                         "diasSolicitados": str(dados.get("dias_solicitados", "1")),
                         "diasConcedidos": str(dados.get("dias_solicitados", "1")),
                         "doencaMotivo": dados.get("doenca_motivo") if (dados.get("tipo_atendimento_pericia") == "ACOMPANHANTE" or dados.get("is_acompanhante")) else "",
@@ -9737,6 +9865,8 @@ def api_esisla_vincular_agenda_batch():
                         "exameFisicoDescricao": "",
                         "parecer": dados.get("parecer", ""),
                         "justificativa": dados.get("justificativa", ""),
+                        "retroacaoInvalida": bool(dados.get("retroacao_invalida")),
+                        "retroacaoDias": dados.get("retroacao_dias", 0),
                         "isAcompanhante": bool(dados.get("is_acompanhante")),
                         "nomeDependente": dados.get("nome_dependente", ""),
                         "pessoa": dados.get("pessoa", "O PROPRIO"),
@@ -9785,6 +9915,7 @@ def api_esisla_vincular_agenda_batch():
                             "ultimaLicencaFim": dados.get("ultima_licenca_fim", ""),
                             "dataExpedicao": dados.get("data_expedicao", ""),
                             "dataExpedicaoIso": dados.get("data_expedicao_iso", ""),
+                            "localExpedicao": dados.get("local_expedicao", ""),
                             "retroacaoInvalida": bool(dados.get("retroacao_invalida")),
                             "retroacaoDias": dados.get("retroacao_dias", 0),
                             "retroacaoMotivo": dados.get("retroacao_motivo", ""),
@@ -11432,17 +11563,22 @@ def api_save_atendimento(rid=None):
                 old_aux_d.get("dadosFichaVinculada")
             )
             if is_vinculado_old:
-                dados_vinc = old_aux_d.get("dadosFichaVinculada") if isinstance(old_aux_d.get("dadosFichaVinculada"), dict) else {}
-                saved_dt_doc = str(dados_vinc.get("dataDocumento") or old.get("dataDocumento") or old_aux_d.get("dataDocumento") or "").strip()
-                saved_dt_exp = str(dados_vinc.get("dataExpedicao") or old.get("dataExpedicao") or old_aux_d.get("dataExpedicao") or "").strip()
-                saved_dt_exp_iso = str(dados_vinc.get("dataExpedicaoIso") or old_aux_d.get("dataExpedicaoIso") or saved_dt_exp).strip()
-                saved_dias_sol = str(dados_vinc.get("diasSolicitados") or old.get("diasSolicitados") or old_aux_d.get("diasSolicitados") or "").strip()
+                incoming_vinc = a.get("dadosFichaVinculada") if (isinstance(a.get("dadosFichaVinculada"), dict) and a.get("esislaReimportado")) else {}
+                dados_vinc = incoming_vinc or (old_aux_d.get("dadosFichaVinculada") if isinstance(old_aux_d.get("dadosFichaVinculada"), dict) else {})
+                saved_dt_doc = str(dados_vinc.get("dataDocumento") or old.get("dataDocumento") or old_aux_d.get("dataDocumento") or a.get("dataDocumento") or payload.get("dataDocumento") or "").strip()
+                saved_dt_exp = str(dados_vinc.get("dataExpedicao") or old.get("dataExpedicao") or old_aux_d.get("dataExpedicao") or a.get("dataExpedicao") or payload.get("dataExpedicao") or "").strip()
+                saved_dt_exp_iso = str(dados_vinc.get("dataExpedicaoIso") or old_aux_d.get("dataExpedicaoIso") or a.get("dataExpedicaoIso") or payload.get("dataExpedicaoIso") or saved_dt_exp).strip()
+                if re.match(r'^\d{2}/\d{2}/\d{4}$', saved_dt_exp_iso):
+                    p_d, p_m, p_y = saved_dt_exp_iso.split('/')
+                    saved_dt_exp_iso = f"{p_y}-{p_m}-{p_d}"
+                saved_dias_sol = str(dados_vinc.get("diasSolicitados") or old.get("diasSolicitados") or old_aux_d.get("diasSolicitados") or a.get("diasSolicitados") or payload.get("diasSolicitados") or "").strip()
 
                 if saved_dt_doc:
                     payload["dataDocumento"] = saved_dt_doc
                     a["dataDocumento"] = saved_dt_doc
                 if saved_dt_exp:
                     payload["dataExpedicao"] = saved_dt_exp_iso or saved_dt_exp
+                    payload["dataExpedicaoIso"] = saved_dt_exp_iso or saved_dt_exp
                     a["dataExpedicao"] = saved_dt_exp
                     a["dataExpedicaoIso"] = saved_dt_exp_iso or saved_dt_exp
                 if saved_dias_sol:
