@@ -8687,9 +8687,14 @@ function autoResolveValidationBlockers(blockingList) {
       if ($("doencaMotivo")) $("doencaMotivo").value = d;
       if ($("agilDoencaMotivo")) $("agilDoencaMotivo").value = d;
     }
+    const isRetroInv = Boolean(
+      state.aux?.retroacaoInvalida
+      || state.retroacaoInvalida
+      || (typeof isTextoJustificativaRetroacao === "function" && isTextoJustificativaRetroacao(state.justificativa || state.aux?.justificativa || $("agilJustificativa")?.value || ""))
+    );
+    const isFavOrRetro = isRetroInv || String(state.parecer || "FAVORÁVEL").toUpperCase().startsWith("FAV");
     if (lb.includes("sintomas") || lb.includes("limitação")) {
-      const isFav = String(state.parecer || "FAVORÁVEL").toUpperCase().startsWith("FAV");
-      const defSint = isFav
+      const defSint = isFavOrRetro
         ? "Apresenta limitações físicas e funcionais temporárias condizentes com o quadro clínico e queixa apresentada, constantes no Rol de Atividades do cargo."
         : "Do ponto de vista médico não se observam limitações funcionais incapacitantes para as atribuições do cargo constantes no rol de atividades.";
       state.aux.sintomasLimitacao = defSint;
@@ -8711,13 +8716,12 @@ function autoResolveValidationBlockers(blockingList) {
     if (lb.includes("tipo de exame")) {
       state.exameFisicoTipo = state.exameFisicoTipo || "Outros";
       state.outrosSubtipo = state.outrosSubtipo || "Clínica Geral";
-      state.outrosResultado = state.outrosResultado || (String(state.parecer || "").toUpperCase().startsWith("FAV") ? "Alterado" : "Normal");
+      state.outrosResultado = state.outrosResultado || (isFavOrRetro ? "Alterado" : "Normal");
       if ($("exameFisicoTipo")) $("exameFisicoTipo").value = state.exameFisicoTipo;
       if ($("agilExameFisicoTipo")) $("agilExameFisicoTipo").value = state.exameFisicoTipo;
     }
     if (lb.includes("achados observados") || lb.includes("exame físico geral")) {
-      const isFav = String(state.parecer || "FAVORÁVEL").toUpperCase().startsWith("FAV");
-      const defEx = isFav
+      const defEx = isFavOrRetro
         ? "Quadro álgico e funcional condizente com a queixa e relatório médico assistencial apresentado."
         : "Bom estado geral, eupneico em ar ambiente, afebril, acianótico, anictérico. Sem alterações agudas incapacitantes ao exame pericial de hoje.";
       state.exameFisicoDescricao = defEx;
@@ -8726,15 +8730,14 @@ function autoResolveValidationBlockers(blockingList) {
     }
     if (lb.includes("quesito")) {
       if (typeof QuesitoService !== "undefined") {
-        const isFav = String(state.parecer || "FAVORÁVEL").toUpperCase().startsWith("FAV");
         QuesitoService.set(0, "Sim");
-        QuesitoService.set(1, isFav ? "Sim" : "Não");
-        QuesitoService.set(2, isFav ? "Sim" : "Não");
+        QuesitoService.set(1, isFavOrRetro ? "Sim" : "Não");
+        QuesitoService.set(2, isFavOrRetro ? "Sim" : "Não");
         if (typeof renderQuesitos === "function") renderQuesitos();
       }
     }
     if (lb.includes("capacidade")) {
-      state.capacidade = String(state.parecer || "FAVORÁVEL").toUpperCase().startsWith("FAV")
+      state.capacidade = isFavOrRetro
         ? "Capacidade parcial e temporariamente prejudicada"
         : "Capacidade laborativa preservada";
       setRadio("capacidade", state.capacidade);
@@ -8745,11 +8748,11 @@ function autoResolveValidationBlockers(blockingList) {
       setRadio("agilParecer", state.parecer);
     }
     if (lb.includes("funcional")) {
-      state.limitacaoFuncional = String(state.parecer || "FAVORÁVEL").toUpperCase().startsWith("FAV") ? "Sim" : "Não";
+      state.limitacaoFuncional = isFavOrRetro ? "Sim" : "Não";
       setRadio("limitacaoFuncional", state.limitacaoFuncional);
     }
     if (lb.includes("rol")) {
-      state.limitacaoRol = String(state.parecer || "FAVORÁVEL").toUpperCase().startsWith("FAV") ? "Sim" : "Não";
+      state.limitacaoRol = isFavOrRetro ? "Sim" : "Não";
       setRadio("limitacaoRol", state.limitacaoRol);
     }
   });
@@ -8775,7 +8778,12 @@ function openFinalizeDialog(){
     validation = ValidationEngine.get();
   }
   if (!validation.valid) {
-    const isFav = !String(state.parecer || "FAVORÁVEL").toUpperCase().includes("CONT");
+    const isRetroInv = Boolean(
+      state.aux?.retroacaoInvalida
+      || state.retroacaoInvalida
+      || (typeof isTextoJustificativaRetroacao === "function" && isTextoJustificativaRetroacao(state.justificativa || state.aux?.justificativa || $("agilJustificativa")?.value || ""))
+    );
+    const isFav = isRetroInv || !String(state.parecer || "FAVORÁVEL").toUpperCase().includes("CONT");
     if (!state.aux) state.aux = {};
     const cg = state.aux.cargo || state.cargo || $("agilCargo")?.value || $("cargo")?.value || "Servidor Público";
     state.aux.cargo = cg; state.cargo = cg;
@@ -8798,7 +8806,7 @@ function openFinalizeDialog(){
     state.capacidade = state.capacidade || (isFav ? "Capacidade parcial e temporariamente prejudicada" : "Capacidade laborativa preservada");
     const jt = state.aux.justificativa || state.justificativa || (isFav ? "Quadro clínico com incapacidade temporária para as funções habituais." : "Avaliação pericial clínica sem evidências de incapacidade laborativa.");
     state.aux.justificativa = jt; state.justificativa = jt;
-    state.parecer = state.parecer || (isFav ? "FAVORÁVEL" : "CONTRÁRIO");
+    state.parecer = state.parecer || (isRetroInv ? "CONTRÁRIO" : (isFav ? "FAVORÁVEL" : "CONTRÁRIO"));
     if (typeof QuesitoService !== "undefined") {
       QuesitoService.set(0, "Sim");
       QuesitoService.set(1, isFav ? "Sim" : "Não");
@@ -12330,6 +12338,12 @@ function ensureAgileBackgroundDefaults() {
       state.aux.justificativa = curJ;
       state.justificativa = curJ;
     }
+    if (typeof QuesitoService !== "undefined") {
+      QuesitoService.set(0, "Sim");
+      QuesitoService.set(1, "Sim");
+      QuesitoService.set(2, "Sim");
+      if (typeof renderQuesitos === "function") renderQuesitos();
+    }
   } else if (manualOverride === "FAVORÁVEL" || manualOverride === "CONTRÁRIO") {
     state.parecer = manualOverride;
     state.aux.parecer = manualOverride;
@@ -12473,8 +12487,13 @@ function ensureAgileBackgroundDefaults() {
   
   if (typeof QuesitoService !== "undefined") {
     const qV = QuesitoService.validate();
-    if (qV.answered < 3) {
-      if (isRetroInv || (isAcomp && state.parecer === "FAVORÁVEL") || state.parecer === "FAVORÁVEL") {
+    if (isRetroInv) {
+      QuesitoService.set(0, "Sim");
+      QuesitoService.set(1, "Sim");
+      QuesitoService.set(2, "Sim");
+      if (typeof renderQuesitos === "function") renderQuesitos();
+    } else if (qV.answered < 3) {
+      if ((isAcomp && state.parecer === "FAVORÁVEL") || state.parecer === "FAVORÁVEL") {
         QuesitoService.set(0, "Sim");
         QuesitoService.set(1, "Sim");
         QuesitoService.set(2, "Sim");
@@ -12622,7 +12641,7 @@ function atualizarDiasConcedidosAutomatico() {
 
 function isTextoJustificativaRetroacao(txt) {
   if (!txt) return false;
-  return /mais\s+de\s+3\s+dias\s+de\s+retroa[çc][ãa]o|expedida\s+fora\s+do\s+prazo|emiss[ãa]o\s+tempestiva\s+da\s+guia|impedimento\s+absoluto\s+do\s+servidor\s+para\s+emiss[ãa]o/i.test(String(txt));
+  return /mais\s+de\s+3\s+dias\s+de\s+retroa[çc][ãa]o|\b\d+\s*dias?\s+de\s+retroa[çc][ãa]o|retroa[çc][ãa]o\s+superior\s+a\s+3\s+dias|expedida\s+fora\s+do\s+prazo|emiss[ãa]o\s+(?:tempestiva|extempor[âa]nea)\s+da\s+guia|expedi[çc][ãa]o\s+extempor[âa]nea|impedimento\s+absoluto\s+do\s+servidor\s+para\s+emiss[ãa]o/i.test(String(txt));
 }
 window.isTextoJustificativaRetroacao = isTextoJustificativaRetroacao;
 
@@ -14131,25 +14150,34 @@ function verificarCoerenciaPericial() {
   const q2 = QuesitoService.getAnswer(1);
   const q3 = QuesitoService.getAnswer(2);
   const limitacao = state.limitacaoFuncional || getRadio("limitacaoFuncional") || getRadio("agilLimitacaoFuncional");
+  const isRetroInv = Boolean(
+    state.aux?.retroacaoInvalida
+    || state.retroacaoInvalida
+    || (typeof isTextoJustificativaRetroacao === "function" && isTextoJustificativaRetroacao(state.justificativa || state.aux?.justificativa || $("agilJustificativa")?.value || ""))
+  );
 
   const inconsistencias = [];
 
-  if (parecer === "CONTRÁRIO") {
+  if (parecer === "CONTRÁRIO" && !isRetroInv) {
     if (q3 === "Sim") {
-      inconsistencias.push("🚫 <strong>Contradição Grave:</strong> O <strong>Quesito 3</strong> afirma que a limitação IMPEDE as atividades do rol (<strong>Sim</strong>), mas o parecer pericial está como <strong>CONTRÁRIO</strong>. Atestar impedimento funcional e negar a licença gera vício de nulidade.");
+      inconsistencias.push("🚫 <strong>Contradição Grave:</strong> O <strong>Quesito 3</strong> afirma que a limitação IMPEDE as atividades do rol (<strong>Sim</strong>), mas o parecer pericial está como <strong>CONTRÁRIO</strong> (sem retroação). Atestar impedimento funcional e negar a licença gera vício de nulidade.");
     }
-  } else if (parecer === "FAVORÁVEL") {
+  } else if (parecer === "FAVORÁVEL" || isRetroInv) {
     if (q3 === "Não") {
-      inconsistencias.push("🚫 <strong>Nulidade Técnica:</strong> O <strong>Quesito 3</strong> afirma que a limitação NÃO impede atividades (<strong>Não</strong>), mas o parecer é <strong>FAVORÁVEL</strong>. Sem impedimento funcional, a concessão é tecnicamente nula perante o DPME e e-SISLA.");
+      inconsistencias.push(
+        isRetroInv
+          ? "🚫 <strong>Incoerência em Retroação:</strong> Nos casos de retroação inválida (> 3 dias) com limitação clínica constatada, o <strong>Quesito 3</strong> deve ser <strong>Sim</strong> (impede o exercício das funções), mantendo-se o parecer CONTRÁRIO apenas pelo critério administrativo de prazo."
+          : "🚫 <strong>Nulidade Técnica:</strong> O <strong>Quesito 3</strong> afirma que a limitação NÃO impede atividades (<strong>Não</strong>), mas o parecer é <strong>FAVORÁVEL</strong>. Sem impedimento funcional, a concessão é tecnicamente nula perante o DPME e e-SISLA."
+      );
     }
     if (q1 === "Não") {
-      inconsistencias.push("⚠️ <strong>Divergência:</strong> O <strong>Quesito 1</strong> afirma que NÃO há doença/sequela prévia (<strong>Não</strong>), incompatível com parecer <strong>FAVORÁVEL</strong>.");
+      inconsistencias.push("⚠️ <strong>Divergência:</strong> O <strong>Quesito 1</strong> afirma que NÃO há doença/sequela prévia (<strong>Não</strong>), incompatível com o quadro clínico.");
     }
     if (q2 === "Não") {
-      inconsistencias.push("⚠️ <strong>Divergência:</strong> O <strong>Quesito 2</strong> afirma que a patologia NÃO gera limitações (<strong>Não</strong>), incompatível com parecer <strong>FAVORÁVEL</strong>.");
+      inconsistencias.push("⚠️ <strong>Divergência:</strong> O <strong>Quesito 2</strong> afirma que a patologia NÃO gera limitações (<strong>Não</strong>), incompatível com o quadro clínico.");
     }
     if (limitacao === "Não") {
-      inconsistencias.push("⚠️ <strong>Incoerência:</strong> Campo 'Limitação Funcional' está marcado como <strong>Não</strong>, divergindo do parecer <strong>FAVORÁVEL</strong>.");
+      inconsistencias.push("⚠️ <strong>Incoerência:</strong> Campo 'Limitação Funcional' está marcado como <strong>Não</strong>, divergindo das limitações constatadas.");
     }
   }
 
@@ -14160,11 +14188,11 @@ function verificarCoerenciaPericial() {
   let renderHtml = "";
   if (isError) {
     let botoesAcao = "";
-    if (parecer === "FAVORÁVEL") {
+    if (parecer === "FAVORÁVEL" || isRetroInv) {
       botoesAcao = `
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-          <button type="button" class="btn btn-outline" style="background:#fff;border-color:#F59E0B;color:#B45309;font-weight:700;font-size:11px;padding:4px 10px;cursor:pointer" onclick="aplicarAlinhamentoQuesitos('FAVORAVEL')">⚡ Alinhar Quesitos com Favorável (Sim, Sim, Sim)</button>
-          <button type="button" class="btn btn-outline" style="background:#fff;border-color:#CBD5E1;color:#475569;font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer" onclick="aplicarAlinhamentoParecer('CONTRÁRIO')">⚡ Mudar Parecer para CONTRÁRIO</button>
+          <button type="button" class="btn btn-outline" style="background:#fff;border-color:#F59E0B;color:#B45309;font-weight:700;font-size:11px;padding:4px 10px;cursor:pointer" onclick="aplicarAlinhamentoQuesitos('FAVORAVEL')">⚡ Alinhar Quesitos (Sim, Sim, Sim)</button>
+          ${!isRetroInv ? `<button type="button" class="btn btn-outline" style="background:#fff;border-color:#CBD5E1;color:#475569;font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer" onclick="aplicarAlinhamentoParecer('CONTRÁRIO')">⚡ Mudar Parecer para CONTRÁRIO</button>` : ""}
         </div>
       `;
     } else if (parecer === "CONTRÁRIO") {
@@ -14222,7 +14250,12 @@ function verificarCoerenciaPericial() {
 }
 
 function aplicarAlinhamentoQuesitos(tipo) {
-  if (tipo === "FAVORAVEL") {
+  const isRetroInv = Boolean(
+    state.aux?.retroacaoInvalida
+    || state.retroacaoInvalida
+    || (typeof isTextoJustificativaRetroacao === "function" && isTextoJustificativaRetroacao(state.justificativa || state.aux?.justificativa || $("agilJustificativa")?.value || ""))
+  );
+  if (tipo === "FAVORAVEL" || isRetroInv) {
     QuesitoService.set(0, "Sim");
     QuesitoService.set(1, "Sim");
     QuesitoService.set(2, "Sim");
@@ -14232,7 +14265,7 @@ function aplicarAlinhamentoQuesitos(tipo) {
     setRadio("limitacaoRol", "Sim");
     setRadio("agilLimitacaoFuncional", "Sim");
     setRadio("agilLimitacaoRol", "Sim");
-    toast("Quesitos alinhados para Parecer FAVORÁVEL (Q1: Sim, Q2: Sim, Q3: Sim).");
+    toast("Quesitos alinhados (Q1: Sim, Q2: Sim, Q3: Sim).");
   } else {
     const isReadap = String(state.readaptado || state.aux?.readaptado || (typeof getRadio === 'function' ? (getRadio("readaptado") || getRadio("agilReadaptado")) : "") || "").trim().toLowerCase() === "sim";
     QuesitoService.set(0, "Sim");
@@ -15533,7 +15566,11 @@ function copiarLaudoEsislaAtendimento() {
   const v = values();
 
   // Mapear quesitos e parecer
-  const isRetroInv = Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida);
+  const isRetroInv = Boolean(
+    state.aux?.retroacaoInvalida
+    || state.retroacaoInvalida
+    || (typeof isTextoJustificativaRetroacao === "function" && isTextoJustificativaRetroacao(state.justificativa || state.aux?.justificativa || $("agilJustificativa")?.value || state.fichaEsisla || ""))
+  );
   const parecerCode = ((state.parecer === 'FAVORÁVEL' || state.parecer === 'Favorável') && !isRetroInv) ? 'F' : 'C';
   const isReadap = String(state.readaptado || state.aux?.readaptado || v.readaptado || '').trim().toLowerCase() === 'sim';
   let q1 = 'S';

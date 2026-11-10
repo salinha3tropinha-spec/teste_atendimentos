@@ -2438,17 +2438,25 @@ function renderEsislaBlocos(textoFicha) {
     let crmPerito = (parecerBloco.match(/CRM:\s*([^\n\r]+)/i) || [])[1]?.trim()
         || st.crmResponsavel || aux.crmResponsavel || '';
 
+    let justif = ext(str, '(*)Justificativa Parecer Médico', '(*) Parecer Final');
+    if (!justif) justif = ext(str, '(*)Justificativa Parecer Médico', 'FIM_INEXISTENTE');
+    if (!justif) justif = ext(str, '(*) Justificativa Parecer Final', 'FIM_INEXISTENTE');
+    if (!justif) {
+        justif = st.justificativa || aux.justificativa || st.agilJustificativa || aux.agilJustificativa || '';
+    }
+
     // Quesitos
     const isContra = (parecerTipo || '').toUpperCase().includes('CONTR');
+    const isRetro = Boolean(
+        st.retroacaoInvalida || aux.retroacaoInvalida || st.retroacao_invalida || aux.retroacao_invalida
+        || Number(st.retroacaoDias || aux.retroacaoDias || st.retroacao_dias || aux.retroacao_dias || 0) > 3
+        || /retroa[çc][ãa]o|expedida\s+fora\s+do\s+prazo|emiss[ãa]o\s+(?:tempestiva|extempor[âa]nea)\s+da\s+guia|expedi[çc][ãa]o\s+extempor[âa]nea/i.test(justif + ' ' + str)
+    );
     const isReadap = String(st.readaptado || aux.readaptado || '').trim().toLowerCase() === 'sim'
-        || (str.match(/readaptad[oa]/i) && !str.match(/n[ãa]o\s+readaptad[oa]/i));
+        || (str.match(/readaptad[oa]/i) && !str.match(/n[ãa]o\s+(?:ser\s+|é\s+|est[áa]\s+)?readaptad[oa]/i));
 
     function getQuesitoVal(num, busca) {
-        if (isContra) {
-            if (num === 1) return 'SIM';
-            if (num === 2) return isReadap ? 'SIM' : 'NÃO';
-            if (num === 3) return 'NÃO';
-        }
+        if (isRetro) return 'SIM';
         const qStr = (ext(str, busca, '\n') || ext(str, num + ')', '\n')).toLowerCase();
         if (qStr.includes('sim')) return 'SIM';
         if (qStr.includes('não') || qStr.includes('nao')) return 'NÃO';
@@ -2458,18 +2466,16 @@ function renderEsislaBlocos(textoFicha) {
             if (r === 'sim' || r === 's') return 'SIM';
             if (r === 'não' || r === 'nao' || r === 'n') return 'NÃO';
         }
+        if (isContra) {
+            if (num === 1) return 'SIM';
+            if (num === 2) return isReadap ? 'SIM' : 'NÃO';
+            if (num === 3) return 'NÃO';
+        }
         return 'SIM';
     }
     const q1 = getQuesitoVal(1, '1) Há doença(s)');
     const q2 = getQuesitoVal(2, '2) A(s) doença(s)');
     const q3 = getQuesitoVal(3, '3) A(s) limitação(ões)');
-
-    let justif = ext(str, '(*)Justificativa Parecer Médico', '(*) Parecer Final');
-    if (!justif) justif = ext(str, '(*)Justificativa Parecer Médico', 'FIM_INEXISTENTE');
-    if (!justif) justif = ext(str, '(*) Justificativa Parecer Final', 'FIM_INEXISTENTE');
-    if (!justif) {
-        justif = st.justificativa || aux.justificativa || st.agilJustificativa || aux.agilJustificativa || '';
-    }
 
     const isFavCard = parecerTipo.toUpperCase().includes('FAVOR') || parecerTipo.toUpperCase() === 'F';
     const isAcompCard = (cid && cid.toUpperCase().startsWith('Z76')) || Boolean(st.isAcompanhante || aux.isAcompanhante) || /acompanha/i.test(st.doencaMotivo || aux.doencaMotivo || str);
@@ -3423,15 +3429,16 @@ function gerarJsonEsisla(textoFicha, enc) {
     let dtIni = ext(texto, 'Data Início', 'CID 10') || aux.dataInicio || st.dataInicio || aux.dataDocumento || st.dataDocumento || '';
     dtIni = dtIni.split('\n')[0].trim();
 
+    const isRetroJson = Boolean(
+        st.retroacaoInvalida || aux.retroacaoInvalida || st.retroacao_invalida || aux.retroacao_invalida
+        || Number(st.retroacaoDias || aux.retroacaoDias || st.retroacao_dias || aux.retroacao_dias || 0) > 3
+        || /retroa[çc][ãa]o|expedida\s+fora\s+do\s+prazo|emiss[ãa]o\s+(?:tempestiva|extempor[âa]nea)\s+da\s+guia|expedi[çc][ãa]o\s+extempor[âa]nea/i.test(justif + ' ' + texto)
+    );
     const fl_isReadap = String(st.readaptado || aux.readaptado || '').trim().toLowerCase() === 'sim'
-        || (texto.match(/readaptad[oa]/i) && !texto.match(/n[ãa]o\s+readaptad[oa]/i));
+        || (texto.match(/readaptad[oa]/i) && !texto.match(/n[ãa]o\s+(?:ser\s+|é\s+|est[áa]\s+)?readaptad[oa]/i));
 
     function getQuesitoVal(num, busca) {
-        if (flPfinal === 'C') {
-            if (num === 1) return 'S';
-            if (num === 2) return fl_isReadap ? 'S' : 'N';
-            if (num === 3) return 'N';
-        }
+        if (isRetroJson) return 'S';
         const qStr = (ext(texto, busca, '\n') || ext(texto, num + ')', '\n')).toLowerCase();
         if (qStr.includes('sim')) return 'S';
         if (qStr.includes('não') || qStr.includes('nao')) return 'N';
@@ -3440,6 +3447,11 @@ function gerarJsonEsisla(textoFicha, enc) {
             const r = String(qArr[num - 1].resposta || qArr[num - 1] || '').trim().toLowerCase();
             if (r === 'sim' || r === 's') return 'S';
             if (r === 'não' || r === 'nao' || r === 'n') return 'N';
+        }
+        if (flPfinal === 'C') {
+            if (num === 1) return 'S';
+            if (num === 2) return fl_isReadap ? 'S' : 'N';
+            if (num === 3) return 'N';
         }
         return 'S';
     }
@@ -3488,10 +3500,14 @@ function gerarJsonEsisla(textoFicha, enc) {
         }));
 
     const inconsistenciasJuridicas = [];
-    if (flPfinal === 'F' && fl_imped === 'N') {
-        inconsistenciasJuridicas.push("Parecer FAVORÁVEL com Quesito 3 marcado como NÃO (sem impedimento das funções). A legislação do DPME prevê nulidade da licença.");
+    if ((flPfinal === 'F' || isRetroJson) && fl_imped === 'N') {
+        inconsistenciasJuridicas.push(
+            isRetroJson
+                ? "Atendimento com Retroação Inválida (> 3 dias) e Quesito 3 marcado como NÃO. Nos casos de retroação com limitação constatada, todos os 3 quesitos devem ser SIM."
+                : "Parecer FAVORÁVEL com Quesito 3 marcado como NÃO (sem impedimento das funções). A legislação do DPME prevê nulidade da licença."
+        );
     }
-    if (flPfinal === 'C' && fl_imped === 'S') {
+    if (flPfinal === 'C' && !isRetroJson && fl_imped === 'S') {
         inconsistenciasJuridicas.push("Parecer CONTRÁRIO com Quesito 3 marcado como SIM (afirma impedimento para o cargo). Contradição pericial manifesta.");
     }
 

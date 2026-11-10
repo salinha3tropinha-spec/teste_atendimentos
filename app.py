@@ -1546,7 +1546,7 @@ REGRA CENTRAL — ZERO INFORMAÇÃO NOVA:
   * Exames de imagem/laudos: SEMPRE e exclusivamente em 'Descrição das Alterações Clínicas e Relato dos Exames Complementares:'. Se ausentes, declare expressamente: 'Não foram apresentados exames complementares (imagem ou laboratoriais) no ato pericial.'
   * Exame Físico Geral: SEMPRE com descrição semiológica objetiva e manobras (palpação, amplitude articular em graus, testes radiculares como Lasègue, marcha; ou exame mental estruturado com orientação, afeto, volição e ausência de ideação suicida). Se as anotações do médico forem excessivamente telegráficas, estruture os achados semiológicos formais canônicos para a patologia.
   * Justificativa: SEMPRE fundamentando a incapacidade temporária para o Rol de Atividades do cargo, afastando a glosa de 'concessão plena'.
-  * Quesitos: rigorosamente 1) Sim, 2) Sim, 3) Sim para Favorável; e 3) Não para Contrário.
+  * Quesitos: rigorosamente 1) Sim, 2) Sim, 3) Sim para Favorável OU quando o Parecer Contrário ocorrer por retroação de guia (> 3 dias); e 3) Não para Contrário por capacidade preservada.
 - REGRA TERMINOLÓGICA OBRIGATÓRIA: NUNCA utilize o termo "Paciente" ou "paciente". Utilize SEMPRE "Servidor" ou "Periciado" (ou "servidor" / "periciado", ex.: "Servidor de X anos...", "ao servidor", "o periciado"). O termo "Paciente" é terminantemente proibido em qualquer parte da ficha.
   - CONCORDÂNCIA DE GÊNERO:
     * Se for homem (sexo masculino): utilize SEMPRE "Servidor" ou "Periciado" (ex.: "Servidor de 38 anos...", "ao servidor", "o periciado").
@@ -1592,7 +1592,7 @@ REGRA MANDATÓRIA DE DATAS NO PADRÃO OFICIAL E-SISLA (DD/MM/AAAA):
 1240:    Exemplo 1 (Ortopédico completo):
 1241:    "Servidor de 21 anos, relatou não ser readaptado, é Adm há 22 anos, com queixa de artrose avançada no joelho direito com lesão crônica no menisco desde 2025, realizando consultas mensalmente. Refere dor constante que queima e pontua. Em uso de Tramadol 50 mg se dor intensa até 8/8h e Dipirona 1 g se dor até 6/6h. Não relatou troca de alteração de dosagem da medicação. Realiza fisioterapia três vezes por semana (e não realiza psicoterapia)."
 1242:    Exemplo 2 (Mental / Psiquiátrico com negação de medicações e terapias):
-1243:    "Servidora de 49 anos, relatou não ser readaptada, é Professora de Matemática, vinculada ao Estado desde 1992, lotada na Secretaria da Escola. Relata que, há aproximadamente três anos, recebeu diagnóstico de transtorno depressivo, desencadeado por conflitos interpessoais no ambiente de trabalho, com agravamento progressivo dos sintomas nos últimos meses. Refere episódios de choro espontâneo, irritabilidade/agressividade, compulsão alimentar, fobia social, taquicardia, desânimo para sair de casa, tristeza persistente, insônia, pesadelos, angústia e isolamento social. Informa dificuldade para realizar atividades rotineiras e afazeres domésticos. Informa histórico de internação em hospital psiquiátrico há 1 ano e 6 meses, com alta há 1 ano. Nega ideação suicida no momento. Não relatou troca de alteração de dosagem da medicação. Não alegou fazer fisioterapia e psicoterapia, negou uso de medicações."
+1243:    "Servidora de 49 anos, relatou não ser readaptada, é Professora de Matemática, vinculada ao Estado desde 1992, lotada na Secretaria da Escola. Relata que, há aproximadamente três anos, recebeu diagnóstico de transtorno depressivo, desencadeado por conflitos interpessoais no ambiente de trabalho, com agravamento progressivo dos sintomas nos últimos meses. Refere episódios de choro espontâneo, irritabilidade/aggressividade, compulsão alimentar, fobia social, taquicardia, desânimo para sair de casa, tristeza persistente, insônia, pesadelos, angústia e isolamento social. Informa dificuldade para realizar atividades rotineiras e afazeres domésticos. Informa histórico de internação em hospital psiquiátrico há 1 ano e 6 meses, com alta há 1 ano. Nega ideação suicida no momento. Não relatou troca de alteração de dosagem da medicação. Não alegou fazer fisioterapia e psicoterapia, negou uso de medicações."
 1244:    Exemplo 3 (Medicação sem dosagem informada):
 1245:    "Servidor de 38 anos, relatou não ser readaptado, é Agente Administrativo há 8 anos, com queixa de dor lombar crônica desde 2024, realizando consultas bimestralmente. Refere dores com irradiação para membros inferiores. Em uso de Tramadol 50 mg a cada 8 horas e Dipirona, não informado sua dosagem, para analgesia. Não relatou troca de alteração de dosagem da medicação. Realiza fisioterapia duas vezes por semana (e não realiza psicoterapia)."
 1246:    Exemplo 4 (Acompanhamento de dependente enfermo - CID Z76.3):
@@ -1697,8 +1697,9 @@ OUTROS CAMPOS — TRANSCRIÇÃO FIEL:
   - Médico Perito: médico responsável pelo atendimento
   - CRM: CRM do médico perito responsável
   - Dt/Hr Perícia: data e hora no padrão oficial DD/MM/AAAA HH:MM
-- “(*)Resposta aos quesitos” preenche rigorosamente conforme o parecer e a condição de readaptado:
+- “(*)Resposta aos quesitos” preenche rigorosamente conforme o parecer, retroação e a condição de readaptado:
   - Se Parecer FAVORÁVEL: 1) Sim, 2) Sim, 3) Sim
+  - Se Parecer CONTRÁRIO por retroação de guia (> 3 dias): 1) Sim, 2) Sim, 3) Sim
   - Se Parecer CONTRÁRIO e o colaborador FOR readaptado: 1) Sim, 2) Sim, 3) Não
   - Se Parecer CONTRÁRIO e o colaborador NÃO for readaptado: 1) Sim, 2) Não, 3) Não
 - “Médico Perito” e “CRM” usam somente os dados do profissional responsável já gravados no atendimento.
@@ -1911,6 +1912,15 @@ Você DEVE aplicar com precisão cirúrgica o modelo correspondente à decisão 
 - MODELO G — PARECER CONTRÁRIO POR RETROAÇÃO INVÁLIDA (> 3 DIAS ENTRE ATESTADO E EXPEDIÇÃO DA GUIA):
   * Mantenha TODO o atendimento clínico, o exame físico e as limitações funcionais EXATAMENTE como se fosse FAVORÁVEL (limitacao_funcional: "Sim", limitacao_rol: "Sim", desc_limitacao detalhando as limitações para o cargo, atividades_comprometidas preenchidas, quesitos 1: Sim, 2: Sim, 3: Sim), porém defina parecer: "CONTRÁRIO".
   * justificativa: Redija um TEXTO RESUMIDO, DIRETO E CONCISO em frase única (sem parênteses ()), reconhecendo o quadro clínico de [doenca_motivo] sob CID [cid] com limitações funcionais temporárias para o cargo de [cargo], mas emitindo parecer CONTRÁRIO por estrito critério administrativo e normativo do DPME SP devido à expedição da guia com mais de 3 dias de retroação sem comprovação de internação hospitalar.
+
+- MODELO H — SOBREPOSIÇÃO DE DATAS / PERÍODO CONCOMITANTE COM LICENÇA ANTERIOR:
+  * Quando o texto bruto ou a observação do perito indicar SOBREPOSIÇÃO DE DATAS (atestado atual sobrepondo dias já concedidos em licença anterior):
+    - Se a sobreposição for TOTAL (Parecer CONTRÁRIO): Fundamente na justificativa (sem parênteses ()) que, embora avaliado o quadro de [doenca_motivo] sob CID [cid], emite-se parecer CONTRÁRIO por critério administrativo e normativo do DPME SP em razão de sobreposição integral de datas com período de licença médica anteriormente concedido.
+    - Se a sobreposição for PARCIAL (Parecer FAVORÁVEL com ajuste/redução de dias): Fundamente a incapacidade temporária para o cargo de [cargo] e explicite na justificativa e em obs_documentos o ajuste do período concedido descontando-se os dias de sobreposição com a licença anterior.
+
+- MODELO I — ENCAMINHAMENTO PARA FINS DE JUNTA MÉDICA OFICIAL DPME (READAPTAÇÃO / INCAPACIDADE PROLONGADA / SOMA DE DIAS):
+  * Quando o texto bruto ou a observação do perito mencionar "encaminhamento para Junta Médica", "fins de Junta Médica", "avaliação de readaptação funcional" ou afastamentos sucessivos/prolongados refratários:
+    - Inclua obrigatoriamente no fechamento da justificativa (e em obs_documentos) a indicação formal: "Indica-se encaminhamento para avaliação por Junta Médica Oficial do DPME para definição de conduta pericial especializada e avaliação de capacidade laborativa prolongada."
 
 REGRA TERMINOLÓGICA MANDATÓRIA: NUNCA utilize o termo "Paciente" ou "paciente". Utilize SEMPRE "Servidor", "Servidora" ou "Periciado/Periciada", sem usar barras ou parênteses de gênero como "servidor(a)" ou "periciado(a)".
 """.strip()
@@ -3149,7 +3159,9 @@ def _minimal_ai_context(payload: dict[str, Any]) -> dict[str, Any]:
                 ans = str(item.get("resposta") or "").strip()
             elif isinstance(item, str):
                 ans = item.strip()
-        if not ans and par_up:
+        if is_retro_ctx:
+            ans = "Sim"
+        elif not ans and par_up:
             ans = qdefault
         norm_quesitos.append({"id": qid, "pergunta": qpergunta, "resposta": ans})
 
@@ -3244,7 +3256,7 @@ def _minimal_ai_context(payload: dict[str, Any]) -> dict[str, Any]:
         "crm_cro": payload.get("crm_cro") or payload.get("crmCro") or a.get("crmCro"),
         "data_documento": _format_date_br(payload.get("data_documento") or payload.get("dataDocumento") or a.get("dataDocumento")),
         "data_expedicao": _format_date_br(payload.get("data_expedicao") or a.get("dataExpedicao") or a.get("dataExpedicaoIso")),
-        "retroacao_invalida": bool(payload.get("retroacao_invalida") or a.get("retroacaoInvalida")),
+        "retroacao_invalida": bool(payload.get("retroacao_invalida") or a.get("retroacaoInvalida") or is_retro_ctx),
         "retroacao_dias": payload.get("retroacao_dias") or a.get("retroacaoDias"),
         "observacoes_documentos": obs_docs,
         "documentos_complementares": sanitized_docs,
@@ -3321,11 +3333,12 @@ def _minimal_ai_context(payload: dict[str, Any]) -> dict[str, Any]:
         ),
         "alteracoes_clinicas_exames": alt_exames,
         "exame": payload.get("exame") or {},
-        "limitacao_funcional": payload.get("limitacao_funcional") or payload.get("limitacaoFuncional"),
-        "limitacao_rol": payload.get("limitacao_rol") or payload.get("limitacaoRol"),
+        "limitacao_funcional": "Sim" if is_retro_ctx else (payload.get("limitacao_funcional") or payload.get("limitacaoFuncional")),
+        "limitacao_rol": "Sim" if is_retro_ctx else (payload.get("limitacao_rol") or payload.get("limitacaoRol")),
         "desc_limitacao": (
             _resolve_favorable_limitation(payload, str(payload.get("cargo") or a.get("cargo") or "servidor").strip())
-            if (str(payload.get("parecer") or a.get("parecer") or "").strip().upper() in ("F", "FAVORÁVEL", "FAVORAVEL")
+            if (is_retro_ctx
+                or str(payload.get("parecer") or a.get("parecer") or "").strip().upper() in ("F", "FAVORÁVEL", "FAVORAVEL")
                 or str(payload.get("parecer") or a.get("parecer") or "").strip().upper().startswith("FAV"))
                and (not str(payload.get("desc_limitacao") or payload.get("descLimitacao") or a.get("desc_limitacao") or a.get("descLimitacao") or "").strip()
                     or _is_contrary_limitation_text(str(payload.get("desc_limitacao") or payload.get("descLimitacao") or a.get("desc_limitacao") or a.get("descLimitacao") or "").strip()))
@@ -3339,7 +3352,7 @@ def _minimal_ai_context(payload: dict[str, Any]) -> dict[str, Any]:
         ),
         "atividades_comprometidas": payload.get("atividades_comprometidas") or a.get("atividadesComprometidas"),
         "obs_limitacoes": payload.get("obs_limitacoes") or a.get("obsLimitacoes"),
-        "capacidade": payload.get("capacidade"),
+        "capacidade": "Capacidade parcial e temporariamente prejudicada" if is_retro_ctx else payload.get("capacidade"),
         "parecer": payload.get("parecer") or a.get("parecer") or "",
         "justificativa": (
             payload.get("justificativa")
@@ -8541,6 +8554,46 @@ def api_ai_preencher_ficha():
                             )
                         elif obs_clean_low and obs_clean_low.lower() not in just_low:
                             result.justificativa = just_curr.rstrip(". ") + f", corroborado pela constatação pericial de {obs_clean_low}."
+
+            # Tratamento Sênior determinístico para Sobreposição de Datas e Encaminhamento para Junta Médica Oficial DPME
+            combined_ctx_txt = f"{texto_bruto}\n{user_obs}".lower()
+            has_sobreposicao = bool(
+                re.search(
+                    r"\b(?:sobreposi[çc][ãa]o\s+de\s+(?:data|per[íi]odo|licen[çc]a|atestado)|datas?\s+sobrepost[oa]s?|concomit[âa]ncia\s+de\s+(?:licen[çc]a|per[íi]odo|atestado)|per[íi]odo\s+j[áa]\s+(?:coberto|concedido))\b",
+                    combined_ctx_txt,
+                    re.I,
+                )
+            )
+            has_junta_medica = bool(
+                re.search(
+                    r"\b(?:junta\s+m[ée]dica|fins\s+de\s+junta|encaminhar?\s+(?:para\s+)?junta|avalia[çc][ãa]o\s+por\s+junta)\b",
+                    combined_ctx_txt,
+                    re.I,
+                )
+            )
+
+            if has_sobreposicao and result.justificativa:
+                j_low_sob = result.justificativa.lower()
+                if "sobreposição" not in j_low_sob and "sobreposicao" not in j_low_sob and "concomit" not in j_low_sob:
+                    if (result.parecer or "").strip().upper() == "CONTRÁRIO" and not retro_invalida:
+                        cid_cl_s = f" sob CID {cid_label}" if cid_label and cid_label.lower() not in mot_desc.lower() else ""
+                        result.justificativa = (
+                            f"Embora avaliado o quadro clínico de {mot_desc}{cid_cl_s} para o cargo de {cargo_label}, "
+                            f"constata-se sobreposição de datas do atestado apresentado com período de licença médica anteriormente concedido, "
+                            f"ensejando parecer CONTRÁRIO por estrito critério administrativo e normativo do DPME SP."
+                        )
+                    else:
+                        result.justificativa = (
+                            result.justificativa.rstrip(". ")
+                            + ", com ajuste do período concedido descontando-se os dias de sobreposição de datas com licença médica anterior."
+                        )
+
+            if has_junta_medica and result.justificativa:
+                if "junta médica" not in result.justificativa.lower() and "junta medica" not in result.justificativa.lower():
+                    result.justificativa = (
+                        result.justificativa.rstrip(". ")
+                        + ". Indica-se encaminhamento para avaliação por Junta Médica Oficial do DPME para definição de conduta pericial especializada e avaliação de capacidade laborativa prolongada."
+                    )
 
             if result.justificativa:
                 result.justificativa = _clean_justificativa_text(result.justificativa)
