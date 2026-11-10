@@ -2354,14 +2354,26 @@ function renderEsislaBlocos(textoFicha) {
     let altura = ext(str, 'Altura', 'Peso') || st.altura || aux.altura || st.agilAltura || aux.agilAltura || st.biotipoAltura || aux.biotipoAltura || '';
     let peso = ext(str, 'Peso', '(*)Exame') || ext(str, 'Peso', 'Descrição') || st.peso || aux.peso || st.agilPeso || aux.agilPeso || st.biotipoPeso || aux.biotipoPeso || '';
 
-    let altFormat = altura;
-    if (altFormat) {
-        let s = String(altFormat).trim().replace(/[^\d,\.]/g, '');
-        if (s.includes('.')) s = s.replace('.', ',');
-        else if (!s.includes(',') && s.length >= 3) s = s.slice(0, 1) + ',' + s.slice(1, 3);
-        altFormat = s;
+    let altFormat = '00';
+    if (altura) {
+        let s = String(altura).trim().replace(/[^\d,\.]/g, '');
+        if (s && s !== '0' && s !== '00') {
+            if (s.includes('.')) s = s.replace('.', ',');
+            else if (!s.includes(',') && s.length >= 3) s = s.slice(0, 1) + ',' + s.slice(1, 3);
+            altFormat = s;
+        }
     }
-    const pesoDigits = String(peso || '').replace(/\D/g, '').slice(0, 3);
+    let pesoDigits = '00';
+    if (peso) {
+        let pStr = String(peso).trim().replace(',', '.');
+        let fPeso = parseFloat(pStr);
+        if (!isNaN(fPeso) && fPeso > 0) {
+            if (fPeso >= 300 && fPeso <= 2500) fPeso = fPeso / 10.0;
+            if (fPeso <= 250) {
+                pesoDigits = fPeso % 1 === 0 ? String(Math.round(fPeso)) : String(fPeso.toFixed(1)).replace('.', ',');
+            }
+        }
+    }
 
     // Exame Físico Geral e Tipo/Checkbox — No e-SISLA corresponde exatamente ao exame clínico pericial
     const docExameFisico = (st.exameFisicoDescricao || aux.exameFisicoDescricao || st.agilExameFisicoDescricao || aux.agilExameFisicoDescricao || '').trim();
@@ -2809,7 +2821,7 @@ function renderEsislaBlocos(textoFicha) {
         : (isContra ? '<span style="display:inline-block;padding:4px 12px;border-radius:6px;background:#FDE8E8;color:#9B1C1C;font-weight:800;font-size:12px;border:1px solid #FBD5D5">CONTRÁRIO</span>' 
                     : escTxt(parecerTipo));
 
-    const resumoVitais = `Pressão: ${paSis || '—'}/${paDia || '—'} mmHg | Pulso: ${pulso || '—'} bpm | Altura: ${altFormat || '—'} m | Peso: ${pesoDigits || '—'} kg`;
+    const resumoVitais = `Pressão: ${paSis || '—'}/${paDia || '—'} mmHg | Pulso: ${pulso || '—'} bpm | Altura: ${altFormat && altFormat !== '00' ? altFormat + ' m' : '00'} | Peso: ${pesoDigits && pesoDigits !== '00' ? pesoDigits + ' kg' : '00'}`;
     const resumoParecer = `Parecer: ${parecerTipo || '—'} | Dias: ${dias || '0'} | Início: ${dtIni || '—'} | CID 10: ${cid || '—'}${cidDesc ? ' (' + cidDesc + ')' : ''}${medPerito ? ' | Perito: ' + medPerito : ''}`;
     const resumoQuesitos = `1) Doença: ${q1} | 2) Limitação: ${q2} | 3) Impede função: ${q3}`;
 
@@ -2886,11 +2898,11 @@ function renderEsislaBlocos(textoFicha) {
                 </div>
                 <div class="esisla-vital-card">
                     <span class="esisla-vital-label">Altura</span>
-                    <strong style="font-size:13.5px;color:#0F172A">${altFormat ? altFormat + ' m' : '<span style="color:#94A3B8;font-weight:normal">Não inf.</span>'}</strong>
+                    <strong style="font-size:13.5px;color:#0F172A">${altFormat && altFormat !== '00' ? altFormat + ' m' : '00'}</strong>
                 </div>
                 <div class="esisla-vital-card">
                     <span class="esisla-vital-label">Peso</span>
-                    <strong style="font-size:13.5px;color:#0F172A">${pesoDigits ? pesoDigits + ' kg' : '<span style="color:#94A3B8;font-weight:normal">Não inf.</span>'}</strong>
+                    <strong style="font-size:13.5px;color:#0F172A">${pesoDigits && pesoDigits !== '00' ? pesoDigits + ' kg' : '00'}</strong>
                 </div>
             </div>
         </div>
@@ -3617,14 +3629,26 @@ function gerarJsonEsisla(textoFicha, enc) {
         : null;
 
     const crmDigits = String(crm || '').replace(/\D/g, '').slice(0, 9);
-    let altFormat = altura;
-    if (altFormat) {
-        let s = String(altFormat).trim().replace(/[^\d,\.]/g, '');
-        if (s.includes('.')) s = s.replace('.', ',');
-        else if (!s.includes(',') && s.length >= 3) s = s.slice(0, 1) + ',' + s.slice(1, 3);
-        altFormat = s.slice(0, 4);
+    let altFormat = '00';
+    if (altura) {
+        let s = String(altura).trim().replace(/[^\d,\.]/g, '');
+        if (s && s !== '0' && s !== '00') {
+            if (s.includes('.')) s = s.replace('.', ',');
+            else if (!s.includes(',') && s.length >= 3) s = s.slice(0, 1) + ',' + s.slice(1, 3);
+            altFormat = s.slice(0, 4);
+        }
     }
-    const pesoDigits = String(peso || '').replace(/\D/g, '').slice(0, 3);
+    let pesoDigits = '00';
+    if (peso) {
+        let pStr = String(peso).trim().replace(',', '.');
+        let fPeso = parseFloat(pStr);
+        if (!isNaN(fPeso) && fPeso > 0) {
+            if (fPeso >= 300 && fPeso <= 2500) fPeso = fPeso / 10.0;
+            if (fPeso <= 250) {
+                pesoDigits = fPeso % 1 === 0 ? String(Math.round(fPeso)) : String(fPeso.toFixed(1)).replace('.', ',');
+            }
+        }
+    }
 
     const camposEsisla = {
         'voMedico.parRlCat': cat,
@@ -3635,13 +3659,13 @@ function gerarJsonEsisla(textoFicha, enc) {
         'voMedico.lgPressArterialMax': paSis,
         'voMedico.lgPressArterialMin': paDia,
         'voMedico.lgPulsacao': pulso,
-        'voMedico.lgAltura': altFormat,
-        'voMedico.lgPeso': pesoDigits,
+        'voMedico.lgAltura': altFormat || '00',
+        'voMedico.lgPeso': pesoDigits || '00',
         'lgPressArterialMax': paSis,
         'lgPressArterialMin': paDia,
         'lgPulsacao': pulso,
-        'lgAltura': altFormat,
-        'lgPeso': pesoDigits,
+        'lgAltura': altFormat || '00',
+        'lgPeso': pesoDigits || '00',
         'voMedico.parEdtcspf': cb['voMedico.parEdtcspf'] ? 'X' : '',
         'voMedico.parEdAc': cb['voMedico.parEdAc'] ? 'X' : '',
         'voMedico.parEdAr': cb['voMedico.parEdAr'] ? 'X' : '',
@@ -3845,21 +3869,31 @@ function gerarScriptAutoPreenchimentoEsisla(payloadObj) {
     setInput('input[name="lgPulsacao"]', pul);
     setInput('#pulsoPressao', pul);
     
-    // 6. Biotipo (Altura formatada com vírgula, peso, IMC)
+    // 6. Biotipo (Altura formatada com vírgula, peso, IMC - estritamente '00' quando não medidos)
     var alt = campos['voMedico.lgAltura'] || campos['lgAltura'] || '';
-    if (alt) {
+    if (alt && alt !== '00' && alt !== '0') {
       alt = String(alt).trim().replace(/[^\\d,\\.]/g, '');
       if (alt.includes('.')) alt = alt.replace('.', ',');
       else if (!alt.includes(',') && alt.length >= 3) alt = alt.slice(0, 1) + ',' + alt.slice(1, 3);
       alt = alt.slice(0, 4);
+    } else {
+      alt = '00';
     }
-    var peso = (campos['voMedico.lgPeso'] || campos['lgPeso'] || '').toString().replace(/\\D/g, '').slice(0, 3);
-    setInput('input[name="voMedico.lgAltura"]', alt);
-    setInput('input[name="lgAltura"]', alt);
-    setInput('#alturaBiotipo', alt);
-    setInput('input[name="voMedico.lgPeso"]', peso);
-    setInput('input[name="lgPeso"]', peso);
-    setInput('#pesoBiotipo', peso);
+    var pesoRaw = (campos['voMedico.lgPeso'] || campos['lgPeso'] || '').toString().trim();
+    var peso = '00';
+    if (pesoRaw && pesoRaw !== '00' && pesoRaw !== '0') {
+      var fP = parseFloat(pesoRaw.replace(',', '.'));
+      if (!isNaN(fP) && fP > 0) {
+        if (fP >= 300 && fP <= 2500) fP = fP / 10;
+        if (fP <= 250) peso = String(Math.round(fP));
+      }
+    }
+    setInput('input[name="voMedico.lgAltura"]', alt || '00');
+    setInput('input[name="lgAltura"]', alt || '00');
+    setInput('#alturaBiotipo', alt || '00');
+    setInput('input[name="voMedico.lgPeso"]', peso || '00');
+    setInput('input[name="lgPeso"]', peso || '00');
+    setInput('#pesoBiotipo', peso || '00');
     if (typeof win.TextoIMC === 'function') {
       try { win.TextoIMC(); } catch(_) {}
     }
@@ -5238,10 +5272,12 @@ function gerarCodigoBookmarkletEsislaUniversal() {
     setInput('input[name="voMedico.lgPressArterialMin"]',dia);setInput('input[name="lgPressArterialMin"]',dia);setInput('#diastolicaPressao',dia);
     setInput('input[name="voMedico.lgPulsacao"]',pul);setInput('input[name="lgPulsacao"]',pul);setInput('#pulsoPressao',pul);
     var alt=campos['voMedico.lgAltura']||campos['lgAltura']||'';
-    if(alt){alt=String(alt).trim().replace(/[^\\d,\\.]/g,'');if(alt.includes('.'))alt=alt.replace('.',',');else if(!alt.includes(',')&&alt.length>=3)alt=alt.slice(0,1)+','+alt.slice(1,3);alt=alt.slice(0,4);}
-    var peso=(campos['voMedico.lgPeso']||campos['lgPeso']||'').toString().replace(/\\D/g,'').slice(0,3);
-    setInput('input[name="voMedico.lgAltura"]',alt);setInput('input[name="lgAltura"]',alt);setInput('#alturaBiotipo',alt);
-    setInput('input[name="voMedico.lgPeso"]',peso);setInput('input[name="lgPeso"]',peso);setInput('#pesoBiotipo',peso);
+    if(alt&&alt!=='00'&&alt!=='0'){alt=String(alt).trim().replace(/[^\\d,\\.]/g,'');if(alt.includes('.'))alt=alt.replace('.',',');else if(!alt.includes(',')&&alt.length>=3)alt=alt.slice(0,1)+','+alt.slice(1,3);alt=alt.slice(0,4);}else{alt='00';}
+    var pesoRaw=(campos['voMedico.lgPeso']||campos['lgPeso']||'').toString().trim();
+    var peso='00';
+    if(pesoRaw&&pesoRaw!=='00'&&pesoRaw!=='0'){var fP=parseFloat(pesoRaw.replace(',','.'));if(!isNaN(fP)&&fP>0){if(fP>=300&&fP<=2500)fP=fP/10;if(fP<=250)peso=String(Math.round(fP));}}
+    setInput('input[name="voMedico.lgAltura"]',alt||'00');setInput('input[name="lgAltura"]',alt||'00');setInput('#alturaBiotipo',alt||'00');
+    setInput('input[name="voMedico.lgPeso"]',peso||'00');setInput('input[name="lgPeso"]',peso||'00');setInput('#pesoBiotipo',peso||'00');
     if(typeof win.TextoIMC==='function'){try{win.TextoIMC();}catch(_){}}
     var cbs=[{n:'voMedico.parEdtcspf',id:'idParEdtcspf'},{n:'voMedico.parEdAc',id:'idParEdAc'},{n:'voMedico.parEdAr',id:'idParEdAr'},{n:'voMedico.parEdAHp',id:'idParEdAHp'},{n:'voMedico.parEdAd',id:'idParEdAd'},{n:'voMedico.parEdAgu',id:'idParEdAgu'},{n:'voMedico.parEdAoal',id:'idParEdAoal'},{n:'voMedico.parEdAe',id:'idParEdAe'},{n:'voMedico.parEdSn',id:'idParEdSn'},{n:'voMedico.parEdOs',id:'idParEdOs'},{n:'voMedico.parEdEm',id:'idParEdEm'},{n:'voMedico.parEdOutro',id:'idParEdOutro'}];
     var temAlgum=false;cbs.forEach(function(item){var chk=!!(campos[item.n]||campos[item.id]);setCheckbox(item.n,item.id,chk);if(chk){temAlgum=true;}});

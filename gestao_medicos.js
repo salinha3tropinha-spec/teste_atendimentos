@@ -555,14 +555,33 @@
     const paDia = (str.match(/Diast[óo]lica(?:\s*\(mmHg\))?[:\s]*(\d+)/i) || [])[1] || p.pressaoDiastolica || a.pressaoDiastolica || '';
     const pulso = (str.match(/Pulso(?:\s*\(bpm\))?[:\s]*(\d+)/i) || [])[1] || p.pulso || a.pulso || '';
     const altRaw = (str.match(/Altura[:\s]*([\d,\.]+)/i) || [])[1] || p.altura || a.altura || '';
-    const pesoRaw = (str.match(/Peso[:\s]*(\d+)/i) || [])[1] || p.peso || a.peso || '';
+    const pesoRaw = (str.match(/Peso[:\s]*([\d,\.]+)/i) || [])[1] || p.peso || a.peso || '';
+    let altDisplay = '00';
+    if (altRaw && altRaw !== '0' && altRaw !== '00') {
+      let s = String(altRaw).trim().replace(/[^\d,\.]/g, '');
+      if (s && s !== '0' && s !== '00') {
+        if (s.includes('.')) s = s.replace('.', ',');
+        else if (!s.includes(',') && s.length >= 3) s = s.slice(0, 1) + ',' + s.slice(1, 3);
+        altDisplay = s + ' m';
+      }
+    }
+    let pesoDisplay = '00';
+    if (pesoRaw && pesoRaw !== '0' && pesoRaw !== '00') {
+      let fP = parseFloat(String(pesoRaw).replace(',', '.'));
+      if (!isNaN(fP) && fP > 0) {
+        if (fP >= 300 && fP <= 2500) fP = fP / 10.0;
+        if (fP <= 250) {
+          pesoDisplay = (fP % 1 === 0 ? String(Math.round(fP)) : String(fP.toFixed(1)).replace('.', ',')) + ' kg';
+        }
+      }
+    }
     let biometria = '';
     if (paSis || paDia || pulso || altRaw || pesoRaw) {
       const parts = [];
       if (paSis || paDia) parts.push(`Pressão Arterial: ${paSis || '—'}/${paDia || '—'} mmHg`);
       if (pulso) parts.push(`Pulso: ${pulso} bpm`);
-      if (altRaw) parts.push(`Altura: ${altRaw} m`);
-      if (pesoRaw) parts.push(`Peso: ${pesoRaw} kg`);
+      parts.push(`Altura: ${altDisplay}`);
+      parts.push(`Peso: ${pesoDisplay}`);
       biometria = parts.join('  ·  ');
     }
 
@@ -1096,13 +1115,26 @@
     const paDia = (str.match(/Diast[óo]lica(?:\s*\(mmHg\))?[:\s]*(\d+)/i) || [])[1] || p.pressaoDiastolica || a.pressaoDiastolica || '';
     const pulso = (str.match(/Pulso(?:\s*\(bpm\))?[:\s]*(\d+)/i) || [])[1] || p.pulso || a.pulso || '';
     const altRaw = (str.match(/Altura[:\s]*([\d,\.]+)/i) || [])[1] || p.altura || a.altura || '';
-    let altFormat = String(altRaw || '').trim().replace(/[^\d,\.]/g, '');
-    if (altFormat) {
-      if (altFormat.includes('.')) altFormat = altFormat.replace('.', ',');
-      else if (!altFormat.includes(',') && altFormat.length >= 3) altFormat = altFormat.slice(0, 1) + ',' + altFormat.slice(1, 3);
-      altFormat = altFormat.slice(0, 4);
+    let altFormat = '00';
+    if (altRaw && altRaw !== '0' && altRaw !== '00') {
+      let s = String(altRaw).trim().replace(/[^\d,\.]/g, '');
+      if (s && s !== '0' && s !== '00') {
+        if (s.includes('.')) s = s.replace('.', ',');
+        else if (!s.includes(',') && s.length >= 3) s = s.slice(0, 1) + ',' + s.slice(1, 3);
+        altFormat = s.slice(0, 4);
+      }
     }
-    const pesoRaw = String((str.match(/Peso[:\s]*(\d+)/i) || [])[1] || p.peso || a.peso || '').replace(/\D/g, '').slice(0, 3);
+    const pesoRaw = (str.match(/Peso[:\s]*([\d,\.]+)/i) || [])[1] || p.peso || a.peso || '';
+    let pesoDigits = '00';
+    if (pesoRaw && pesoRaw !== '0' && pesoRaw !== '00') {
+      let fP = parseFloat(String(pesoRaw).replace(',', '.'));
+      if (!isNaN(fP) && fP > 0) {
+        if (fP >= 300 && fP <= 2500) fP = fP / 10.0;
+        if (fP <= 250) {
+          pesoDigits = fP % 1 === 0 ? String(Math.round(fP)) : String(fP.toFixed(1)).replace('.', ',');
+        }
+      }
+    }
 
     const sistemaEscolhido = (typeof window !== 'undefined' && window.EsislaCore && typeof window.EsislaCore.detectarSistemaExameFisico === 'function')
       ? window.EsislaCore.detectarSistemaExameFisico(p, a, str, cid1)
@@ -1154,8 +1186,8 @@
       'voMedico.lgPressArterialMax': paSis,
       'voMedico.lgPressArterialMin': paDia,
       'voMedico.lgPulsacao': pulso,
-      'voMedico.lgAltura': altFormat,
-      'voMedico.lgPeso': pesoRaw,
+      'voMedico.lgAltura': altFormat || '00',
+      'voMedico.lgPeso': pesoDigits || '00',
       ...cb
     };
 

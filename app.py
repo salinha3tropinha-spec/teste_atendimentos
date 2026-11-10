@@ -1532,7 +1532,7 @@ OBJETIVO: organizar e REESCREVER, de forma clínica, objetiva e natural, somente
 
 REGRA CENTRAL — ZERO INFORMAÇÃO NOVA:
 - NÃO invente, complete, suponha, interprete ou deduza informações ausentes.
-- NÃO crie sinais vitais (pressao_sistolica, pressao_diastolica, pulso, altura, peso). Se não estiverem registrados nos dados fornecidos, DEIXE O VALOR EM BRANCO. Quando altura e peso constarem nos dados fornecidos (altura, peso), preencha OBRIGATORIAMENTE os campos 'Altura: [altura]' e 'Peso: [peso]'.
+- NÃO crie sinais vitais (pressao_sistolica, pressao_diastolica, pulso, altura, peso). Se altura e peso não estiverem expressamente registrados nos dados fornecidos, PREENCHA OBRIGATORIAMENTE 'Altura: 00' e 'Peso: 00'. NUNCA invente valores de altura ou peso. Quando constarem com medição real nos dados fornecidos, preencha 'Altura: [altura]' e 'Peso: [peso]'.
 - É permitido condensar, reorganizar e reescrever informações já fornecidas para evitar fragmentação e alcançar a excelência pericial.
 - É proibido inferir diagnóstico, gravidade, causalidade, incapacidade, prognóstico, nexo, sintomas, achados, tratamentos, limitações ou resultados.
 - Não use conhecimento médico externo para preencher lacunas.
@@ -1870,8 +1870,8 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO POR SEÇÃO:
   * Se Exame ALTERADO com Parecer CONTRÁRIO: Descreva fielmente as alterações clínicas/físicas ou psíquicas constatadas pelo médico no exame pericial (ex.: dor discreta à palpação, contratura muscular leve residual, restrição leve em extremo de arco de movimento, cicatriz operatória ou ansiedade leve reativa), MAS demonstre tecnicamente na propedêutica os parâmetros objetivos de estabilidade funcional preservada (ex.: marcha independente sem claudicação, força motora grau V preservada, ausência de déficit neurológico focal ou radiculopatia ativa, ou funções cognitivas, juízo crítico, orientação e pragmatismo preservados).
   * Se Exame NORMAL (com Parecer CONTRÁRIO ou com Parecer FAVORÁVEL Retrospectivo): Descreva a propedêutica completa do segmento avaliado demonstrando parâmetros objetivos dentro da normalidade e estabilidade clínica no momento do exame (sem usar frase genérica de 1 linha).
   * Se Exame DOCUMENTAL: Registre a avaliação fundamentada na análise técnica da documentação médica comprobatória, exames e relatórios assistenciais vinculados ao quadro clínico.
-- alteracoes_clinicas_exames: Se o texto bruto mencionar exames complementares apresentados (ressonância, ultrassonografia, radiografia, tomografia, exames laboratoriais), redija o relato técnico dos achados; caso não tenham sido apresentados exames complementares, registre: "Não foram apresentados exames complementares (imagem ou laboratoriais) no ato pericial.".
-- pressao_sistolica, pressao_diastolica, pulso, altura, peso: Apenas dígitos numéricos (altura em metros com ponto, ex.: "1.65").
+- pressao_sistolica, pressao_diastolica, pulso: Apenas dígitos numéricos.
+- altura, peso: Se não forem expressamente informados pelo médico nas anotações, retorne OBRIGATORIAMENTE "00" em ambos. NUNCA invente altura nem peso. Se informados, use apenas os valores reais (altura em metros com ponto, ex.: "1.65", peso em kg, ex.: "72").
 
 5. MODELOS SÊNIOR DE DECISÃO PERICIAL (LIMITAÇÕES, ROL E JUSTIFICATIVA DO PARECER):
 Você DEVE aplicar com precisão cirúrgica o modelo correspondente à decisão do médico perito, dando máxima ênfase às observações do médico (`observacoesMedico`), ao quadro clínico (`doenca_motivo`, `CID`) e às demandas reais do cargo (`cargo`), SEM utilizar parênteses () na justificativa:
@@ -2518,24 +2518,33 @@ def _normalizar_sinais_vitais_biometria(pa_sist: Any, pa_diast: Any, pulso: Any,
     diast_val = str(pa_diast or "").strip()
     pulso_val = str(pulso or "").strip()
 
-    if alt_val:
+    if not alt_val or alt_val.lower() in ("0", "00", "0,0", "0.0", "—", "-", "null", "none", "não inf.", "não informado", "nao informado"):
+        alt_val = "00"
+    else:
         try:
             f_alt = float(alt_val.replace(",", ".").strip())
             if 100 <= f_alt <= 250:
                 alt_val = f"{f_alt / 100.0:.2f}"
             elif 1.0 <= f_alt <= 2.5:
                 alt_val = f"{f_alt:.2f}"
+            else:
+                alt_val = "00"
         except ValueError:
-            pass
+            alt_val = "00"
 
-    if peso_val:
+    if not peso_val or peso_val.lower() in ("0", "00", "0,0", "0.0", "—", "-", "null", "none", "não inf.", "não informado", "nao informado"):
+        peso_val = "00"
+    else:
         try:
             f_peso = float(peso_val.replace(",", ".").strip())
             if 300 <= f_peso <= 2500:
                 f_peso = f_peso / 10.0
-            peso_val = f"{f_peso:.1f}" if f_peso % 1 != 0 else str(int(f_peso))
+            if f_peso <= 0 or f_peso > 250:
+                peso_val = "00"
+            else:
+                peso_val = f"{f_peso:.1f}" if f_peso % 1 != 0 else str(int(f_peso))
         except ValueError:
-            pass
+            peso_val = "00"
 
     if sist_val:
         sist_digits = re.sub(r"\D", "", sist_val)[:3]
@@ -6071,32 +6080,24 @@ def api_ai_esisla():
 
             ficha_text = _clean_esisla_text(ficha_raw)
             # Vitals e Biometria
-            alt_val = str(payload.get("altura") or "").strip()
-            peso_val = str(payload.get("peso") or "").strip()
-            pa_sist = str(payload.get("pressao_sistolica") or "").strip()
-            pa_diast = str(payload.get("pressao_diastolica") or "").strip()
-            pulso_val = str(payload.get("pulso") or "").strip()
+            pa_sist, pa_diast, pulso_val, alt_val, peso_val = _normalizar_sinais_vitais_biometria(
+                payload.get("pressao_sistolica"),
+                payload.get("pressao_diastolica"),
+                payload.get("pulso"),
+                payload.get("altura"),
+                payload.get("peso")
+            )
 
-            if alt_val:
-                try:
-                    f_alt = float(alt_val.replace(",", ".").strip())
-                    if 100 <= f_alt <= 250:
-                        alt_val = f"{f_alt / 100.0:.2f}"
-                except ValueError:
-                    pass
-                if re.search(r"^Altura:[ \t]*[^\r\n]*$", ficha_text, re.MULTILINE):
-                    ficha_text = re.sub(r"^(Altura:[ \t]*)[^\r\n]*$", f"Altura: {alt_val}", ficha_text, flags=re.MULTILINE)
+            # Altura e Peso: sempre presentes; se não identificados, estritamente "00"
+            if re.search(r"^Altura:[ \t]*[^\r\n]*$", ficha_text, re.MULTILINE):
+                ficha_text = re.sub(r"^(Altura:[ \t]*)[^\r\n]*$", f"Altura: {alt_val}", ficha_text, flags=re.MULTILINE)
+            elif "Altura:" in ficha_text:
+                ficha_text = re.sub(r"Altura:[ \t]*[^\r\n]*", f"Altura: {alt_val}", ficha_text, count=1)
 
-            if peso_val:
-                try:
-                    f_peso = float(peso_val.replace(",", ".").strip())
-                    if 300 <= f_peso <= 2500:
-                        f_peso = f_peso / 10.0
-                        peso_val = f"{f_peso:.1f}" if f_peso % 1 != 0 else str(int(f_peso))
-                except ValueError:
-                    pass
-                if re.search(r"^Peso:[ \t]*[^\r\n]*$", ficha_text, re.MULTILINE):
-                    ficha_text = re.sub(r"^(Peso:[ \t]*)[^\r\n]*$", f"Peso: {peso_val}", ficha_text, flags=re.MULTILINE)
+            if re.search(r"^Peso:[ \t]*[^\r\n]*$", ficha_text, re.MULTILINE):
+                ficha_text = re.sub(r"^(Peso:[ \t]*)[^\r\n]*$", f"Peso: {peso_val}", ficha_text, flags=re.MULTILINE)
+            elif "Peso:" in ficha_text:
+                ficha_text = re.sub(r"Peso:[ \t]*[^\r\n]*", f"Peso: {peso_val}", ficha_text, count=1)
 
             if pa_sist:
                 pa_sist_digits = re.sub(r"\D", "", pa_sist)[:3]
@@ -8105,21 +8106,46 @@ def api_ai_preencher_ficha():
                 m_p = re.search(r'\b([4-9]\d|1\d{2})\b', str(result.pulso or ""))
                 result.pulso = m_p.group(1) if m_p else "80"
 
-            # 3. Altura
+            # 3. Altura (se não identificada no texto ou contexto, OBRIGATORIAMENTE "00")
             m_alt = re.search(r'\b(?:Altura|Alt)[:\s]*(\d[,\.]\d{1,2})\s*(?:m|metros)?\b', texto_bruto, re.IGNORECASE) or re.search(r'\b(\d[,\.]\d{2})\s*m\b', texto_bruto, re.IGNORECASE)
             if m_alt:
                 result.altura = m_alt.group(1).replace(",", ".")
-            elif result.altura:
+            elif result.altura and str(result.altura).strip() not in ("00", "0", ""):
                 m_a = re.search(r'\d[,\.]\d{1,2}', str(result.altura))
-                result.altura = m_a.group(0).replace(",", ".") if m_a else ""
+                cand_alt = m_a.group(0).replace(",", ".") if m_a else ""
+                cand_digs = cand_alt.replace(".", "").replace(",", "")
+                if cand_alt and (cand_alt in texto_bruto or cand_digs in texto_bruto or str(ctx_atual.get("altura") or "") == cand_alt):
+                    result.altura = cand_alt
+                else:
+                    result.altura = "00"
+            else:
+                result.altura = "00"
 
-            # 4. Peso
+            # 4. Peso (se não identificado no texto ou contexto, OBRIGATORIAMENTE "00"; corrige anomalia 75.0 -> 750)
             m_peso = re.search(r'\b(?:Peso)[:\s]*(\d{2,3}(?:[,\.]\d{1,2})?)\s*(?:kg|quilos)?\b', texto_bruto, re.IGNORECASE) or re.search(r'\b(\d{2,3}(?:[,\.]\d{1,2})?)\s*kg\b', texto_bruto, re.IGNORECASE)
             if m_peso:
-                result.peso = m_peso.group(1).replace(",", ".")
-            elif result.peso:
+                val_p = m_peso.group(1).replace(",", ".")
+                try:
+                    f_p = float(val_p)
+                    if 300 <= f_p <= 2500: f_p = f_p / 10.0
+                    result.peso = f"{f_p:.1f}" if f_p % 1 != 0 else str(int(f_p))
+                except ValueError:
+                    result.peso = val_p
+            elif result.peso and str(result.peso).strip() not in ("00", "0", ""):
                 m_w = re.search(r'\d{2,3}(?:[,\.]\d{1,2})?', str(result.peso))
-                result.peso = m_w.group(0).replace(",", ".") if m_w else ""
+                cand_peso = m_w.group(0).replace(",", ".") if m_w else ""
+                cand_p_digs = re.sub(r'\D', '', cand_peso)
+                if cand_peso and (cand_peso in texto_bruto or (cand_p_digs and cand_p_digs in texto_bruto) or str(ctx_atual.get("peso") or "") == cand_peso):
+                    try:
+                        f_p = float(cand_peso)
+                        if 300 <= f_p <= 2500: f_p = f_p / 10.0
+                        result.peso = f"{f_p:.1f}" if f_p % 1 != 0 else str(int(f_p))
+                    except ValueError:
+                        result.peso = cand_peso
+                else:
+                    result.peso = "00"
+            else:
+                result.peso = "00"
 
             # Extração determinística e integrativa de CIDs Secundários
             raw_cids_found = re.findall(r'\b([A-Z]\d{2}(?:\.\d{1,2})?)\b', texto_bruto, re.IGNORECASE)

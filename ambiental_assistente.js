@@ -6960,28 +6960,57 @@ function aplicarPreenchimentoIAResultado(dados) {
     pulsoVal = mPulso ? mPulso[1] : (state.pulso || "80");
 
     const rawAltStr = String(dados.altura || "").trim();
-    const mAlt = rawAltStr.match(/\d[,\.]\d{1,2}/)
-      || rawTxtInput.match(/\b(?:altura|alt)[:\s]*(\d[,\.]\d{1,2})\s*m?\b/i)
-      || rawTxtInput.match(/\b(\d[,\.]\d{2})\s*m\b/i);
-    if (mAlt) altVal = mAlt[0].replace(",", ".");
+    let mAlt = null;
+    if (rawAltStr && rawAltStr !== "0" && rawAltStr !== "00" && !rawAltStr.toLowerCase().includes("não")) {
+      mAlt = rawAltStr.match(/\d[,\.]\d{1,2}/);
+    }
+    if (!mAlt) {
+      mAlt = rawTxtInput.match(/\b(?:altura|alt)[:\s]*(\d[,\.]\d{1,2})\s*m?\b/i)
+        || rawTxtInput.match(/\b(\d[,\.]\d{2})\s*m\b/i);
+    }
+    if (mAlt) {
+      altVal = (mAlt[1] || mAlt[0]).replace(",", ".");
+    } else {
+      altVal = "00";
+    }
 
     const rawPesoStr = String(dados.peso || "").trim();
-    const mPeso = rawPesoStr.match(/\d{2,3}(?:[,\.]\d{1,2})?/)
-      || rawTxtInput.match(/\b(?:peso)[:\s]*(\d{2,3}(?:[,\.]\d{1,2})?)\s*(?:kg)?\b/i)
-      || rawTxtInput.match(/\b(\d{2,3}(?:[,\.]\d{1,2})?)\s*kg\b/i);
-    if (mPeso) pesoVal = mPeso[0].replace(",", ".");
+    let mPeso = null;
+    if (rawPesoStr && rawPesoStr !== "0" && rawPesoStr !== "00" && !rawPesoStr.toLowerCase().includes("não")) {
+      mPeso = rawPesoStr.match(/\d{2,3}(?:[,\.]\d{1,2})?/);
+    }
+    if (!mPeso) {
+      mPeso = rawTxtInput.match(/\b(?:peso)[:\s]*(\d{2,3}(?:[,\.]\d{1,2})?)\s*(?:kg)?\b/i)
+        || rawTxtInput.match(/\b(\d{2,3}(?:[,\.]\d{1,2})?)\s*kg\b/i);
+    }
+    if (mPeso) {
+      let pStr = (mPeso[1] || mPeso[0]).replace(",", ".");
+      let fPeso = parseFloat(pStr);
+      if (!isNaN(fPeso) && fPeso > 0) {
+        if (fPeso >= 300 && fPeso <= 2500) fPeso = fPeso / 10.0;
+        if (fPeso <= 250) {
+          pesoVal = fPeso % 1 === 0 ? String(Math.round(fPeso)) : String(fPeso.toFixed(1));
+        } else {
+          pesoVal = "00";
+        }
+      } else {
+        pesoVal = "00";
+      }
+    } else {
+      pesoVal = "00";
+    }
 
     state.pressaoSistolica = sist || "120";
     state.pressaoDiastolica = diast || "80";
     state.pulso = pulsoVal || "80";
-    if (altVal) state.altura = altVal;
-    if (pesoVal) state.peso = pesoVal;
+    state.altura = altVal || "00";
+    state.peso = pesoVal || "00";
 
     state.aux.pressaoSistolica = state.pressaoSistolica;
     state.aux.pressaoDiastolica = state.pressaoDiastolica;
     state.aux.pulso = state.pulso;
-    if (altVal) state.aux.altura = altVal;
-    if (pesoVal) state.aux.peso = pesoVal;
+    state.aux.altura = state.altura;
+    state.aux.peso = state.peso;
 
     // Extração determinística complementar para Dados do Atestado do Médico Assistente & Prazos
     const extAtestado = typeof extrairDadosAtestadoTextoBrutoJS === "function" ? extrairDadosAtestadoTextoBrutoJS(rawTxtInput) : {};
@@ -14980,10 +15009,12 @@ function gerarCodigoBookmarkletUniversal() {
     setInput('input[name="voMedico.lgPressArterialMin"]',dia);setInput('input[name="lgPressArterialMin"]',dia);setInput('#diastolicaPressao',dia);
     setInput('input[name="voMedico.lgPulsacao"]',pul);setInput('input[name="lgPulsacao"]',pul);setInput('#pulsoPressao',pul);
     var alt=campos['voMedico.lgAltura']||campos['lgAltura']||'';
-    if(alt){alt=String(alt).trim().replace(/[^\\d,\\.]/g,'');if(alt.includes('.'))alt=alt.replace('.',',');else if(!alt.includes(',')&&alt.length>=3)alt=alt.slice(0,1)+','+alt.slice(1,3);alt=alt.slice(0,4);}
-    var peso=(campos['voMedico.lgPeso']||campos['lgPeso']||'').toString().replace(/\\D/g,'').slice(0,3);
-    setInput('input[name="voMedico.lgAltura"]',alt);setInput('input[name="lgAltura"]',alt);setInput('#alturaBiotipo',alt);
-    setInput('input[name="voMedico.lgPeso"]',peso);setInput('input[name="lgPeso"]',peso);setInput('#pesoBiotipo',peso);
+    if(alt&&alt!=='00'&&alt!=='0'){alt=String(alt).trim().replace(/[^\\d,\\.]/g,'');if(alt.includes('.'))alt=alt.replace('.',',');else if(!alt.includes(',')&&alt.length>=3)alt=alt.slice(0,1)+','+alt.slice(1,3);alt=alt.slice(0,4);}else{alt='00';}
+    var pesoRaw=(campos['voMedico.lgPeso']||campos['lgPeso']||'').toString().trim();
+    var peso='00';
+    if(pesoRaw&&pesoRaw!=='00'&&pesoRaw!=='0'){var fP=parseFloat(pesoRaw.replace(',','.'));if(!isNaN(fP)&&fP>0){if(fP>=300&&fP<=2500)fP=fP/10;if(fP<=250)peso=String(Math.round(fP));}}
+    setInput('input[name="voMedico.lgAltura"]',alt||'00');setInput('input[name="lgAltura"]',alt||'00');setInput('#alturaBiotipo',alt||'00');
+    setInput('input[name="voMedico.lgPeso"]',peso||'00');setInput('input[name="lgPeso"]',peso||'00');setInput('#pesoBiotipo',peso||'00');
     if(typeof win.TextoIMC==='function'){try{win.TextoIMC();}catch(_){}}
     if(typeof win.calcularIMC==='function'){try{win.calcularIMC();}catch(_){}}
     var cbs=[{n:'voMedico.parEdtcspf',id:'idParEdtcspf'},{n:'voMedico.parEdAc',id:'idParEdAc'},{n:'voMedico.parEdAr',id:'idParEdAr'},{n:'voMedico.parEdAHp',id:'idParEdAHp'},{n:'voMedico.parEdAd',id:'idParEdAd'},{n:'voMedico.parEdAgu',id:'idParEdAgu'},{n:'voMedico.parEdAoal',id:'idParEdAoal'},{n:'voMedico.parEdAe',id:'idParEdAe'},{n:'voMedico.parEdSn',id:'idParEdSn'},{n:'voMedico.parEdOs',id:'idParEdOs'},{n:'voMedico.parEdEm',id:'idParEdEm'},{n:'voMedico.parEdOutro',id:'idParEdOutro'}];
@@ -15724,14 +15755,28 @@ function copiarLaudoEsislaAtendimento() {
   const pulso = String(state.aux?.pulso || v.pulso || '').replace(/\D/g, '').slice(0, 3);
 
   // 9. Biotipo
-  let altura = state.aux?.altura || $("agilAltura")?.value || '';
-  if (altura) {
-    let s = String(altura).trim().replace(/[^\d,\.]/g, '');
-    if (s.includes('.')) s = s.replace('.', ',');
-    else if (!s.includes(',') && s.length >= 3) s = s.slice(0, 1) + ',' + s.slice(1, 3);
-    altura = s.slice(0, 4);
+  let altura = '00';
+  const rawAlt = state.aux?.altura || $("agilAltura")?.value || '';
+  if (rawAlt) {
+    let s = String(rawAlt).trim().replace(/[^\d,\.]/g, '');
+    if (s && s !== '0' && s !== '00') {
+      if (s.includes('.')) s = s.replace('.', ',');
+      else if (!s.includes(',') && s.length >= 3) s = s.slice(0, 1) + ',' + s.slice(1, 3);
+      altura = s.slice(0, 4);
+    }
   }
-  const peso = String(state.aux?.peso || $("agilPeso")?.value || '').replace(/\D/g, '').slice(0, 3);
+  let peso = '00';
+  const rawPeso = state.aux?.peso || $("agilPeso")?.value || '';
+  if (rawPeso) {
+    let pStr = String(rawPeso).trim().replace(',', '.');
+    let fPeso = parseFloat(pStr);
+    if (!isNaN(fPeso) && fPeso > 0) {
+      if (fPeso >= 300 && fPeso <= 2500) fPeso = fPeso / 10.0;
+      if (fPeso <= 250) {
+        peso = fPeso % 1 === 0 ? String(Math.round(fPeso)) : String(fPeso.toFixed(1)).replace('.', ',');
+      }
+    }
+  }
 
   // 10. Checkboxes Sistemas (estritamente o sistema escolhido no atendimento, sem marcação inadvertida de Exame Mental)
   const cidCode = (state.aux?.cid || v.cid || '').toUpperCase();
@@ -15783,13 +15828,13 @@ function copiarLaudoEsislaAtendimento() {
     'voMedico.lgPressArterialMax': paSis,
     'voMedico.lgPressArterialMin': paDia,
     'voMedico.lgPulsacao': pulso,
-    'voMedico.lgAltura': altura,
-    'voMedico.lgPeso': peso,
+    'voMedico.lgAltura': altura || '00',
+    'voMedico.lgPeso': peso || '00',
     'lgPressArterialMax': paSis,
     'lgPressArterialMin': paDia,
     'lgPulsacao': pulso,
-    'lgAltura': altura,
-    'lgPeso': peso,
+    'lgAltura': altura || '00',
+    'lgPeso': peso || '00',
     'fl_d_prev': q1,
     'fl_limit': q2,
     'fl_imped': q3,
