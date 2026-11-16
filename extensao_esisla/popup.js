@@ -50,6 +50,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const btnDisplayMode = document.getElementById('btnDisplayMode');
+  let currentDisplayMode = 'sidepanel';
+
+  function applyDisplayModeUI(mode) {
+    currentDisplayMode = mode === 'popup' ? 'popup' : 'sidepanel';
+    document.documentElement.classList.toggle('mode-popup', currentDisplayMode === 'popup');
+    if (btnDisplayMode) {
+      btnDisplayMode.title = currentDisplayMode === 'popup'
+        ? 'Modo atual: Popup normal (clique para mudar para Side Panel)'
+        : 'Modo atual: Side Panel (clique para mudar para Popup normal)';
+    }
+  }
+
+  chrome.storage.local.get(['ambiental_ext_display_mode'], (res) => {
+    applyDisplayModeUI(res.ambiental_ext_display_mode || 'sidepanel');
+  });
+
+  if (btnDisplayMode) {
+    btnDisplayMode.addEventListener('click', () => {
+      const nextMode = currentDisplayMode === 'popup' ? 'sidepanel' : 'popup';
+      chrome.runtime.sendMessage({ action: 'SET_DISPLAY_MODE', mode: nextMode }, () => {
+        applyDisplayModeUI(nextMode);
+        showToast('info', nextMode === 'popup'
+          ? 'Alterado para Popup normal. Reabra pelo ícone da extensão.'
+          : 'Alterado para Side Panel. Reabra pelo ícone da extensão.');
+      });
+    });
+  }
+
   function showToast(type, msg) {
     if (!popupToast || !popupToastMsg || !popupToastIcon) return;
     popupToast.className = `popup-toast ${type || 'info'}`;
@@ -68,6 +97,77 @@ document.addEventListener('DOMContentLoaded', () => {
     if (/^(?:de\s+\d+\s+anos|relatou\b|n[ãa]o\s+readaptad|com\s+queixa\b|servidor(?:\(a\))?\s+de\s+\d+)/i.test(s)) return '';
     if (/\b(?:relatou\s+n[ãa]o\s+ser\s+readaptad|com\s+queixa\s+de|em\s+acompanhamento)\b/i.test(s)) return '';
     return s;
+  }
+
+  const detailDataIni = document.getElementById('detailDataIni');
+  const btnTogglePreview = document.getElementById('btnTogglePreview');
+  const laudoPreviewBox = document.getElementById('laudoPreviewBox');
+  const queueProgressText = document.getElementById('queueProgressText');
+  const queueProgressPct = document.getElementById('queueProgressPct');
+  const queueProgressFill = document.getElementById('queueProgressFill');
+  const btnHeroLabel = document.getElementById('btnHeroLabel');
+
+  function renderLaudoPreview(payload) {
+    if (!laudoPreviewBox) return;
+    if (!payload) {
+      laudoPreviewBox.innerHTML = '';
+      return;
+    }
+    const c = payload.campos_esisla || payload;
+    const blocos = [
+      { label: 'Queixa e Duração', text: c['voMedico.parRlCat'] || payload.queixa || '' },
+      { label: 'Antecedentes Mórbidos', text: c['voMedico.parRlAp'] || payload.antecedentes || '' },
+      { label: 'Exame Físico Geral', text: c['voMedico.parRlExApres'] || payload.exame_fisico || '' },
+      { label: 'Limitações', text: c['voMedico.parRlReqExComp'] || payload.limitacoes || '' },
+      { label: 'Justificativa', text: c['voMedico.parRlComp'] || payload.justificativa || '' }
+    ].filter(b => String(b.text || '').trim().length > 0);
+
+    if (blocos.length === 0) {
+      laudoPreviewBox.innerHTML = '<div class="activity-empty">Sem texto detalhado disponível nesta ficha.</div>';
+      return;
+    }
+
+    laudoPreviewBox.innerHTML = blocos.map((b, i) => `
+      <div class="preview-block">
+        <div class="preview-block-head">
+          <strong>${b.label}</strong>
+          <button type="button" class="btn-copy-mini" data-copy-idx="${i}">Copiar</button>
+        </div>
+        <div class="preview-block-text">${String(b.text).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]))}</div>
+      </div>
+    `).join('');
+
+    laudoPreviewBox.querySelectorAll('.btn-copy-mini').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = Number(btn.dataset.copyIdx);
+        const txt = blocos[idx] ? String(blocos[idx].text) : '';
+        try {
+          await navigator.clipboard.writeText(txt);
+          showToast('success', `${blocos[idx].label} copiado!`);
+        } catch (_) {
+          showToast('error', 'Não foi possível copiar.');
+        }
+      });
+    });
+  }
+
+  if (btnTogglePreview && laudoPreviewBox) {
+    btnTogglePreview.addEventListener('click', () => {
+      const isOpen = btnTogglePreview.getAttribute('aria-expanded') === 'true';
+      btnTogglePreview.setAttribute('aria-expanded', String(!isOpen));
+      laudoPreviewBox.style.display = isOpen ? 'none' : 'flex';
+    });
+  }
+
+  if (badgeProtocol) {
+    badgeProtocol.addEventListener('click', async () => {
+      const proto = String(badgeProtocol.textContent || '').trim();
+      if (!proto || proto === '#00000') return;
+      try {
+        await navigator.clipboard.writeText(proto);
+        showToast('success', `Protocolo ${proto} copiado!`);
+      } catch (_) {}
+    });
   }
 
   function renderCard(payload) {
@@ -89,10 +189,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const c1 = payload.cdCidPm || payload['voResult.voParecerFinal.cdCidPm'] || '—';
       const c2 = payload.cdCid2Pm || payload['voResult.voParecerFinal.cdCid2Pm'] || 'Não informado';
       const d = payload['voResult.voParecerFinal.qtDiasPm'] || payload.dias || '0';
+      const dtIni = payload['voResult.voParecerFinal.dtIniPm'] || payload.data_inicio || '—';
 
       detailCid1.textContent = c1;
       detailCid2.textContent = c2;
       detailDias.textContent = d + ' dias';
+      if (detailDataIni) detailDataIni.textContent = dtIni;
+      renderLaudoPreview(payload);
     } else {
       cardComFicha.style.display = 'none';
       cardSemFicha.style.display = currentQueue.length === 0 ? 'block' : 'none';
@@ -110,6 +213,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const pendCount = currentQueue.filter(it => it.status !== 'preenchido').length;
       const doneCount = currentQueue.filter(it => it.status === 'preenchido').length;
+      const pct = Math.round((doneCount / currentQueue.length) * 100);
+      if (queueProgressText) queueProgressText.textContent = `${doneCount} de ${currentQueue.length} preenchido(s)`;
+      if (queueProgressPct) queueProgressPct.textContent = `${pct}%`;
+      if (queueProgressFill) queueProgressFill.style.width = `${pct}%`;
+
       if (cntAll) cntAll.textContent = currentQueue.length;
       if (cntPend) cntPend.textContent = pendCount;
       if (cntDone) cntDone.textContent = doneCount;
@@ -499,11 +607,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       liveTabCard.className = 'live-tab-card' + (resp.kind === 'esisla' ? ' is-esisla' : (resp.kind === 'ambiental' ? ' is-ambiental' : ''));
       if (resp.kind === 'esisla') {
-        liveTabState.textContent = 'e-SISLA pronto na aba ativa';
+        if (resp.screen === 'pericia') {
+          liveTabState.textContent = 'e-SISLA · Formulário do Laudo pronto';
+          if (btnHeroLabel) btnHeroLabel.textContent = 'Preencher Laudo no e-SISLA';
+        } else if (resp.screen === 'consulta') {
+          liveTabState.textContent = 'e-SISLA · Tela de Consulta';
+          if (btnHeroLabel) btnHeroLabel.textContent = 'Buscar e Entrar no e-SISLA';
+        } else {
+          liveTabState.textContent = 'e-SISLA pronto na aba ativa';
+          if (btnHeroLabel) btnHeroLabel.textContent = 'Preencher Aba do e-SISLA';
+        }
       } else if (resp.kind === 'ambiental') {
         liveTabState.textContent = 'Portal Ambiental ativo';
+        if (btnHeroLabel) btnHeroLabel.textContent = 'Preencher Aba do e-SISLA';
       } else {
         liveTabState.textContent = 'Outra página ativa';
+        if (btnHeroLabel) btnHeroLabel.textContent = 'Preencher Aba do e-SISLA';
       }
       liveTabTitle.textContent = resp.title || resp.url || '';
       liveTabTitle.title = resp.url || resp.title || '';

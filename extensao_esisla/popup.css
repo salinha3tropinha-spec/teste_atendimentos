@@ -890,3 +890,157 @@ html.theme-dark .activity-badge.info {
   flex-shrink: 0;
 }
 
+/* Botão Protocolo Copiável e Prévia do Laudo */
+.badge-protocol-btn {
+  border: 1px solid #DBEAFE;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.badge-protocol-btn:hover {
+  filter: brightness(0.96);
+  transform: translateY(-1px);
+}
+
+.card-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-preview-toggle {
+  width: 100%;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.15s ease;
+}
+
+.btn-preview-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-preview-toggle[aria-expanded="true"] .preview-chevron {
+  transform: rotate(180deg);
+}
+
+.preview-chevron {
+  transition: transform 0.18s ease;
+}
+
+.laudo-preview-box {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  max-height: 210px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preview-block {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 7px 9px;
+}
+
+.preview-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.preview-block-head strong {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.btn-copy-mini {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn-copy-mini:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.preview-block-text {
+  font-size: 10.5px;
+  color: var(--text);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Barra de Progresso do Dia */
+.queue-progress-wrap {
+  padding: 8px 12px 6px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.queue-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.queue-progress-meta strong {
+  color: var(--green-dark);
+  font-weight: 800;
+}
+
+html.theme-dark .queue-progress-meta strong {
+  color: #34D399;
+}
+
+.queue-progress-track {
+  height: 6px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.queue-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0284C7, #10B981);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+/* Alternância visual entre Side Panel e Popup normal */
+#btnDisplayMode .icon-popup { display: none; }
+html.mode-popup #btnDisplayMode .icon-sidepanel { display: none; }
+html.mode-popup #btnDisplayMode .icon-popup { display: block; color: #38BDF8; }
+html.mode-popup body {
+  min-width: 380px;
+}
+
+
+

@@ -1,10 +1,20 @@
 // Background Service Worker - Ambiental e-SISLA AutoFill (Manifest V3)
 // Gerenciador de Fila Inteligente de Atendimentos Multi-Laudos e Sincronização
 
-function initSidePanelBehavior() {
+function applyDisplayMode(mode) {
+  const useSidePanel = mode !== 'popup';
   if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
-    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: useSidePanel }).catch(() => {});
   }
+  if (chrome.action && chrome.action.setPopup) {
+    chrome.action.setPopup({ popup: useSidePanel ? '' : 'popup.html' }).catch(() => {});
+  }
+}
+
+function initSidePanelBehavior() {
+  chrome.storage.local.get(['ambiental_ext_display_mode'], (res) => {
+    applyDisplayMode(res.ambiental_ext_display_mode || 'sidepanel');
+  });
 }
 
 initSidePanelBehavior();
@@ -238,13 +248,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const title = String(tab.title || 'Sem título');
       const isEsisla = /sisla|sp\.gov\.br|prodesp/i.test(url) || /e-?sisla|dpme/i.test(title);
       const isAmbiental = /localhost|127\.0\.0\.1|gestao|ambiental|vercel\.app/i.test(url);
-      sendResponse({
+      const baseResp = {
         ok: true,
         kind: isEsisla ? 'esisla' : (isAmbiental ? 'ambiental' : 'other'),
+        screen: 'portal',
         title,
         url,
         tabId: tab.id
-      });
+      };
+      if (isEsisla && tab.id) {
+        chrome.tabs.sendMessage(tab.id, { action: 'GET_ESISLA_SCREEN_STATE' }, (screenResp) => {
+          if (!chrome.runtime.lastError && screenResp && screenResp.ok) {
+            baseResp.screen = screenResp.screen || 'portal';
+          }
+          sendResponse(baseResp);
+        });
+      } else {
+        sendResponse(baseResp);
+      }
     });
     return true;
   }
@@ -256,4 +277,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
+
+  // 11. Alternar modo de exibição entre Side Panel e Popup normal
+  if (request.action === 'SET_DISPLAY_MODE') {
+    const mode = request.mode === 'popup' ? 'popup' : 'sidepanel';
+    chrome.storage.local.set({ ambiental_ext_display_mode: mode }, () => {
+      applyDisplayMode(mode);
+      sendResponse({ status: 'ok', mode });
+    });
+    return true;
+  }
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  initSidePanelBehavior();
 });

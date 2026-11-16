@@ -24,6 +24,10 @@
           <span class="status-dot"></span>
           <span class="status-text" id="statusQueueBadge">0 na fila</span>
         </div>
+        <button type="button" class="btn-theme-toggle" id="btnDisplayMode" title="Alternar entre Side Panel e Popup normal" aria-label="Alternar entre Side Panel e Popup normal">
+          <svg class="icon-sidepanel" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          <svg class="icon-popup" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+        </button>
         <button type="button" class="btn-theme-toggle" id="btnThemeToggle" title="Alternar Modo Escuro" aria-label="Alternar Modo Escuro">
           <svg class="icon-moon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="icon-sun" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -54,7 +58,7 @@
       <!-- Cartão com a Ficha Ativa / Selecionada -->
       <div id="cardComFicha" class="card-attendance" style="display:none">
         <div class="card-badge-row">
-          <span class="badge-protocol" id="badgeProtocol">#00000</span>
+          <button type="button" class="badge-protocol badge-protocol-btn" id="badgeProtocol" title="Clique para copiar o protocolo">#00000</button>
           <span class="badge-parecer" id="badgeParecer">Favorável</span>
         </div>
 
@@ -69,16 +73,29 @@
             <span class="detail-label">Dias Concedidos</span>
             <strong class="detail-val" id="detailDias">—</strong>
           </div>
-          <div class="detail-item full">
+          <div class="detail-item">
             <span class="detail-label">CID Secundário</span>
             <strong class="detail-val" id="detailCid2">—</strong>
           </div>
+          <div class="detail-item">
+            <span class="detail-label">Data de Início</span>
+            <strong class="detail-val" id="detailDataIni">—</strong>
+          </div>
         </div>
 
-        <button type="button" class="btn-fill-hero" id="btnPreencherAbaAtiva">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          <span>Preencher Aba do e-SISLA</span>
-        </button>
+        <div class="card-actions-stack">
+          <button type="button" class="btn-fill-hero" id="btnPreencherAbaAtiva">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span id="btnHeroLabel">Preencher Aba do e-SISLA</span>
+          </button>
+
+          <button type="button" class="btn-preview-toggle" id="btnTogglePreview" aria-expanded="false">
+            <span>Ver texto do laudo</span>
+            <span class="preview-chevron">▾</span>
+          </button>
+
+          <div class="laudo-preview-box" id="laudoPreviewBox" style="display:none"></div>
+        </div>
       </div>
 
       <!-- Estado Vazio -->
@@ -98,6 +115,17 @@
             <span class="queue-count-pill" id="queueCount">0</span>
           </div>
           <button type="button" id="btnLimparFila" class="btn-queue-clear" title="Limpar todos os laudos da fila">Limpar fila</button>
+        </div>
+
+        <!-- Barra de progresso do dia -->
+        <div class="queue-progress-wrap" id="queueProgressWrap">
+          <div class="queue-progress-meta">
+            <span id="queueProgressText">0 de 0 preenchidos</span>
+            <strong id="queueProgressPct">0%</strong>
+          </div>
+          <div class="queue-progress-track">
+            <div class="queue-progress-fill" id="queueProgressFill" style="width:0%"></div>
+          </div>
         </div>
 
         <!-- Filtros e Busca rápida na fila -->

@@ -1565,6 +1565,24 @@
       sendResponse({ status: 'alive' });
       return true;
     }
+    if (request.action === 'GET_ESISLA_SCREEN_STATE') {
+      try {
+        const hasLaudoForm = !!document.querySelector('[name*="parRlCat"], [name*="flPfinal"], textarea[name*="parRl"]');
+        const hasConsulta = !hasLaudoForm && (
+          !!document.querySelector('input[name*="protocolo" i], input[id*="protocolo" i]') ||
+          /Consulta Per[ií]cia/i.test(document.body?.innerText?.slice(0, 1500) || '')
+        );
+        sendResponse({
+          ok: true,
+          screen: hasLaudoForm ? 'pericia' : (hasConsulta ? 'consulta' : 'portal'),
+          hasLaudoForm,
+          hasConsulta
+        });
+      } catch (_) {
+        sendResponse({ ok: false, screen: 'portal' });
+      }
+      return true;
+    }
   });
 
   // Escuta atualizações de storage para atualizar o widget instantaneamente
