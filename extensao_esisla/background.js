@@ -1,8 +1,31 @@
 // Background Service Worker - Ambiental e-SISLA AutoFill (Manifest V3)
 // Gerenciador de Fila Inteligente de Atendimentos Multi-Laudos e Sincronização
 
+function initSidePanelBehavior() {
+  if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  }
+}
+
+initSidePanelBehavior();
+
+function appendActivityLog(type, title, detail) {
+  chrome.storage.local.get(['ambiental_esisla_activity_log'], (res) => {
+    const list = Array.isArray(res.ambiental_esisla_activity_log) ? res.ambiental_esisla_activity_log : [];
+    list.unshift({
+      id: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      type: type || 'info',
+      title: title || 'Evento',
+      detail: detail || '',
+      ts: new Date().toISOString()
+    });
+    chrome.storage.local.set({ ambiental_esisla_activity_log: list.slice(0, 30) });
+  });
+}
+
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[Ambiental e-SISLA] Extensão instalada e pronta para uso com fila de laudos.');
+  initSidePanelBehavior();
+  console.log('[Ambiental e-SISLA] Extensão instalada em modo Side Panel.');
   chrome.storage.local.get(['ambiental_esisla_queue'], (res) => {
     updateBadge(res.ambiental_esisla_queue || []);
   });
@@ -66,6 +89,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         ambiental_latest_esisla: novo
       }, () => {
         updateBadge(queue);
+        appendActivityLog('queue', `Ficha #${proto || 'S/N'} na fila`, novo.servidor || novo.paciente || 'Servidor');
         sendResponse({ status: 'ok', count: queue.length });
       });
     });
@@ -109,6 +133,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       chrome.storage.local.set({ ambiental_esisla_queue: queue }, () => {
         updateBadge(queue);
+        appendActivityLog('success', `Preenchido no e-SISLA (#${proto || 'S/N'})`, request.servidor || request.paciente || '');
         sendResponse({ status: 'ok' });
       });
     });
@@ -122,6 +147,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       queue = queue.filter(item => String(item.protocolo || '').trim() !== String(request.protocolo || '').trim());
       chrome.storage.local.set({ ambiental_esisla_queue: queue }, () => {
         updateBadge(queue);
+        appendActivityLog('info', `Removido #${request.protocolo || 'S/N'}`, request.servidor || '');
         sendResponse({ status: 'ok' });
       });
     });
@@ -132,6 +158,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'LIMPAR_FILA' || request.action === 'LIMPAR_FICHA') {
     chrome.storage.local.remove(['ambiental_latest_esisla', 'ambiental_esisla_queue'], () => {
       updateBadge([]);
+      appendActivityLog('info', 'Fila do dia limpa', 'Todos os laudos removidos');
       sendResponse({ status: 'ok' });
     });
     return true;
@@ -179,6 +206,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // 8. Sincronizar Agenda Capturada do e-SISLA com as Abas do Ambiental
   if (request.action === 'AGENDA_ESISLA_CAPTURADA') {
+    const qtd = Array.isArray(request.payload?.itens) ? request.payload.itens.length : (Array.isArray(request.payload) ? request.payload.length : 0);
+    appendActivityLog('info', 'Agenda e-SISLA capturada', qtd ? `${qtd} registro(s) sincronizado(s)` : 'Sincronizada com o Ambiental');
     chrome.tabs.query({}, (tabs) => {
       tabs.forEach(tab => {
         try {
@@ -194,6 +223,37 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     });
     sendResponse({ status: 'ok' });
+    return true;
+  }
+
+  // 9. Consultar status da aba ativa para o Side Panel
+  if (request.action === 'OBTER_STATUS_ABA_ESISLA') {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+      const tab = tabs && tabs[0];
+      if (!tab) {
+        sendResponse({ ok: false, kind: 'none', title: 'Nenhuma aba ativa', url: '' });
+        return;
+      }
+      const url = String(tab.url || '');
+      const title = String(tab.title || 'Sem título');
+      const isEsisla = /sisla|sp\.gov\.br|prodesp/i.test(url) || /e-?sisla|dpme/i.test(title);
+      const isAmbiental = /localhost|127\.0\.0\.1|gestao|ambiental|vercel\.app/i.test(url);
+      sendResponse({
+        ok: true,
+        kind: isEsisla ? 'esisla' : (isAmbiental ? 'ambiental' : 'other'),
+        title,
+        url,
+        tabId: tab.id
+      });
+    });
+    return true;
+  }
+
+  // 10. Limpar histórico de atividades do Side Panel
+  if (request.action === 'LIMPAR_HISTORICO_LOG') {
+    chrome.storage.local.remove(['ambiental_esisla_activity_log'], () => {
+      sendResponse({ status: 'ok' });
+    });
     return true;
   }
 });

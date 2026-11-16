@@ -12,13 +12,55 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnPreencherAbaAtiva = document.getElementById('btnPreencherAbaAtiva');
   const btnColarClipboard = document.getElementById('btnColarClipboard');
   const statusQueueBadge = document.getElementById('statusQueueBadge');
+  const headerStatusChip = document.getElementById('headerStatusChip');
   const sectionQueue = document.getElementById('sectionQueue');
   const queueCount = document.getElementById('queueCount');
   const queueList = document.getElementById('queueList');
   const btnLimparFila = document.getElementById('btnLimparFila');
+  const btnThemeToggle = document.getElementById('btnThemeToggle');
+  const popupToast = document.getElementById('popupToast');
+  const popupToastIcon = document.getElementById('popupToastIcon');
+  const popupToastMsg = document.getElementById('popupToastMsg');
+  const queueSearchInput = document.getElementById('queueSearchInput');
+  const cntAll = document.getElementById('cntAll');
+  const cntPend = document.getElementById('cntPend');
+  const cntDone = document.getElementById('cntDone');
+  const queueTabs = document.querySelectorAll('.q-tab');
 
   let currentPayload = null;
   let currentQueue = [];
+  let activeFilter = 'all';
+  let searchQuery = '';
+  let toastTimer = null;
+  let clearConfirmTimer = null;
+
+  function applyTheme(dark) {
+    document.documentElement.classList.toggle('theme-dark', Boolean(dark));
+    try { localStorage.setItem('ambiental_ext_theme', dark ? 'dark' : 'light'); } catch (_) {}
+  }
+
+  try {
+    applyTheme(localStorage.getItem('ambiental_ext_theme') === 'dark');
+  } catch (_) {}
+
+  if (btnThemeToggle) {
+    btnThemeToggle.addEventListener('click', () => {
+      const nextDark = !document.documentElement.classList.contains('theme-dark');
+      applyTheme(nextDark);
+    });
+  }
+
+  function showToast(type, msg) {
+    if (!popupToast || !popupToastMsg || !popupToastIcon) return;
+    popupToast.className = `popup-toast ${type || 'info'}`;
+    popupToastIcon.textContent = type === 'success' ? '✓' : (type === 'error' ? '!' : 'i');
+    popupToastMsg.textContent = msg;
+    popupToast.style.display = 'flex';
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      popupToast.style.display = 'none';
+    }, 3600);
+  }
 
   function sanitizarNomeServidor(rawName) {
     const s = String(rawName || '').trim();
@@ -35,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
       cardSemFicha.style.display = 'none';
 
       badgeProtocol.textContent = payload.protocolo;
-      
+
       const isFav = (payload['voResult.voParecerFinal.flPfinal'] === 'F' || payload.parecer === 'FAVORÁVEL');
       badgeParecer.textContent = isFav ? 'Favorável' : 'Contrário';
       badgeParecer.className = 'badge-parecer ' + (isFav ? 'favoravel' : 'contrario');
@@ -43,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const pac = sanitizarNomeServidor(payload.servidor || payload.paciente) || 'Servidor';
       cardPatient.textContent = pac;
       cardPatient.title = pac;
-      
+
       const c1 = payload.cdCidPm || payload['voResult.voParecerFinal.cdCidPm'] || '—';
       const c2 = payload.cdCid2Pm || payload['voResult.voParecerFinal.cdCid2Pm'] || 'Não informado';
       const d = payload['voResult.voParecerFinal.qtDiasPm'] || payload.dias || '0';
@@ -64,27 +106,53 @@ document.addEventListener('DOMContentLoaded', () => {
       sectionQueue.style.display = 'block';
       queueCount.textContent = currentQueue.length;
       statusQueueBadge.textContent = `${currentQueue.length} na fila`;
-      statusQueueBadge.style.background = 'rgba(0, 230, 118, 0.25)';
+      if (headerStatusChip) headerStatusChip.classList.add('has-items');
 
-      queueList.innerHTML = currentQueue.map((it, idx) => {
-        const isSelected = currentPayload && String(currentPayload.protocolo || '') === String(it.protocolo || '');
-        const isDone = it.status === 'preenchido';
-        const pac = sanitizarNomeServidor(it.servidor || it.paciente) || 'Servidor';
-        return `
-          <div class="popup-queue-item ${isSelected ? 'selected' : ''}" data-idx="${idx}" title="Clique para ver os detalhes e selecionar">
-            <div class="popup-queue-info">
-              <div class="popup-queue-proto-row">
-                <span class="popup-queue-proto">#${it.protocolo || 'Sem prot.'}</span>
-                <span class="popup-queue-status ${isDone ? 'preenchido' : 'pendente'}">${isDone ? '✓ Preenchido' : 'Pendente'}</span>
+      const pendCount = currentQueue.filter(it => it.status !== 'preenchido').length;
+      const doneCount = currentQueue.filter(it => it.status === 'preenchido').length;
+      if (cntAll) cntAll.textContent = currentQueue.length;
+      if (cntPend) cntPend.textContent = pendCount;
+      if (cntDone) cntDone.textContent = doneCount;
+      if (queueSearchInput) {
+        queueSearchInput.style.display = currentQueue.length >= 3 ? 'block' : 'none';
+      }
+
+      const qNorm = searchQuery.trim().toLowerCase();
+      const filtered = currentQueue
+        .map((it, idx) => ({ it, idx }))
+        .filter(({ it }) => {
+          if (activeFilter === 'pendente' && it.status === 'preenchido') return false;
+          if (activeFilter === 'preenchido' && it.status !== 'preenchido') return false;
+          if (qNorm) {
+            const pac = (sanitizarNomeServidor(it.servidor || it.paciente) || '').toLowerCase();
+            const proto = String(it.protocolo || '').toLowerCase();
+            return pac.includes(qNorm) || proto.includes(qNorm);
+          }
+          return true;
+        });
+
+      if (filtered.length === 0) {
+        queueList.innerHTML = '<div class="queue-empty-filtered">Nenhum laudo corresponde ao filtro atual.</div>';
+      } else {
+        queueList.innerHTML = filtered.map(({ it, idx }) => {
+          const isSelected = currentPayload && String(currentPayload.protocolo || '') === String(it.protocolo || '');
+          const isDone = it.status === 'preenchido';
+          const pac = sanitizarNomeServidor(it.servidor || it.paciente) || 'Servidor';
+          return `
+            <div class="popup-queue-item ${isSelected ? 'selected' : ''}" data-idx="${idx}" title="Clique para selecionar este laudo">
+              <div class="popup-queue-info">
+                <div class="popup-queue-proto-row">
+                  <span class="popup-queue-proto">#${it.protocolo || 'Sem prot.'}</span>
+                  <span class="popup-queue-status ${isDone ? 'preenchido' : 'pendente'}">${isDone ? '✓ Preenchido' : 'Pendente'}</span>
+                </div>
+                <div class="popup-queue-name">${pac}</div>
               </div>
-              <div class="popup-queue-name">${pac}</div>
+              <button type="button" class="btn-remove-queue-item" data-remove="${idx}" title="Remover da fila">✕</button>
             </div>
-            <button type="button" class="btn-remove-queue-item" data-remove="${idx}" title="Remover da fila">✕</button>
-          </div>
-        `;
-      }).join('');
+          `;
+        }).join('');
+      }
 
-      // Eventos de clique na lista da fila
       queueList.querySelectorAll('.popup-queue-item').forEach(el => {
         el.addEventListener('click', (e) => {
           if (e.target.closest('.btn-remove-queue-item')) return;
@@ -102,12 +170,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const idx = Number(btn.dataset.remove);
           const item = currentQueue[idx];
           if (item) {
-            chrome.runtime.sendMessage({ 
-              action: 'REMOVER_FICHA_FILA', 
+            chrome.runtime.sendMessage({
+              action: 'REMOVER_FICHA_FILA',
               protocolo: item.protocolo,
               servidor: item.servidor || item.paciente
             }, () => {
               carregarDoStorage();
+              showToast('info', 'Laudo removido da fila.');
             });
           }
         });
@@ -115,11 +184,27 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       sectionQueue.style.display = 'none';
       statusQueueBadge.textContent = '0 na fila';
-      statusQueueBadge.style.background = 'rgba(255, 255, 255, 0.15)';
+      if (headerStatusChip) headerStatusChip.classList.remove('has-items');
       if (!currentPayload) {
         cardSemFicha.style.display = 'block';
       }
     }
+  }
+
+  queueTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      queueTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      activeFilter = tab.dataset.qfilter || 'all';
+      renderFila(currentQueue);
+    });
+  });
+
+  if (queueSearchInput) {
+    queueSearchInput.addEventListener('input', () => {
+      searchQuery = queueSearchInput.value || '';
+      renderFila(currentQueue);
+    });
   }
 
   function carregarDoStorage() {
@@ -132,17 +217,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Preencher aba ativa
+  const defaultHeroHTML = btnPreencherAbaAtiva.innerHTML;
   btnPreencherAbaAtiva.addEventListener('click', () => {
     if (!currentPayload) return;
     btnPreencherAbaAtiva.disabled = true;
     btnPreencherAbaAtiva.textContent = '⏳ Preenchendo...';
 
-    chrome.runtime.sendMessage({ 
-      action: 'PREENCHER_TAB_ATIVA', 
-      payload: currentPayload 
+    chrome.runtime.sendMessage({
+      action: 'PREENCHER_TAB_ATIVA',
+      payload: currentPayload
     }, (resp) => {
       if (resp && resp.success) {
-        btnPreencherAbaAtiva.textContent = '✅ Sucesso!';
+        btnPreencherAbaAtiva.textContent = '✅ Preenchido!';
+        showToast('success', 'Campos preenchidos na aba do e-SISLA.');
         chrome.runtime.sendMessage({
           action: 'MARCAR_FICHA_PREENCHIDA',
           protocolo: currentPayload.protocolo,
@@ -151,25 +238,36 @@ document.addEventListener('DOMContentLoaded', () => {
           setTimeout(() => {
             carregarDoStorage();
             btnPreencherAbaAtiva.disabled = false;
-            btnPreencherAbaAtiva.textContent = '⚡ Preencher Aba do e-SISLA';
+            btnPreencherAbaAtiva.innerHTML = defaultHeroHTML;
           }, 800);
         });
       } else {
         btnPreencherAbaAtiva.disabled = false;
-        btnPreencherAbaAtiva.textContent = '⚡ Preencher Aba do e-SISLA';
-        alert((resp && resp.error) ? resp.error : 'Abra a aba do laudo no e-SISLA e tente novamente.');
+        btnPreencherAbaAtiva.innerHTML = defaultHeroHTML;
+        showToast('error', (resp && resp.error) ? resp.error : 'Abra a aba do laudo no e-SISLA e tente novamente.');
       }
     });
   });
 
-  // Limpar toda a fila
+  // Limpar toda a fila com confirmação inline em 2 cliques
   if (btnLimparFila) {
     btnLimparFila.addEventListener('click', () => {
-      if (confirm('Deseja limpar todos os laudos da fila do dia?')) {
-        chrome.runtime.sendMessage({ action: 'LIMPAR_FILA' }, () => {
-          carregarDoStorage();
-        });
+      if (!btnLimparFila.classList.contains('confirming')) {
+        btnLimparFila.classList.add('confirming');
+        btnLimparFila.textContent = 'Confirmar?';
+        if (clearConfirmTimer) clearTimeout(clearConfirmTimer);
+        clearConfirmTimer = setTimeout(() => {
+          btnLimparFila.classList.remove('confirming');
+          btnLimparFila.textContent = 'Limpar fila';
+        }, 3000);
+        return;
       }
+      btnLimparFila.classList.remove('confirming');
+      btnLimparFila.textContent = 'Limpar fila';
+      chrome.runtime.sendMessage({ action: 'LIMPAR_FILA' }, () => {
+        carregarDoStorage();
+        showToast('info', 'Fila do dia limpa.');
+      });
     });
   }
 
@@ -319,8 +417,8 @@ document.addEventListener('DOMContentLoaded', () => {
   btnColarClipboard.addEventListener('click', async () => {
     try {
       const text = await navigator.clipboard.readText();
-      if (!text || !text.trim()) { alert('A área de transferência está vazia.'); return; }
-      
+      if (!text || !text.trim()) { showToast('error', 'A área de transferência está vazia.'); return; }
+
       let obj = null;
       try {
         obj = JSON.parse(text);
@@ -331,14 +429,131 @@ document.addEventListener('DOMContentLoaded', () => {
       if (obj && (obj.protocolo || obj.campos_esisla || obj['voMedico.parRlCat'] || obj['voResult.voParecerFinal.flPfinal'])) {
         chrome.runtime.sendMessage({ action: 'ADICIONAR_FICHA_FILA', payload: obj }, () => {
           carregarDoStorage();
+          showToast('success', 'Ficha adicionada à fila com sucesso.');
         });
       } else {
-        alert('O texto copiado não possui o formato de laudo do e-SISLA.');
+        showToast('error', 'O texto copiado não possui o formato de laudo do e-SISLA.');
       }
     } catch(err) {
-      alert('Não foi possível ler a área de transferência ou o formato é inválido: ' + err.message);
+      showToast('error', 'Não foi possível ler a área de transferência: ' + err.message);
     }
   });
 
+  const liveTabCard = document.getElementById('liveTabCard');
+  const liveTabState = document.getElementById('liveTabState');
+  const liveTabTitle = document.getElementById('liveTabTitle');
+  const btnRefreshTabStatus = document.getElementById('btnRefreshTabStatus');
+  const activityLogList = document.getElementById('activityLogList');
+  const btnLimparLog = document.getElementById('btnLimparLog');
+
+  function escHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+  }
+
+  function formatHora(iso) {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function renderActivityLog(list) {
+    if (!activityLogList) return;
+    const arr = Array.isArray(list) ? list : [];
+    if (arr.length === 0) {
+      activityLogList.innerHTML = '<div class="activity-empty">Nenhuma ação registrada ainda nesta sessão.</div>';
+      return;
+    }
+    activityLogList.innerHTML = arr.slice(0, 20).map(ev => {
+      const tp = ev.type === 'success' ? 'success' : (ev.type === 'queue' ? 'queue' : 'info');
+      const icon = tp === 'success' ? '✓' : (tp === 'queue' ? '+' : '•');
+      return `
+        <div class="activity-item">
+          <span class="activity-badge ${tp}">${icon}</span>
+          <div class="activity-content">
+            <div class="activity-title">${escHtml(ev.title)}</div>
+            ${ev.detail ? `<div class="activity-detail">${escHtml(ev.detail)}</div>` : ''}
+          </div>
+          <span class="activity-time">${escHtml(formatHora(ev.ts))}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function carregarLogAtividades() {
+    chrome.storage.local.get(['ambiental_esisla_activity_log'], (res) => {
+      renderActivityLog(res.ambiental_esisla_activity_log || []);
+    });
+  }
+
+  function atualizarStatusAbaAtiva() {
+    if (!liveTabCard || !liveTabState || !liveTabTitle) return;
+    chrome.runtime.sendMessage({ action: 'OBTER_STATUS_ABA_ESISLA' }, (resp) => {
+      if (chrome.runtime.lastError || !resp || !resp.ok) {
+        liveTabCard.className = 'live-tab-card';
+        liveTabState.textContent = 'Aba não identificada';
+        liveTabTitle.textContent = 'Abra o e-SISLA ou o Portal Ambiental';
+        return;
+      }
+      liveTabCard.className = 'live-tab-card' + (resp.kind === 'esisla' ? ' is-esisla' : (resp.kind === 'ambiental' ? ' is-ambiental' : ''));
+      if (resp.kind === 'esisla') {
+        liveTabState.textContent = 'e-SISLA pronto na aba ativa';
+      } else if (resp.kind === 'ambiental') {
+        liveTabState.textContent = 'Portal Ambiental ativo';
+      } else {
+        liveTabState.textContent = 'Outra página ativa';
+      }
+      liveTabTitle.textContent = resp.title || resp.url || '';
+      liveTabTitle.title = resp.url || resp.title || '';
+    });
+  }
+
+  if (btnRefreshTabStatus) {
+    btnRefreshTabStatus.addEventListener('click', () => {
+      atualizarStatusAbaAtiva();
+      carregarDoStorage();
+      carregarLogAtividades();
+      showToast('info', 'Status sincronizado com a aba atual.');
+    });
+  }
+
+  if (btnLimparLog) {
+    btnLimparLog.addEventListener('click', () => {
+      chrome.runtime.sendMessage({ action: 'LIMPAR_HISTORICO_LOG' }, () => {
+        renderActivityLog([]);
+      });
+    });
+  }
+
+  // Atualização em tempo real no Side Panel quando fila, ficha ou log mudarem
+  if (chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local') return;
+      if (changes.ambiental_esisla_queue || changes.ambiental_latest_esisla) {
+        carregarDoStorage();
+      }
+      if (changes.ambiental_esisla_activity_log) {
+        renderActivityLog(changes.ambiental_esisla_activity_log.newValue || []);
+      }
+    });
+  }
+
+  // Atualiza automaticamente ao trocar de aba ou navegar no navegador
+  if (chrome.tabs && chrome.tabs.onActivated) {
+    chrome.tabs.onActivated.addListener(() => atualizarStatusAbaAtiva());
+  }
+  if (chrome.tabs && chrome.tabs.onUpdated) {
+    chrome.tabs.onUpdated.addListener((_, changeInfo) => {
+      if (changeInfo.status === 'complete' || changeInfo.title) {
+        atualizarStatusAbaAtiva();
+      }
+    });
+  }
+
   carregarDoStorage();
+  carregarLogAtividades();
+  atualizarStatusAbaAtiva();
 });
+

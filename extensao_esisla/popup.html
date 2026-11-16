@@ -2,45 +2,71 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Ambiental ⚡ e-SISLA</title>
+  <title>Ambiental · e-SISLA</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="popup-container">
-    
-    <!-- Topo -->
+
+    <!-- Topo Executivo -->
     <header class="popup-header">
       <div class="header-brand">
-        <span class="header-bolt">⚡</span>
+        <span class="header-bolt" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </span>
         <div>
-          <strong>Ambiental</strong>
-          <small>Fila Inteligente e-SISLA</small>
+          <strong>Ambiental · e-SISLA</strong>
+          <small>Fila Inteligente de Preenchimento</small>
         </div>
       </div>
-      <div class="header-status">
-        <span class="status-dot"></span>
-        <span class="status-text" id="statusQueueBadge">0 na fila</span>
+      <div class="header-right">
+        <div class="header-status" id="headerStatusChip">
+          <span class="status-dot"></span>
+          <span class="status-text" id="statusQueueBadge">0 na fila</span>
+        </div>
+        <button type="button" class="btn-theme-toggle" id="btnThemeToggle" title="Alternar Modo Escuro" aria-label="Alternar Modo Escuro">
+          <svg class="icon-moon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
       </div>
     </header>
 
+    <!-- Feedback Inline (substitui alerts nativos) -->
+    <div id="popupToast" class="popup-toast" role="status" aria-live="polite" style="display:none">
+      <span class="toast-icon" id="popupToastIcon">✓</span>
+      <span class="toast-msg" id="popupToastMsg"></span>
+    </div>
+
     <!-- Conteúdo Principal -->
     <main class="popup-body">
+      <!-- Monitoramento Ao Vivo da Aba Ativa -->
+      <div class="live-tab-card" id="liveTabCard">
+        <div class="live-tab-left">
+          <span class="live-tab-dot" id="liveTabDot"></span>
+          <div class="live-tab-meta">
+            <strong id="liveTabState">Detectando aba...</strong>
+            <small id="liveTabTitle">Aguardando leitura do navegador</small>
+          </div>
+        </div>
+        <button type="button" class="btn-live-refresh" id="btnRefreshTabStatus" title="Atualizar status da aba ativa" aria-label="Atualizar status da aba ativa">↻</button>
+      </div>
+
       <!-- Cartão com a Ficha Ativa / Selecionada -->
       <div id="cardComFicha" class="card-attendance" style="display:none">
         <div class="card-badge-row">
           <span class="badge-protocol" id="badgeProtocol">#00000</span>
           <span class="badge-parecer" id="badgeParecer">Favorável</span>
         </div>
-        
+
         <div class="card-patient" id="cardPatient">Nome do Servidor</div>
-        
+
         <div class="card-details-grid">
           <div class="detail-item">
             <span class="detail-label">CID Principal</span>
             <strong class="detail-val" id="detailCid1">—</strong>
           </div>
           <div class="detail-item">
-            <span class="detail-label">Dias</span>
+            <span class="detail-label">Dias Concedidos</span>
             <strong class="detail-val" id="detailDias">—</strong>
           </div>
           <div class="detail-item full">
@@ -50,37 +76,67 @@
         </div>
 
         <button type="button" class="btn-fill-hero" id="btnPreencherAbaAtiva">
-          ⚡ Preencher Aba do e-SISLA
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span>Preencher Aba do e-SISLA</span>
         </button>
       </div>
 
       <!-- Estado Vazio -->
       <div id="cardSemFicha" class="card-empty">
-        <div class="empty-icon">📋</div>
-        <strong>Fila vazia</strong>
-        <p>Ao abrir a Ficha e-SISLA no sistema Ambiental, clique em <strong>Adicionar à Fila</strong> para ter conferência e preenchimento seguro.</p>
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 12h6M9 16h4"/></svg>
+        </div>
+        <strong>Nenhum laudo na fila</strong>
+        <p>Abra a <b>Ficha e-SISLA</b> no sistema Ambiental e clique em <b>Enviar para Extensão</b> ou cole um laudo copiado abaixo.</p>
       </div>
 
       <!-- Seção da Fila Inteligente do Dia -->
       <div class="section-queue" id="sectionQueue" style="display:none">
         <div class="section-queue-header">
-          <strong>📋 Laudos na Fila (<span id="queueCount">0</span>)</strong>
-          <button type="button" id="btnLimparFila" class="btn-queue-clear" title="Limpar todos os laudos da fila">Limpar Fila</button>
+          <div class="queue-title-wrap">
+            <strong>Laudos na Fila</strong>
+            <span class="queue-count-pill" id="queueCount">0</span>
+          </div>
+          <button type="button" id="btnLimparFila" class="btn-queue-clear" title="Limpar todos os laudos da fila">Limpar fila</button>
         </div>
+
+        <!-- Filtros e Busca rápida na fila -->
+        <div class="queue-tools" id="queueTools">
+          <div class="queue-tabs" role="tablist">
+            <button type="button" class="q-tab active" data-qfilter="all">Todos (<span id="cntAll">0</span>)</button>
+            <button type="button" class="q-tab" data-qfilter="pendente">Pendentes (<span id="cntPend">0</span>)</button>
+            <button type="button" class="q-tab" data-qfilter="preenchido">Preenchidos (<span id="cntDone">0</span>)</button>
+          </div>
+          <input type="search" id="queueSearchInput" class="queue-search-input" placeholder="Buscar por nome ou protocolo..." style="display:none">
+        </div>
+
         <div class="queue-list" id="queueList"></div>
       </div>
 
       <!-- Botões de Ação Auxiliar -->
       <div class="action-buttons-row">
         <button type="button" class="btn-action-sec" id="btnColarClipboard">
-          📋 Colar da Área de Transf.
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+          <span>Colar Ficha da Área de Transferência</span>
         </button>
       </div>
+
+      <!-- Controle em Tempo Real do que ocorre no e-SISLA -->
+      <section class="section-activity" id="sectionActivityLog">
+        <div class="section-activity-header">
+          <strong>Controle de Atividades no e-SISLA</strong>
+          <button type="button" id="btnLimparLog" class="btn-log-clear" title="Limpar histórico de atividades">Limpar</button>
+        </div>
+        <div class="activity-list" id="activityLogList">
+          <div class="activity-empty">Nenhuma ação registrada ainda nesta sessão.</div>
+        </div>
+      </section>
     </main>
 
     <!-- Rodapé -->
     <footer class="popup-footer">
-      <span>🛡️ <strong>Trava de Segurança:</strong> O e-SISLA confere o protocolo e nome na tela antes de liberar o preenchimento.</span>
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      <span><strong>Trava de Segurança:</strong> O e-SISLA confere protocolo e nome na tela antes de preencher.</span>
     </footer>
 
   </div>

@@ -9,13 +9,18 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_popup": "popup.html",
     "default_icon": "icons/icon48.png",
-    "default_title": "Ambiental ⚡ e-SISLA AutoFill"
+    "default_title": "Ambiental ⚡ e-SISLA Side Panel"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
   },
   "permissions": [
+    "sidePanel",
     "storage",
+    "tabs",
     "activeTab",
+    "scripting",
     "clipboardRead"
   ],
   "host_permissions": [
