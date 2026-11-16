@@ -50,11 +50,19 @@
     return docModo === 'ia' || docModo === 'ia2';
   };
   const openRecord = r => {
-    const id = r?.atendimento || r?.id;
+    const isUuid = (val) => Boolean(val && /^[0-9a-fA-F-]{36}$/.test(String(val).trim()));
+    const proto = r?.protocolo || r?.aux?.protocolo || r?.aux?.agenda_protocolo || '';
+    const rawId = r?.atendimento || r?.id;
+    const id = (isUuid(rawId) && proto) ? proto : (rawId || proto);
     if (!id) { showToast('Atendimento não identificado.'); return; }
     const impId = sessionStorage.getItem('ambiental.impersonate_medico_id');
     const p = new URLSearchParams();
     p.set('atendimento', id);
+    if (proto) p.set('protocolo', proto);
+    const pName = r?.paciente_nome || r?.nomePaciente || r?.aux?.nomePaciente || '';
+    if (pName) p.set('paciente', pName);
+    const pCpf = r?.paciente_cpf || r?.cpfPaciente || r?.aux?.cpfPaciente || '';
+    if (pCpf) p.set('cpf', pCpf);
     if (impId) p.set('medico_id', impId);
     if (isDoctorModoIA()) p.set('modo_ia2', '1');
     location.href = '/app?' + p.toString();
@@ -189,12 +197,15 @@
   }
   
   function rowHtml(r) {
-    const id = esc(r.atendimento || r.id);
+    const isUuid = (val) => Boolean(val && /^[0-9a-fA-F-]{36}$/.test(String(val).trim()));
     const p = payload(r);
     const a = aux(r);
+    const proto = a.protocolo || p.protocolo || r.protocolo || '';
+    const rawId = r.atendimento || r.id;
+    const finalId = (isUuid(rawId) && proto) ? proto : (rawId || proto);
+    const id = esc(finalId);
     const name = r.nomePaciente || r.paciente_nome || p.nomePaciente || a.nomePaciente || '';
-    const displayTitle = name ? esc(name) : `Atendimento #${esc(a.protocolo || p.protocolo || id.slice(0, 8))}`;
-    const proto = a.protocolo || p.protocolo || '';
+    const displayTitle = name ? esc(name) : `Atendimento #${esc(proto || (typeof id === 'string' ? id.slice(0, 8) : ''))}`;
     const unid = cleanUnidade(r.unidade || a.unidade || p.unidade || '');
     const cidVal = r.cid || a.cid || p.cid || '';
     const dataVal = dateDisplay(atdDate(r));
@@ -250,6 +261,9 @@
     const resolvedCpf = p?.cpfPaciente || a?.cpfPaciente || r?.cpfPaciente || r?.paciente_cpf || p?.cpf || a?.cpf || '';
     const resolvedProto = a?.protocolo || p?.protocolo || r?.protocolo || a?.agenda_protocolo || agendaItem?.protocolo || '';
     const resolvedNi = a?.ni || p?.ni || r?.ni || agendaItem?.ni || '';
+    const isUuid = (val) => Boolean(val && /^[0-9a-fA-F-]{36}$/.test(String(val).trim()));
+    const rawAtd = r?.atendimento || p?.atendimento || a?.atendimento || r?.id;
+    const finalAtd = (isUuid(rawAtd) && resolvedProto) ? resolvedProto : (rawAtd || resolvedProto);
     return {
       ...r,
       ...p,
@@ -262,7 +276,7 @@
         protocolo: resolvedProto,
         ni: resolvedNi
       },
-      atendimento: r?.atendimento || p?.atendimento || a?.atendimento || r?.id,
+      atendimento: finalAtd,
       protocolo: resolvedProto,
       ni: resolvedNi,
       nomePaciente: resolvedNome,
@@ -854,6 +868,21 @@
     normPayload.data_hora_atual = new Date().toISOString();
     normPayload.force_refresh = Boolean(forceRefresh);
 
+    if (forceRefresh) {
+      delete normPayload.ficha_esisla;
+      if (normPayload.payload) delete normPayload.payload.ficha_esisla;
+      if (normPayload.aux) {
+        delete normPayload.aux.fichaEsisla;
+        delete normPayload.aux.ficha_esisla;
+      }
+      delete r.ficha_esisla;
+      if (r.aux) {
+        delete r.aux.fichaEsisla;
+        delete r.aux.ficha_esisla;
+      }
+      if (r.payload) delete r.payload.ficha_esisla;
+    }
+
     const hasExistingFicha = !forceRefresh && Boolean(normPayload.ficha_esisla && String(normPayload.ficha_esisla).trim().length > 40);
     if (forceRefresh) {
       setDoctorEsislaStage(2, 'Otimização Clínica e Rol', 'Aplicando regras de ouro DPME e compatibilização do cargo...', 52);
@@ -913,20 +942,13 @@
       sincronizarFichaComExtensaoDoctor(ficha, r, id, false);
     } catch (err) {
       console.error('[Doctor e-Sisla] Erro ao carregar/gerar:', err);
-      const fallbackFicha = r.ficha_esisla || r.aux?.fichaEsisla || r.aux?.ficha_esisla || r.payload?.ficha_esisla;
-      if (fallbackFicha && String(fallbackFicha).trim().length > 40) {
-        if (txtEl) txtEl.value = fallbackFicha;
-        updateDoctorEsislaStats(fallbackFicha);
-        renderDoctorEsislaBlocos(fallbackFicha);
-        setDoctorEsislaMode(window.currentDoctorEsislaMode || 'blocos');
-        showToast('Ficha salva recuperada do atendimento.');
-      } else {
+      if (forceRefresh) {
         if (blocosEl) {
           blocosEl.style.display = 'grid';
           blocosEl.innerHTML = `
             <div style="background:#fff;border:1.5px solid #fecaca;border-radius:12px;padding:24px;text-align:center;margin:16px;">
               <div style="font-size:32px;margin-bottom:8px">⚠️</div>
-              <h4 style="margin:0 0 8px 0;color:#991b1b;font-size:15px">Não foi possível gerar a Ficha e-Sisla</h4>
+              <h4 style="margin:0 0 8px 0;color:#991b1b;font-size:15px">Não foi possível refazer a Ficha e-Sisla</h4>
               <p style="margin:0 0 16px 0;color:#7f1d1d;font-size:13px">${esc(err.message || err)}</p>
               <div style="display:flex;gap:10px;justify-content:center">
                 <button type="button" class="btn primary" onclick="openDoctorEsisla('${esc(id)}', true)" style="padding:7px 16px;font-size:12px">
@@ -936,7 +958,33 @@
               </div>
             </div>`;
         }
-        showToast(err.message || 'Erro ao gerar Ficha e-Sisla.');
+        showToast(err.message || 'Erro ao refazer a Ficha e-Sisla.');
+      } else {
+        const fallbackFicha = r.ficha_esisla || r.aux?.fichaEsisla || r.aux?.ficha_esisla || r.payload?.ficha_esisla;
+        if (fallbackFicha && String(fallbackFicha).trim().length > 40) {
+          if (txtEl) txtEl.value = fallbackFicha;
+          updateDoctorEsislaStats(fallbackFicha);
+          renderDoctorEsislaBlocos(fallbackFicha);
+          setDoctorEsislaMode(window.currentDoctorEsislaMode || 'blocos');
+          showToast('Ficha salva recuperada do atendimento.');
+        } else {
+          if (blocosEl) {
+            blocosEl.style.display = 'grid';
+            blocosEl.innerHTML = `
+              <div style="background:#fff;border:1.5px solid #fecaca;border-radius:12px;padding:24px;text-align:center;margin:16px;">
+                <div style="font-size:32px;margin-bottom:8px">⚠️</div>
+                <h4 style="margin:0 0 8px 0;color:#991b1b;font-size:15px">Não foi possível gerar a Ficha e-Sisla</h4>
+                <p style="margin:0 0 16px 0;color:#7f1d1d;font-size:13px">${esc(err.message || err)}</p>
+                <div style="display:flex;gap:10px;justify-content:center">
+                  <button type="button" class="btn primary" onclick="openDoctorEsisla('${esc(id)}', true)" style="padding:7px 16px;font-size:12px">
+                    🔄 Tentar Novamente
+                  </button>
+                  <button type="button" class="btn-sm" onclick="closeDoctorEsislaModal()">Fechar</button>
+                </div>
+              </div>`;
+          }
+          showToast(err.message || 'Erro ao gerar Ficha e-Sisla.');
+        }
       }
     } finally {
       if (overlay) {
@@ -1687,8 +1735,10 @@
       else if (it.tipo === 'RECONS') tipoLabel = 'Recons.';
       else if (it.tipo === 'APOSENT') tipoLabel = 'Aposent.';
       const compareceu = it.compareceu && it.compareceu !== 'NÃO';
+      const isUuid = (val) => Boolean(val && /^[0-9a-fA-F-]{36}$/.test(String(val).trim()));
+      const rawAtd = it.atd_existente_numero || it.atd_existente_id;
+      const atdNum = (isUuid(rawAtd) && it.protocolo) ? it.protocolo : (rawAtd || '');
       const hasAtd = Boolean(it.atd_existente_numero || it.atd_existente_id);
-      const atdNum = it.atd_existente_numero || it.atd_existente_id;
       const isFinalizado = it.atd_status === 'FINALIZADO' || it.status === 'FINALIZADO';
       const isAcomp = it.pessoa === 'Acompanhante' || it.is_acompanhante;
       const isRead = it.readaptado === 'Sim';
@@ -1833,9 +1883,11 @@
       showToast('Este atendimento já foi concluído e finalizado. O acesso está bloqueado.');
       return;
     }
+    const isUuid = (val) => Boolean(val && /^[0-9a-fA-F-]{36}$/.test(String(val).trim()));
+    const finalAtd = (isUuid(atdNum) && protocolo) ? protocolo : (atdNum || '');
     const p = new URLSearchParams();
-    if (atdNum) {
-      p.set('atendimento', atdNum);
+    if (finalAtd) {
+      p.set('atendimento', finalAtd);
     } else {
       p.set('novo', '1');
     }
@@ -1913,10 +1965,8 @@
     const docNome = impNome || $('doctorName')?.textContent || 'Médico Perito';
     if ($('esislaAgendaDoctorLabel')) $('esislaAgendaDoctorLabel').textContent = docNome;
 
-    // Resetar estado
+    // Resetar estado da fila e relatórios anteriores
     limparFilaEsisla();
-    if ($('esislaProgressArea')) $('esislaProgressArea').style.display = 'none';
-    if ($('esislaResultsReport')) $('esislaResultsReport').style.display = 'none';
 
     modal.style.display = 'grid';
   };
@@ -1934,9 +1984,16 @@
     if ($('esislaFilesCount')) $('esislaFilesCount').textContent = '0';
     if ($('esislaFilesList')) $('esislaFilesList').innerHTML = '';
     if ($('esislaFilesQueueArea')) $('esislaFilesQueueArea').style.display = 'none';
-    if ($('btnExecutarVinculacaoEsisla')) {
-      $('btnExecutarVinculacaoEsisla').disabled = true;
-      $('btnExecutarVinculacaoEsisla').innerHTML = '<span>⚡ Processar e Vincular à Agenda</span>';
+    if ($('esislaProgressArea')) $('esislaProgressArea').style.display = 'none';
+    if ($('esislaResultsReport')) $('esislaResultsReport').style.display = 'none';
+    if ($('btnNovaImportacaoEsisla')) $('btnNovaImportacaoEsisla').style.display = 'none';
+    
+    const btn = $('btnExecutarVinculacaoEsisla');
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.remove('esisla-foot-btn-success');
+      btn.onclick = window.executarVinculacaoBatchEsisla;
+      btn.innerHTML = '<span>⚡ Processar e Vincular à Agenda</span>';
     }
   };
 
@@ -1945,15 +2002,25 @@
     const newFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
     if (!newFiles.length) {
       showToast('Por favor, selecione arquivos em formato PDF (.pdf).');
+      if ($('esislaBatchFileInput')) $('esislaBatchFileInput').value = '';
       return;
     }
     
     // Adicionar evitando duplicados por nome e tamanho
+    let addedCount = 0;
     newFiles.forEach(nf => {
       if (!selectedEsislaBatchFiles.some(ef => ef.name === nf.name && ef.size === nf.size)) {
         selectedEsislaBatchFiles.push(nf);
+        addedCount++;
       }
     });
+
+    if (addedCount === 0 && newFiles.length > 0) {
+      showToast('Os arquivos selecionados já constam na lista.');
+    }
+
+    // Resetar o input para que o mesmo arquivo possa ser selecionado novamente caso removido
+    if ($('esislaBatchFileInput')) $('esislaBatchFileInput').value = '';
 
     renderEsislaFilesQueue();
   };
@@ -1969,23 +2036,33 @@
     if (!selectedEsislaBatchFiles.length) {
       queueArea.style.display = 'none';
       btn.disabled = true;
+      btn.classList.remove('esisla-foot-btn-success');
+      btn.onclick = window.executarVinculacaoBatchEsisla;
+      btn.innerHTML = '<span>⚡ Processar e Vincular à Agenda</span>';
       return;
     }
 
     queueArea.style.display = 'block';
     btn.disabled = false;
+    btn.classList.remove('esisla-foot-btn-success');
+    btn.onclick = window.executarVinculacaoBatchEsisla;
     btn.innerHTML = `<span>⚡ Processar e Vincular ${selectedEsislaBatchFiles.length} PDF(s) à Agenda</span>`;
 
-    listEl.innerHTML = selectedEsislaBatchFiles.map((f, idx) => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:6px;background:#f8fafc;border:1px solid #e2e8f0;font-size:11px">
-        <div style="display:flex;align-items:center;gap:6px;overflow:hidden">
-          <span>📄</span>
-          <b style="color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px">${esc(f.name)}</b>
-          <span style="color:var(--text-muted);font-size:10px">(${(f.size/1024).toFixed(0)} KB)</span>
+    listEl.innerHTML = selectedEsislaBatchFiles.map((f, idx) => {
+      const sizeStr = f.size > 1024 * 1024 
+        ? `${(f.size / (1024 * 1024)).toFixed(1)} MB` 
+        : `${(f.size / 1024).toFixed(0)} KB`;
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:8px;background:#ffffff;border:1px solid #e2e8f0;font-size:11.5px;box-shadow:0 1px 2px rgba(15,23,42,0.03)">
+          <div style="display:flex;align-items:center;gap:8px;overflow:hidden">
+            <span style="font-size:14px">📄</span>
+            <b style="color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px" title="${esc(f.name)}">${esc(f.name)}</b>
+            <span style="color:var(--text-muted);font-size:10.5px;background:#f1f5f9;padding:1px 6px;border-radius:4px;font-weight:700">${sizeStr}</span>
+          </div>
+          <button type="button" class="btn-sm" style="padding:3px 8px;color:#ef4444;border:none;background:transparent;cursor:pointer;font-weight:900;border-radius:4px" onclick="removerArquivoEsislaFila(${idx})" title="Remover este arquivo">✕</button>
         </div>
-        <button type="button" class="btn-sm" style="padding:2px 6px;color:var(--accent-red);border:none;background:transparent;cursor:pointer" onclick="removerArquivoEsislaFila(${idx})" title="Remover">✕</button>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   }
 
   window.removerArquivoEsislaFila = function(idx) {
@@ -1993,33 +2070,49 @@
     renderEsislaFilesQueue();
   };
 
-  // Configurar Drag & Drop no dropzone
+  // Configurar Drag & Drop e clique no dropzone
   const initEsislaDropzone = () => {
     const dz = $('esislaDropzone');
     if (!dz) return;
+    
+    let dragCounter = 0;
+    dz.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      dz.classList.add('dragover');
+    });
     dz.addEventListener('dragover', (e) => {
       e.preventDefault();
-      dz.style.borderColor = 'var(--brand-blue)';
-      dz.style.background = '#eff6ff';
     });
     dz.addEventListener('dragleave', (e) => {
       e.preventDefault();
-      dz.style.borderColor = '#93c5fd';
-      dz.style.background = '#f8fafc';
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        dz.classList.remove('dragover');
+      }
     });
     dz.addEventListener('drop', (e) => {
       e.preventDefault();
-      dz.style.borderColor = '#93c5fd';
-      dz.style.background = '#f8fafc';
+      dragCounter = 0;
+      dz.classList.remove('dragover');
       if (e.dataTransfer?.files) {
         onEsislaBatchFilesSelected(e.dataTransfer.files);
+      }
+    });
+    // Acessibilidade de teclado no dropzone
+    dz.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        $('esislaBatchFileInput')?.click();
       }
     });
   };
 
   window.executarVinculacaoBatchEsisla = async function() {
     if (!selectedEsislaBatchFiles.length) {
-      showToast('Selecione pelo menos um arquivo PDF do e-SISLA.');
+      showToast('Por favor, selecione pelo menos um arquivo PDF do e-SISLA.');
+      $('esislaBatchFileInput')?.click();
       return;
     }
 
@@ -2032,8 +2125,9 @@
     btn.disabled = true;
     btn.innerHTML = '<span>⏳ Processando arquivos…</span>';
     progArea.style.display = 'block';
-    progBar.style.width = '35%';
-    progPct.textContent = '35%';
+    progBar.style.width = '30%';
+    progBar.style.background = 'linear-gradient(90deg, #0284c7, #10b981)';
+    progPct.textContent = '30%';
     progText.textContent = `Lendo e interpretando ${selectedEsislaBatchFiles.length} arquivo(s) PDF do e-SISLA…`;
 
     try {
@@ -2046,7 +2140,7 @@
 
       progBar.style.width = '65%';
       progPct.textContent = '65%';
-      progText.textContent = 'Cruzando nomes e protocolos com a agenda pericial do dia…';
+      progText.textContent = 'Cruzando dados periciais com a agenda do dia…';
 
       const res = await AmbientalAPI.esisla.vincularAgendaBatch(formData);
 
@@ -2067,35 +2161,47 @@
       $('esislaResultsTbody').innerHTML = itens.map(it => {
         const isOk = it.status === 'vinculado';
         const statusBadge = isOk 
-          ? '<span class="badge green" style="font-weight:800">✓ Vinculado</span>' 
-          : '<span class="badge" style="background:#fee2e2;color:#991b1b;font-weight:800">⚠️ Não achou</span>';
+          ? '<span class="badge green" style="font-weight:800;padding:2px 8px">✓ Vinculado</span>' 
+          : '<span class="badge" style="background:#fee2e2;color:#991b1b;font-weight:800;padding:2px 8px">⚠️ Não achou</span>';
         
         const camposBadges = (it.campos_adiantados || []).map(c => 
-          `<span style="background:#f1f5f9;color:#334155;padding:1px 5px;border-radius:4px;font-size:9.5px;font-weight:700">${esc(c)}</span>`
+          `<span style="background:#f1f5f9;color:#334155;padding:2px 6px;border-radius:4px;font-size:9.5px;font-weight:700">${esc(c)}</span>`
         ).join(' ');
 
         return `
           <tr style="border-bottom:1px solid #f1f5f9">
-            <td style="padding:8px 12px">${statusBadge}</td>
-            <td style="padding:8px 12px"><b style="color:var(--text-primary)">${esc(it.arquivo)}</b></td>
-            <td style="padding:8px 12px"><b style="color:var(--brand-blue)">${esc(it.periciado)}</b></td>
-            <td style="padding:8px 12px">${isOk ? `<span>Horário <b>${esc(it.hora)}</b></span>` : `<span style="color:var(--text-muted)">Sem agendamento hoje</span>`}</td>
-            <td style="padding:8px 12px"><div style="display:flex;gap:4px;flex-wrap:wrap">${camposBadges || '<span style="color:var(--text-muted)">—</span>'}</div></td>
+            <td style="padding:9px 12px">${statusBadge}</td>
+            <td style="padding:9px 12px"><b style="color:var(--text-primary)">${esc(it.arquivo)}</b></td>
+            <td style="padding:9px 12px"><b style="color:var(--brand-blue)">${esc(it.periciado)}</b></td>
+            <td style="padding:9px 12px">${isOk ? `<span>Horário <b>${esc(it.hora)}</b></span>` : `<span style="color:var(--text-muted)">Sem agendamento nesta data</span>`}</td>
+            <td style="padding:9px 12px"><div style="display:flex;gap:4px;flex-wrap:wrap">${camposBadges || '<span style="color:var(--text-muted)">—</span>'}</div></td>
           </tr>
         `;
       }).join('');
 
       showToast(`Sucesso! ${vinculados} periciado(s) vinculados e adiantados na agenda.`);
-      btn.innerHTML = '<span>✓ Concluído</span>';
+
+      // Exibir botão de Nova Importação
+      if ($('btnNovaImportacaoEsisla')) $('btnNovaImportacaoEsisla').style.display = 'inline-flex';
+
+      // Atualizar botão de ação primária para permitir conclusão imediata com 1 clique
+      btn.disabled = false;
+      btn.classList.add('esisla-foot-btn-success');
+      btn.innerHTML = '<span>✓ Concluir e Ir para a Agenda</span>';
+      btn.onclick = function() {
+        fecharModalImportarEsislaAgenda();
+      };
       
-      // Atualizar lista em tempo real
+      // Atualizar lista da agenda em segundo plano
       await loadDoctorDayAgenda(currentAgendaSelectedDate);
     } catch(err) {
       progText.textContent = `Erro: ${err.message}`;
       progBar.style.background = 'var(--accent-red)';
       showToast(err.message || 'Erro ao processar lote de arquivos e-SISLA.');
       btn.disabled = false;
-      btn.innerHTML = '<span>Tentar novamente</span>';
+      btn.classList.remove('esisla-foot-btn-success');
+      btn.onclick = window.executarVinculacaoBatchEsisla;
+      btn.innerHTML = '<span>⚡ Tentar novamente</span>';
     }
   };
 
@@ -2134,7 +2240,7 @@
       if (impId) payload.medico_id = impId;
       const res = await AmbientalAPI.esisla.desvincularAgenda(payload);
       showToast(res?.mensagem || 'Fichas vinculadas do dia removidas com sucesso.');
-      if ($('esislaResultsReport')) $('esislaResultsReport').style.display = 'none';
+      limparFilaEsisla();
       await loadDoctorDayAgenda(currentAgendaSelectedDate);
     } catch (err) {
       showToast(err.message || 'Erro ao remover fichas vinculadas do dia.');

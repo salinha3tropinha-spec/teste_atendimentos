@@ -1,0 +1,65 @@
+[
+  {
+    "cenario": "cenario_a_ortopedia_pendencias",
+    "dialogo_count": 4,
+    "respondidos": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "pendentes": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "extras_count": 0,
+    "sucesso": true
+  },
+  {
+    "cenario": "cenario_b_psiquiatria_farmacos",
+    "dialogo_count": 11,
+    "respondidos": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      9,
+      10,
+      11
+    ],
+    "pendentes": [
+      8
+    ],
+    "extras_count": 1,
+    "sucesso": true
+  },
+  {
+    "cenario": "cenario_c_fala_rapida_condensada",
+    "dialogo_count": 11,
+    "respondidos": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      9,
+      10,
+      11
+    ],
+    "pendentes": [
+      7
+    ],
+    "extras_count": 1,
+    "sucesso": true
+  }
+]

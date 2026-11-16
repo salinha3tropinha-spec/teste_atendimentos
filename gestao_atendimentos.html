@@ -12,8 +12,10 @@
 <script src="/auth.js"></script>
 <script src="/utils.js"></script>
 <script src="/esisla_core.js"></script>
-
-<link rel="stylesheet" href="/gestao_atendimentos.css?v=2.0.1">
+<script>
+(function(){try{var p=JSON.parse(localStorage.getItem('ambiental_gestao_prefs_v1')||'{}');var t=p.theme||'light';var d=t==='dark'||(t==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.classList.add('theme-dark');document.documentElement.style.colorScheme='dark';}if(localStorage.getItem('ambiental_gestao_sidebar_collapsed')==='1'&&window.innerWidth>1020){document.documentElement.classList.add('sidebar-collapsed');}}catch(_){}})();
+</script>
+<link rel="stylesheet" href="/gestao_atendimentos.css?v=2.0.6">
 </head>
 <body class="admin-shell"><div class="top-sync-bar" id="topSyncBar"></div><div id="authLoading" style="position:fixed;inset:0;background:#F2F6FA;z-index:999999;display:grid;place-items:center;font-family:Inter,system-ui,sans-serif;color:#073F87"><div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DDE6EF;border-radius:14px;padding:13px 16px;box-shadow:0 12px 35px rgba(10,30,55,.1);font-size:12px;font-weight:800"><img src="/logo.png" alt="" style="width:28px;height:28px;object-fit:contain"><span>Verificando sessão...</span></div></div>
 <script>
@@ -47,7 +49,7 @@
 <button class="admin-mobile-toggle" id="sidebarToggle" aria-label="Abrir menu" type="button">☰</button>
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 <aside class="admin-sidebar" id="adminSidebar" aria-label="Navegação administrativa">
-  <div class="sidebar-brand"><img src="/logo.png" alt="Ambiental"><div><strong>Ambiental</strong><span>Gestão administrativa</span></div></div>
+  <div class="sidebar-brand"><img src="/logo.png" alt="Ambiental"><div><strong>Ambiental</strong><span>Gestão administrativa</span></div><button class="sidebar-collapse-btn" id="sidebarCollapseBtn" type="button" title="Minimizar menu lateral" aria-label="Minimizar menu lateral" aria-expanded="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button></div>
   <div class="sidebar-section">Visão geral</div>
   <nav class="sidebar-nav">
     <a href="#dashboard" class="sidebar-link active" data-target="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></a>
@@ -62,6 +64,10 @@
     <a href="/gestao-medicos-admin.html" class="sidebar-link"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM16 3.5a4 4 0 0 1 0 7.8M19 14a4 4 0 0 1 2 3.5V21"/></svg><span>Gestão de médicos</span></a>
     <a href="javascript:void(0)" onclick="abrirModalBookmarkletEsisla()" class="sidebar-link" title="Instalar Botão dos Favoritos para preencher o e-SISLA sem abrir F12"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Favorito e-SISLA</span></a>
 
+  </nav>
+  <div class="sidebar-section admin-only-item" data-admin-only="true" style="display:none">Sistema</div>
+  <nav class="sidebar-nav admin-only-item" data-admin-only="true" style="display:none">
+    <a href="#configuracoes" class="sidebar-link admin-only-item" id="sidebarConfigLink" data-target="configuracoes" data-admin-only="true" style="display:none" title="Configurações do sistema, Modo Escuro e diagnósticos (somente administradores)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg><span>Configurações</span><span class="badge admin-badge-pill">Admin</span></a>
   </nav>
   <div class="sidebar-spacer"></div>
   <div class="sidebar-user"><div class="sidebar-avatar" id="sidebarAvatar">A</div><div><strong id="sidebarName">Administrador</strong><small id="sidebarRole">Acesso administrativo</small></div></div>
@@ -89,6 +95,8 @@
       </div>
       <button class="icon-btn-inline" id="refreshBtn" type="button" title="Atualizar dados agora" onclick="event.stopPropagation();triggerRefresh(true)">↻</button>
     </div>
+
+    <button class="icon-btn top-config-btn admin-only-item" id="topConfigBtn" data-admin-only="true" type="button" onclick="goToSection('configuracoes')" title="Configurações Administrativas" aria-label="Abrir Configurações" style="display:none"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></button>
 
     <div class="session-chip" id="sessionChip" title="Sessão autenticada">
       <span class="session-dot"></span>
@@ -438,8 +446,340 @@
 <div class="admin-view" id="view-indicadores"><div class="view-header"><div><div class="view-kicker">Performance operacional</div><h2>Indicadores e resultados</h2><p>Resumo operacional dos atendimentos, pendências, finalizações e atualizações recentes.</p></div><span class="view-count">Leitura executiva</span></div>
 <section class="stats anchor-target" id="indicadores"><div class="stat"><span>Total</span><b id="statTotal">—</b></div><div class="stat"><span>Rascunhos</span><b id="statDraft">—</b></div><div class="stat"><span>Em revisão</span><b id="statReview">—</b></div><div class="stat"><span>Finalizados</span><b id="statDone">—</b></div><div class="stat"><span>Arquivados</span><b id="statArchived">—</b></div><div class="stat"><span>Pendências</span><b id="statPending">—</b></div><div class="stat"><span>Atualizados hoje</span><b id="statRecent">—</b></div></section></div>
 <div class="admin-view" id="view-busca"><div class="view-header"><div><div class="view-kicker">Consulta operacional</div><h2>Buscar atendimento</h2><p>Localize por número, paciente, CPF, médico, CID, unidade, status ou período e abra o registro completo.</p></div><span class="view-count" id="searchViewCount">— resultados</span></div>
-<section class="panel anchor-target" id="atendimentos"><div class="search-toolbar"><div class="search-toolbar-left"><span class="search-toolbar-title">Localizar atendimento</span><span class="filter-count" id="resultCount">— resultados</span></div><div class="search-toolbar-actions"><button class="search-refresh-btn" id="searchRefreshBtn" type="button" onclick="triggerRefresh(true)" title="Sincronizar e atualizar resultados"><span class="refresh-ico">↻</span> <span>Atualizar lista</span></button><button class="search-reset-btn" type="button" onclick="clearFilters()" title="Limpar todos os filtros"><span class="reset-icon">↺</span> <span>Redefinir busca</span></button></div></div><div class="tabs"><button class="tab active" data-tab="all" onclick="setTab('all')">Todos</button><button class="tab" data-tab="draft" onclick="setTab('draft')">Rascunhos</button><button class="tab" data-tab="review" onclick="setTab('review')">Em revisão</button><button class="tab" data-tab="done" onclick="setTab('done')">Finalizados</button><button class="tab" data-tab="archived" onclick="setTab('archived')">Arquivados</button></div><div class="filters"><input class="input" id="search" placeholder="Buscar por paciente, CPF, médico, CID ou conteúdo..." oninput="refresh()" autocomplete="off"><select class="select" id="filter"><option value="all">Todos os status</option><option value="RASCUNHO">Rascunho</option><option value="EM_REVISÃO">Em revisão</option><option value="REABERTO">Reaberto</option><option value="FINALIZADO">Finalizado</option><option value="ARQUIVADO">Arquivado</option></select><input class="input" id="medico" placeholder="Médico" oninput="refresh()"><input class="input" id="cid" placeholder="CID" oninput="refresh()"><input class="input" id="unidade" placeholder="Unidade" oninput="refresh()"><input class="input" id="periodoInicio" type="date" title="Data inicial" aria-label="Data inicial"><input class="input" id="periodoFim" type="date" title="Data final" aria-label="Data final"><select class="select" id="sort" onchange="refresh()"><option value="updated">Última atualização</option><option value="date">Data do atendimento</option><option value="patient">Paciente (A–Z)</option></select></div><div class="bulk-actions-toolbar" id="bulkActionsToolbar" style="display:none;"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:13px;font-weight:800;color:#991B1B"><span id="selectedCountBadge">0</span> atendimento(s) selecionado(s)</span><span style="font-size:11.5px;color:#7F1D1D">(Apenas administradores podem excluir permanentemente do banco)</span></div><div style="display:flex;align-items:center;gap:8px"><button type="button" class="btn btn-danger" id="btnBatchDeleteAdmin" onclick="confirmBatchDeleteAdmin()" style="font-weight:700;padding:6px 14px;font-size:12px">🗑️ Excluir Selecionados do Banco</button><button type="button" class="btn btn-outline" onclick="clearSelectedRows()" style="padding:6px 12px;font-size:12px;background:#fff">Desmarcar todos</button></div></div><table><thead><tr><th class="admin-th-select"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAllRows(this.checked)" title="Selecionar todos os atendimentos exibidos" style="cursor:pointer;width:16px;height:16px"></th><th>Paciente</th><th>Data</th><th>Profissional</th><th>Dados</th><th>Status</th><th>Atualizado</th><th></th></tr></thead><tbody id="tbody"></tbody></table><div class="empty" id="empty" style="display:none">Nenhum atendimento encontrado para os filtros atuais.</div><div class="table-pagination-footer" id="tablePaginationFooter" style="display:none"><div class="pagination-info" id="paginationInfo">Carregando atendimentos...</div><div class="pagination-controls" id="paginationControls"><button type="button" class="page-nav-btn" id="btnPagePrev" onclick="changeSearchPage(searchCurrentPage - 1)" title="Página anterior">‹ Anterior</button><div class="page-numbers-wrap" id="paginationNumbersWrap"></div><button type="button" class="page-nav-btn" id="btnPageNext" onclick="changeSearchPage(searchCurrentPage + 1)" title="Próxima página">Próxima ›</button></div></div></section>
-<div class="notice">Fonte principal da Gestão: <strong>PostgreSQL/backend</strong>. O LocalStorage permanece como contingência local para rascunhos e recuperação no próprio navegador.</div></div></main></div>
+<section class="panel anchor-target" id="atendimentos"><div class="search-toolbar"><div class="search-toolbar-left"><span class="search-toolbar-title">Localizar atendimento</span><span class="filter-count" id="resultCount">— resultados</span></div><div class="search-toolbar-actions"><button class="search-refresh-btn" id="searchRefreshBtn" type="button" onclick="triggerRefresh(true)" title="Sincronizar e atualizar resultados"><span class="refresh-ico">↻</span> <span>Atualizar lista</span></button><button class="search-reset-btn" type="button" onclick="clearFilters()" title="Limpar todos os filtros"><span class="reset-icon">↺</span> <span>Redefinir busca</span></button></div></div><div class="tabs"><button class="tab active" data-tab="all" onclick="setTab('all')">Todos</button><button class="tab" data-tab="draft" onclick="setTab('draft')">Rascunhos</button><button class="tab" data-tab="review" onclick="setTab('review')">Em revisão</button><button class="tab" data-tab="done" onclick="setTab('done')">Finalizados</button><button class="tab" data-tab="archived" onclick="setTab('archived')">Arquivados</button></div><div class="filters"><input class="input" id="search" placeholder="Buscar por paciente, CPF, médico, CID ou conteúdo..." oninput="refresh()" autocomplete="off"><select class="select" id="filter"><option value="all">Todos os status</option><option value="RASCUNHO">Rascunho</option><option value="EM_REVISÃO">Em revisão</option><option value="REABERTO">Reaberto</option><option value="FINALIZADO">Finalizado</option><option value="ARQUIVADO">Arquivado</option></select><input class="input" id="medico" placeholder="Médico" oninput="refresh()"><input class="input" id="cid" placeholder="CID" oninput="refresh()"><input class="input" id="unidade" placeholder="Unidade" oninput="refresh()"><input class="input" id="periodoInicio" type="date" title="Data inicial" aria-label="Data inicial"><input class="input" id="periodoFim" type="date" title="Data final" aria-label="Data final"><select class="select" id="sort" onchange="refresh()"><option value="updated">Última atualização</option><option value="date">Data do atendimento</option><option value="patient">Paciente (A–Z)</option></select></div><div class="bulk-actions-toolbar" id="bulkActionsToolbar" style="display:none;"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:13px;font-weight:800;color:#991B1B"><span id="selectedCountBadge">0</span> atendimento(s) selecionado(s)</span><span style="font-size:11.5px;color:#7F1D1D">(Apenas administradores podem excluir permanentemente do banco)</span></div><div style="display:flex;align-items:center;gap:8px"><button type="button" class="btn btn-danger" id="btnBatchDeleteAdmin" onclick="confirmBatchDeleteAdmin()" style="font-weight:700;padding:6px 14px;font-size:12px">🗑️ Excluir Selecionados do Banco</button><button type="button" class="btn btn-outline" onclick="clearSelectedRows()" style="padding:6px 12px;font-size:12px;background:#fff">Desmarcar todos</button></div></div><div class="search-table-scroll"><table><thead><tr><th class="admin-th-select"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAllRows(this.checked)" title="Selecionar todos os atendimentos exibidos" style="cursor:pointer;width:16px;height:16px"></th><th>Paciente</th><th>Data</th><th>Profissional</th><th>Dados</th><th>Status</th><th>Atualizado</th><th style="text-align:right">Ações</th></tr></thead><tbody id="tbody"></tbody></table></div><div class="empty" id="empty" style="display:none">Nenhum atendimento encontrado para os filtros atuais.</div><div class="table-pagination-footer" id="tablePaginationFooter" style="display:none"><div class="pagination-info" id="paginationInfo">Carregando atendimentos...</div><div class="pagination-controls" id="paginationControls"><button type="button" class="page-nav-btn" id="btnPagePrev" onclick="changeSearchPage(searchCurrentPage - 1)" title="Página anterior">‹ Anterior</button><div class="page-numbers-wrap" id="paginationNumbersWrap"></div><button type="button" class="page-nav-btn" id="btnPageNext" onclick="changeSearchPage(searchCurrentPage + 1)" title="Próxima página">Próxima ›</button></div></div></section>
+<div class="notice">Fonte principal da Gestão: <strong>PostgreSQL/backend</strong>. O LocalStorage permanece como contingência local para rascunhos e recuperação no próprio navegador.</div></div>
+
+<div class="admin-view admin-only-view" id="view-configuracoes" data-admin-only="true">
+  <div class="view-header">
+    <div>
+      <div class="view-kicker">Governança &amp; Personalização do Sistema</div>
+      <h2>Configurações Administrativas</h2>
+      <p>Personalize a aparência (Claro / Modo Escuro), comportamento da consulta operacional, sincronização em tempo real, governança e-SISLA e diagnósticos do servidor.</p>
+    </div>
+    <div class="cfg-header-actions">
+      <span class="cfg-admin-pill">🔒 Acesso Administrativo</span>
+      <button type="button" class="btn btn-outline cfg-reset-btn" onclick="resetGestaoPrefs()">↺ Restaurar padrão</button>
+    </div>
+  </div>
+
+  <div class="cfg-session-ribbon">
+    <div class="cfg-session-user">
+      <span class="cfg-session-shield">🛡️</span>
+      <div>
+        <strong id="cfgAdminName">Administrador</strong>
+        <small id="cfgAdminRole">Perfil administrativo autenticado · Acesso integral à governança e auditoria</small>
+      </div>
+    </div>
+    <div class="cfg-session-status">
+      <span class="cfg-save-badge" id="cfgSaveBadge">✓ Preferências sincronizadas localmente</span>
+    </div>
+  </div>
+
+  <div class="config-grid">
+    <!-- Card 1: Aparência & Modo Escuro -->
+    <section class="config-card config-card-wide">
+      <div class="config-card-head">
+        <div class="config-card-icon blue">🎨</div>
+        <div>
+          <h3>Aparência &amp; Modo Escuro</h3>
+          <p>Escolha o tema visual mais confortável para sua rotina pericial e ajuste a densidade da interface.</p>
+        </div>
+      </div>
+
+      <div class="theme-picker-grid" role="radiogroup" aria-label="Tema de aparência">
+        <button type="button" class="theme-option-card active" id="themeOptLight" data-theme-opt="light" onclick="setThemeMode('light')">
+          <div class="theme-preview theme-preview-light">
+            <div class="tp-sidebar"></div>
+            <div class="tp-main">
+              <div class="tp-topbar"></div>
+              <div class="tp-cards"><span></span><span></span></div>
+              <div class="tp-rows"></div>
+            </div>
+          </div>
+          <div class="theme-option-meta">
+            <strong>☀️ Claro Corporativo</strong>
+            <small>Alta nitidez diurna com superfície cristalina</small>
+          </div>
+          <span class="theme-check-dot"></span>
+        </button>
+
+        <button type="button" class="theme-option-card" id="themeOptDark" data-theme-opt="dark" onclick="setThemeMode('dark')">
+          <div class="theme-preview theme-preview-dark">
+            <div class="tp-sidebar"></div>
+            <div class="tp-main">
+              <div class="tp-topbar"></div>
+              <div class="tp-cards"><span></span><span></span></div>
+              <div class="tp-rows"></div>
+            </div>
+          </div>
+          <div class="theme-option-meta">
+            <strong>🌙 Modo Escuro</strong>
+            <small>Tema noturno Slate Navy com alto conforto visual</small>
+          </div>
+          <span class="theme-check-dot"></span>
+        </button>
+
+        <button type="button" class="theme-option-card" id="themeOptAuto" data-theme-opt="auto" onclick="setThemeMode('auto')">
+          <div class="theme-preview theme-preview-auto">
+            <div class="tp-split-left">
+              <div class="tp-topbar"></div>
+              <div class="tp-cards"><span></span></div>
+            </div>
+            <div class="tp-split-right">
+              <div class="tp-topbar"></div>
+              <div class="tp-cards"><span></span></div>
+            </div>
+          </div>
+          <div class="theme-option-meta">
+            <strong>💻 Automático (Sistema)</strong>
+            <small>Acompanha o padrão Claro/Escuro do seu dispositivo</small>
+          </div>
+          <span class="theme-check-dot"></span>
+        </button>
+      </div>
+
+      <div class="config-divider"></div>
+
+      <div class="config-toggle-list">
+        <label class="config-row" for="cfgDensityCompact">
+          <div>
+            <strong>Modo compacto na tabela de atendimentos</strong>
+            <small>Reduz o espaçamento vertical das linhas para visualizar mais registros simultaneamente.</small>
+          </div>
+          <span class="toggle-switch">
+            <input type="checkbox" id="cfgDensityCompact" onchange="updateGestaoPref('density', this.checked ? 'compact' : 'comfortable')">
+            <span class="toggle-slider"></span>
+          </span>
+        </label>
+
+        <label class="config-row" for="cfgHighlightEsisla">
+          <div>
+            <strong>Destacar registros pendentes de lançamento no e-SISLA</strong>
+            <small>Realça visualmente as linhas em Buscar atendimento que ainda não foram marcadas no e-SISLA.</small>
+          </div>
+          <span class="toggle-switch">
+            <input type="checkbox" id="cfgHighlightEsisla" onchange="updateGestaoPref('highlightEsislaPending', this.checked)">
+            <span class="toggle-slider"></span>
+          </span>
+        </label>
+
+        <label class="config-row" for="cfgAnimations">
+          <div>
+            <strong>Transições e efeitos visuais suaves</strong>
+            <small>Desative para resposta instantânea em estações remotas ou máquinas com recursos limitados.</small>
+          </div>
+          <span class="toggle-switch">
+            <input type="checkbox" id="cfgAnimations" checked onchange="updateGestaoPref('animations', this.checked)">
+            <span class="toggle-slider"></span>
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Card 2: Preferências da Consulta Operacional -->
+    <section class="config-card">
+      <div class="config-card-head">
+        <div class="config-card-icon cyan">🔍</div>
+        <div>
+          <h3>Consulta Operacional &amp; Fluxo</h3>
+          <p>Defina o comportamento padrão ao abrir a busca de atendimentos e a ficha estruturada.</p>
+        </div>
+      </div>
+
+      <div class="config-fields">
+        <div class="config-field">
+          <label for="cfgDefaultTab">Aba inicial ao abrir Buscar Atendimento</label>
+          <select id="cfgDefaultTab" class="select" onchange="updateGestaoPref('defaultTab', this.value)">
+            <option value="all">Todos os atendimentos (Padrão)</option>
+            <option value="draft">Rascunhos</option>
+            <option value="review">Em revisão</option>
+            <option value="done">Finalizados</option>
+          </select>
+        </div>
+
+        <div class="config-field">
+          <label for="cfgDefaultSort">Ordenação padrão da listagem</label>
+          <select id="cfgDefaultSort" class="select" onchange="updateGestaoPref('defaultSort', this.value)">
+            <option value="updated">Última atualização (Padrão)</option>
+            <option value="date">Data do atendimento</option>
+            <option value="patient">Nome do paciente (A–Z)</option>
+          </select>
+        </div>
+
+        <div class="config-field">
+          <label for="cfgDefaultEsislaMode">Modo padrão da Ficha e-SISLA</label>
+          <select id="cfgDefaultEsislaMode" class="select" onchange="updateGestaoPref('defaultEsislaMode', this.value)">
+            <option value="blocos">Versão em Blocos (Campos Individuais DPME)</option>
+            <option value="txt">Versão TXT Contínua</option>
+          </select>
+        </div>
+
+        <label class="config-row compact-row" for="cfgAutoFocusSearch">
+          <div>
+            <strong>Focar busca ao entrar em Buscar Atendimento</strong>
+            <small>Ativa o cursor na caixa de pesquisa sem alterar a posição da tela.</small>
+          </div>
+          <span class="toggle-switch">
+            <input type="checkbox" id="cfgAutoFocusSearch" checked onchange="updateGestaoPref('autoFocusSearch', this.checked)">
+            <span class="toggle-slider"></span>
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Card 3: Sincronização & Notificações -->
+    <section class="config-card">
+      <div class="config-card-head">
+        <div class="config-card-icon green">🔄</div>
+        <div>
+          <h3>Sincronização &amp; Notificações</h3>
+          <p>Controle a frequência de verificação com o PostgreSQL e os avisos em tempo real.</p>
+        </div>
+      </div>
+
+      <div class="config-fields">
+        <div class="config-field">
+          <label for="cfgAutoSyncMs">Intervalo de atualização em segundo plano</label>
+          <select id="cfgAutoSyncMs" class="select" onchange="updateGestaoPref('autoSyncMs', Number(this.value))">
+            <option value="30000">A cada 30 segundos (Alta frequência)</option>
+            <option value="60000">A cada 60 segundos (Recomendado)</option>
+            <option value="120000">A cada 2 minutos</option>
+            <option value="300000">A cada 5 minutos (Economia de rede)</option>
+            <option value="0">Manual (Desativar polling automático)</option>
+          </select>
+        </div>
+
+        <label class="config-row compact-row" for="cfgToastOnSync">
+          <div>
+            <strong>Notificar atualizações em segundo plano</strong>
+            <small>Exibe alerta discreto quando novos atendimentos ou alterações chegarem do servidor.</small>
+          </div>
+          <span class="toggle-switch">
+            <input type="checkbox" id="cfgToastOnSync" checked onchange="updateGestaoPref('toastOnSync', this.checked)">
+            <span class="toggle-slider"></span>
+          </span>
+        </label>
+
+        <div class="config-inline-action">
+          <div>
+            <span class="cfg-mini-label">Última sincronização</span>
+            <strong id="cfgLastSyncText">Verificando...</strong>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="triggerRefresh({ force: true })">↻ Sincronizar agora</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Card 4: Governança e-SISLA & Equipe Médica -->
+    <section class="config-card">
+      <div class="config-card-head">
+        <div class="config-card-icon amber">⚖️</div>
+        <div>
+          <h3>Governança Pericial &amp; Ferramentas</h3>
+          <p>Parâmetros regulatórios ativos no fluxo e acesso rápido aos módulos administrativos.</p>
+        </div>
+      </div>
+
+      <ul class="cfg-rule-list">
+        <li><span class="rule-badge ok">ATIVO</span><div><strong>Regra DPME de Retroação (&gt; 3 dias)</strong><small>Validação automática entre expedição do atestado e início do afastamento</small></div></li>
+        <li><span class="rule-badge ok">ATIVO</span><div><strong>Limite Textual e-SISLA (2.000 caracteres)</strong><small>Contagem em tempo real nos blocos estruturados de preenchimento</small></div></li>
+        <li><span class="rule-badge ok">ATIVO</span><div><strong>Paginação Otimizada (40 itens/página)</strong><small>Isolamento de performance para grandes volumes na central</small></div></li>
+      </ul>
+
+      <div class="cfg-action-tiles">
+        <a href="/gestao-medicos-admin.html" class="cfg-action-tile">
+          <span>👥</span>
+          <div><strong>Gestão de Médicos</strong><small>Cadastros, CRM e perfis</small></div>
+        </a>
+        <button type="button" class="cfg-action-tile" onclick="abrirModalBookmarkletEsisla()">
+          <span>⭐</span>
+          <div><strong>Favorito e-SISLA</strong><small>Instalar bookmarklet DPME</small></div>
+        </button>
+        <button type="button" class="cfg-action-tile" onclick="goToSection('medicos')">
+          <span>👨‍⚕️</span>
+          <div><strong>Produção Médica</strong><small>Volume e taxas por perito</small></div>
+        </button>
+        <button type="button" class="cfg-action-tile" onclick="goToSection('indicadores')">
+          <span>📊</span>
+          <div><strong>Indicadores</strong><small>Status e leitura executiva</small></div>
+        </button>
+      </div>
+    </section>
+
+    <!-- Card 5: Saúde do Servidor, Banco & IA -->
+    <section class="config-card">
+      <div class="config-card-head">
+        <div class="config-card-icon indigo">🩺</div>
+        <div>
+          <h3>Diagnóstico &amp; Saúde do Sistema</h3>
+          <p>Telemetria em tempo real da API Flask, banco PostgreSQL e integração de IA.</p>
+        </div>
+      </div>
+
+      <div class="diag-grid">
+        <div class="diag-item">
+          <span>API / Servidor</span>
+          <b id="cfgDiagApi">Aguardando...</b>
+        </div>
+        <div class="diag-item">
+          <span>Banco PostgreSQL</span>
+          <b id="cfgDiagDb">Aguardando...</b>
+        </div>
+        <div class="diag-item">
+          <span>Motor IA / Chave</span>
+          <b id="cfgDiagAi">Aguardando...</b>
+        </div>
+        <div class="diag-item">
+          <span>Ambiente Ativo</span>
+          <b id="cfgDiagEnv">—</b>
+        </div>
+        <div class="diag-item">
+          <span>Atendimentos / Locais</span>
+          <b id="cfgDiagCounts">—</b>
+        </div>
+        <div class="diag-item">
+          <span>Latência &amp; Checagem</span>
+          <b id="cfgDiagLatency">—</b>
+        </div>
+      </div>
+
+      <div class="config-card-footer">
+        <button type="button" class="btn btn-outline" id="btnRunDiagnostics" onclick="runAdminDiagnostics()">⚡ Testar conectividade (/health &amp; /ready)</button>
+      </div>
+    </section>
+
+    <!-- Card 6: Dados, Exportação & Manutenção -->
+    <section class="config-card config-card-wide">
+      <div class="config-card-head">
+        <div class="config-card-icon emerald">🛡️</div>
+        <div>
+          <h3>Dados, Exportação &amp; Manutenção Segura</h3>
+          <p>Exporte relatórios operacionais e gerencie o cache local sem interferir nos prontuários salvos no banco.</p>
+        </div>
+      </div>
+
+      <div class="cfg-maintenance-grid">
+        <div class="cfg-maint-box">
+          <div>
+            <strong>📥 Exportar atendimentos filtrados (.csv)</strong>
+            <small>Gera planilha compatível com Excel contendo paciente, CPF, data, médico, CID, dias solicitados, parecer, status e lançamento e-SISLA.</small>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="exportarAtendimentosCSV()">Exportar CSV atual</button>
+        </div>
+
+        <div class="cfg-maint-box">
+          <div>
+            <strong>🧹 Renovar cache de listagem desta estação</strong>
+            <small>Remove apenas o snapshot temporário da fila em sessão e baixa novamente todos os registros direto do servidor PostgreSQL.</small>
+          </div>
+          <button type="button" class="btn btn-outline" onclick="limparCacheGestaoLocal()">Limpar cache e recarregar</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+</main></div>
 <div class="modal" id="detailModal"><div class="dialog detail-modal-dialog"><div class="dialog-head"><div><strong id="detailTitle">Atendimento</strong><span id="detailSub"></span></div><div class="esisla-toolbar"><button class="btn btn-outline" id="comprovanteDetailBtn" onclick="abrirComprovanteDoDetail()" style="font-weight:700">📄 Declaração</button><button class="btn btn-outline" id="btnBenchmarkDetail" onclick="consultarBenchmarkDetail()" style="font-weight:700;display:inline-flex;align-items:center;gap:4px;color:#1D4ED8;border-color:#BFDBFE" title="Consultar referências de afastamento e limites DPME para o CID deste atendimento">📊 Benchmark CID</button><button class="btn btn-esisla" id="generateEsislaBtn">Gerar ficha eSisla</button><button class="btn" onclick="closeModal('detailModal')">Fechar</button></div></div><div id="detailBody" class="detail"></div><div class="dialog-foot"><button class="btn btn-outline" id="btnDitadoGestao" onclick="iniciarDitadoParaAtendimento()" style="color:#059669;border-color:#A7F3D0;font-weight:700" title="Abrir ficha pericial com gravador de voz por IA ativo">🎤 Ditado por Voz</button><button class="btn" id="btnModoIA2Detail" onclick="openModoIA2(window.currentDetailEnc)" style="background:linear-gradient(135deg, #4f46e5, #7c3aed);color:#fff;font-weight:800;border:none;box-shadow:0 2px 8px rgba(79,70,229,0.3)" title="Iniciar com Modo IA 2.0 (Gravação com Colinha em Tempo Real ou Modo Escrita)">🚀 Modo IA 2.0</button><button class="btn" id="openEvalBtn">Abrir atendimento</button><button class="btn" id="historyBtn">Histórico</button></div></div></div>
 
 <!-- Modal de Benchmark CID na Gestão -->
@@ -960,6 +1300,6 @@
   </div>
 </div>
 
-<script src="/gestao_atendimentos.js?v=2.0.3"></script>
+<script src="/gestao_atendimentos.js?v=2.0.4"></script>
 </body>
 </html>

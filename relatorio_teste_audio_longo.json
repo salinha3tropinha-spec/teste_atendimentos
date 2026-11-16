@@ -1,0 +1,201 @@
+{
+  "colinha_status": [
+    {
+      "id": 1,
+      "matched": true,
+      "snippet": "47 anos"
+    },
+    {
+      "id": 2,
+      "matched": true,
+      "snippet": "Professor de educação básica 2"
+    },
+    {
+      "id": 3,
+      "matched": true,
+      "snippet": "16 anos"
+    },
+    {
+      "id": 4,
+      "matched": true,
+      "snippet": "Sim, sou readaptado há 2 anos"
+    },
+    {
+      "id": 5,
+      "matched": true,
+      "snippet": "Há cerca de 1 ano e meio"
+    },
+    {
+      "id": 6,
+      "matched": true,
+      "snippet": "Agravamento severo de transtorno depressivo recorrente associado à síndrome do pânico e também uma crise aguda de hérnia de disco cervical e lombar"
+    },
+    {
+      "id": 7,
+      "matched": true,
+      "snippet": "Passo no psiquiatra a cada 15 dias e no ortopedista uma vez por mês"
+    },
+    {
+      "id": 8,
+      "matched": true,
+      "snippet": "Sinto uma tristeza profunda, crises de choro sem motivo na escola, falta de ar, taquicardia, insônia todas as noites, falha de memória e uma dor terrível no pescoço que irradia para o ombro e adormece a mão direita"
+    },
+    {
+      "id": 9,
+      "matched": true,
+      "snippet": "Tomo desvenlafaxina, clonazepam, quetiapina, pregabalina e torsilax"
+    },
+    {
+      "id": 10,
+      "matched": true,
+      "snippet": "Desvenlafaxina de 100 mg uma vez ao dia, clonazepam de 2 mg à noite, quetiapina de 25 ou 50 mg antes de dormir, pregabalina de 75 mg de 12 em 12 horas e ciclobenzaprina de 10 mg"
+    },
+    {
+      "id": 11,
+      "matched": true,
+      "snippet": "Faço psicoterapia uma vez por semana e fisioterapia motora para a coluna cervical duas vezes por semana"
+    }
+  ],
+  "dialogo": [
+    {
+      "colinha_id": 1,
+      "duvidas": [],
+      "pergunta": "Qual é o seu nome completo e o seu CPF?",
+      "resposta": "Eduardo Henrique Cavalcante, CPF 345.678.901-22.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 1,
+      "duvidas": [],
+      "pergunta": "Qual é a sua idade atual?",
+      "resposta": "Tenho 47 anos.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 2,
+      "duvidas": [],
+      "pergunta": "Qual é o seu cargo público?",
+      "resposta": "Sou professor de educação básica 2.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 3,
+      "duvidas": [],
+      "pergunta": "Há quanto tempo você trabalha nessa função?",
+      "resposta": "Dou aulas de matemática há 16 anos na rede estadual.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 4,
+      "duvidas": [],
+      "pergunta": "Você é readaptado atualmente ou já esteve reabilitado anteriormente?",
+      "resposta": "Sou readaptado há 2 anos. Atualmente trabalho no apoio pedagógico da biblioteca e na secretaria da escola, organizando planilhas e atendendo alunos no balcão.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 6,
+      "duvidas": [],
+      "pergunta": "Qual é a doença que está a tratar hoje e que motivou este pedido de afastamento?",
+      "resposta": "Estou a tratar um agravamento severo de transtorno depressivo recorrente associado à síndrome do pânico e também uma crise aguda de hérnia de disco cervical e lombar.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 5,
+      "duvidas": [],
+      "pergunta": "Quando começou exatamente esse tratamento médico?",
+      "resposta": "O tratamento psiquiátrico começou há cerca de 1 ano e meio, mas a crise na coluna e a piora da depressão aconteceram há 30 dias.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 7,
+      "duvidas": [],
+      "pergunta": "Com que frequência você realiza consultas com os seus médicos assistentes?",
+      "resposta": "Passo no psiquiatra a cada 15 dias e no ortopedista uma vez por mês.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 8,
+      "duvidas": [],
+      "pergunta": "Quais são os sintomas físicos e mentais que você sente no dia a dia?",
+      "resposta": "Sinto uma tristeza profunda, crises de choro sem motivo na escola, falta de ar, taquicardia, insônia todas as noites, falha de memória e uma dor terrível no pescoço que irradia para o ombro e adormece a mão direita.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 8,
+      "duvidas": [],
+      "pergunta": "De que forma esses sintomas limitam as suas atividades atuais de readaptado na biblioteca e secretaria?",
+      "resposta": "Não consigo concentrar-me nos relatórios, esqueço o que acabei de ler, tenho ataques de pânico quando há barulho de alunos no pátio e não consigo digitar nem segurar livros pesados por causa da perda de força no braço e na mão direita.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 9,
+      "duvidas": [],
+      "pergunta": "Quais medicamentos você está a tomar atualmente?",
+      "resposta": "Tomo desvenlafaxina, clonazepam, quetiapina, pregabalina e torsilax.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 10,
+      "duvidas": [],
+      "pergunta": "Quais são as respectivas dosagens em miligramas e horários?",
+      "resposta": "Tomo desvenlafaxina de 100 mg uma vez ao dia pela manhã, clonazepam de 2 mg à noite, quetiapina que acho que é de 25 ou 50 mg antes de dormir (não tenho bem a certeza da dose da quetiapina), pregabalina de 75 mg de 12 em 12 horas e ciclobenzaprina de 10 mg.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 10,
+      "duvidas": [],
+      "pergunta": "Houve alguma troca de medicação ou aumento de dosagem recentemente? Quando foi?",
+      "resposta": "Sim, há 12 dias o psiquiatra subiu a desvenlafaxina de 50 para 100 mg por dia e introduziu a quetiapina porque eu não conseguia dormir nada.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 11,
+      "duvidas": [],
+      "pergunta": "Você realiza acompanhamento com psicoterapia ou fisioterapia? Qual a periodicidade?",
+      "resposta": "Faço psicoterapia uma vez por semana às terças-feiras e fisioterapia motora para a coluna cervical duas vezes por semana.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": null,
+      "duvidas": [],
+      "pergunta": "Possui outras doenças em tratamento contínuo, como hipertensão arterial, diabetes, problemas cardíacos ou de tireoide?",
+      "resposta": "Sim, tenho hipertensão arterial sistêmica e colesterol alto.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": 9,
+      "duvidas": [],
+      "pergunta": "Quais remédios usa para essas outras condições?",
+      "resposta": "Tomo losartana potássica de 50 mg pela manhã, hidroclorotiazida de 25 mg e sinvastatina de 20 mg à noite.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": null,
+      "duvidas": [],
+      "pergunta": "Já passou por alguma cirurgia prévia ou internamento hospitalar relevante no seu histórico pregresso?",
+      "resposta": "Fiz apenas uma cirurgia de apendicite há 10 anos atrás, sem complicações.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": null,
+      "duvidas": [],
+      "pergunta": "Quais exames complementares e atestados você trouxe hoje para a perícia?",
+      "resposta": "Trouxe o laudo do psiquiatra com CRM 98765 solicitando 45 dias de afastamento emitido ontem, além de uma ressonância da coluna cervical mostrando protusão em C5-C6.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": null,
+      "duvidas": [],
+      "pergunta": "Qual é o seu peso e a sua altura aproximada?",
+      "resposta": "Tenho 1,78 m de altura e estou a pesar 86 kg.",
+      "tipo": "qa"
+    },
+    {
+      "colinha_id": null,
+      "texto": "Exame físico realizado: Pressão arterial aferida em 130 por 85 mmHg e pulso de 84 batimentos por minuto. Ao exame mental e osteomuscular, paciente apresenta-se choroso, humor hipotímico, pensamento lentificado, além de limitação dolorosa da mobilidade cervical, ombro direito e redução de força de preensão na mão direita. Parecer favorável aos 45 dias solicitados.",
+      "tipo": "nota"
+    }
+  ],
+  "texto_formatado": "Médica Perita: Bom dia. Pode entrar e sentar-se. Para iniciarmos a sua avaliação médica pericial, qual é o seu nome completo e o seu CPF?\nPaciente/Servidor: Bom dia, Doutora. O meu nome completo é Eduardo Henrique Cavalcante e o meu CPF é 345.678.901-22.\nMédica Perita: Qual é a sua idade atual, Eduardo?\nPaciente/Servidor: Tenho 47 anos, Doutora.\nMédica Perita: Qual é o seu cargo público e há quanto tempo você trabalha nessa função?\nPaciente/Servidor: Sou professor de educação básica 2, dou aulas de matemática há 16 anos na rede estadual.\nMédica Perita: Você é readaptado atualmente ou já esteve reabilitado anteriormente?\nPaciente/Servidor: Sim, Doutora, sou readaptado há 2 anos. Atualmente trabalho no apoio pedagógico da biblioteca e na secretaria da escola, organizando planilhas e atendendo alunos no balcão.\nMédica Perita: Qual é a doença que está a tratar hoje e que motivou este pedido de afastamento?\nPaciente/Servidor: Estou a tratar um agravamento severo de transtorno depressivo recorrente associado à síndrome do pânico e também uma crise aguda de hérnia de disco cervical e lombar.\nMédica Perita: Quando começou exatamente esse tratamento médico?\nPaciente/Servidor: O tratamento psiquiátrico começou há cerca de 1 ano e meio, mas a crise na coluna e a piora da depressão aconteceram há 30 dias.\nMédica Perita: Com que frequência você realiza consultas com os seus médicos assistentes?\nPaciente/Servidor: Passo no psiquiatra a cada 15 dias e no ortopedista uma vez por mês.\nMédica Perita: Quais são os sintomas físicos e mentais que você sente no dia a dia?\nPaciente/Servidor: Sinto uma tristeza profunda, crises de choro sem motivo na escola, falta de ar, taquicardia, insônia todas as noites, falha de memória e uma dor terrível no pescoço que irradia para o ombro e adormece a mão direita.\nMédica Perita: De que forma esses sintomas limitam as suas atividades atuais de readaptado na biblioteca e secretaria?\nPaciente/Servidor: Não consigo concentrar-me nos relatórios, esqueço o que acabei de ler, tenho ataques de pânico quando há barulho de alunos no pátio e não consigo digitar nem segurar livros pesados por causa da perda de força no braço e na mão direita.\nMédica Perita: Quais medicamentos você está a tomar atualmente, com as respectivas dosagens em miligramas e horários?\nPaciente/Servidor: Tomo desvenlafaxina de 100 mg uma vez ao dia pela manhã, clonazepam de 2 mg à noite, quetiapina que acho que é de 25 ou 50 mg antes de dormir, pregabalina de 75 mg de 12 em 12 horas e ciclobenzaprina de 10 mg.\nMédica Perita: Houve alguma troca de medicação ou aumento de dosagem recentemente? Quando foi?\nPaciente/Servidor: Sim, Doutora. A 12 dias o psiquiatra subiu a desvenlafaxina de 50 para 100 mg por dia e introduziu a quetiapina.\nMédica Perita: Você realiza acompanhamento com psicoterapia ou fisioterapia? Qual a periodicidade?\nPaciente/Servidor: Faço psicoterapia uma vez por semana e fisioterapia motora para a coluna cervical duas vezes por semana.\nMédica Perita: Possui outras doenças em tratamento contínuo, como hipertensão arterial, diabetes, problemas cardíacos ou de tireoide?\nPaciente/Servidor: Sim, tenho hipertensão arterial sistêmica e colesterol alto.\nMédica Perita: Quais remédios usa para essas outras condições?\nPaciente/Servidor: Tomo losartana potássica de 50 mg pela manhã, hidroclorotiazida de 25 mg e sinvastatina de 20 mg à noite.\nMédica Perita: Já passou por alguma cirurgia prévia ou internamento hospitalar relevante no seu histórico pregresso?\nPaciente/Servidor: Fiz apenas uma cirurgia de apendicite há 10 anos atrás, sem complicações.\nMédica Perita: Quais exames complementares e atestados você trouxe hoje para a perícia?\nPaciente/Servidor: Trouxe o laudo do psiquiatra com CRM 98765 solicitando 45 dias de afastamento emitido ontem, além de uma ressonância da coluna cervical mostrando protusão em C5-C6.\nMédica Perita: Vou agora aferir os seus sinais vitais e registrar o exame físico. Qual é o seu peso e a sua altura aproximada?\nPaciente/Servidor: Tenho 1,78 m de altura e estou a pesar 86 kg.\nMédica Perita: Perfeito. Registo pressão arterial aferida em 130 por 85 mmHg e pulso de 84 batimentos por minuto. Ao exame mental e osteomuscular, paciente apresenta-se choroso, humor hipotímico, pensamento lentificado, além de limitação dolorosa da mobilidade cervical, ombro direito e redução de força de preensão na mão direita. Parecer favorável aos 45 dias solicitados.",
+  "total_duvidas": 0
+}

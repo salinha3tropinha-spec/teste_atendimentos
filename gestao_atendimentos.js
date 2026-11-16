@@ -1,16 +1,91 @@
 let accessToken = null;
 let currentUserProfile = null;
+let authResolved = false;
 const isAdmin = () => ["Administrador", "Coordenador", "Gestor"].includes(currentUserProfile?.perfil || "") || (window.AmbientalAuth && AmbientalAuth.can && AmbientalAuth.can('delete'));
+
+const GESTAO_PREFS_KEY = 'ambiental_gestao_prefs_v1';
+const DEFAULT_GESTAO_PREFS = {
+    theme: 'light',
+    density: 'comfortable',
+    animations: true,
+    highlightEsislaPending: false,
+    defaultTab: 'all',
+    defaultSort: 'updated',
+    defaultEsislaMode: 'blocos',
+    autoFocusSearch: true,
+    autoSyncMs: 60000,
+    toastOnSync: true
+};
+
+function getGestaoPrefs() {
+    try {
+        const raw = localStorage.getItem(GESTAO_PREFS_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return { ...DEFAULT_GESTAO_PREFS, ...(parsed && typeof parsed === 'object' ? parsed : {}) };
+    } catch (_) {
+        return { ...DEFAULT_GESTAO_PREFS };
+    }
+}
+
+function resolveDarkMode(themePref) {
+    if (themePref === 'dark') return true;
+    if (themePref === 'auto') {
+        return Boolean(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
+}
+
+function applyThemeAndVisualPrefs(prefs = getGestaoPrefs()) {
+    const isDark = resolveDarkMode(prefs.theme);
+    document.documentElement.classList.toggle('theme-dark', isDark);
+    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+    if (document.body) {
+        document.body.classList.toggle('theme-dark', isDark);
+        document.body.classList.toggle('density-compact', prefs.density === 'compact');
+        document.body.classList.toggle('highlight-esisla-pending', Boolean(prefs.highlightEsislaPending));
+        document.body.classList.toggle('no-animations', prefs.animations === false);
+    }
+}
+
+function applyAdminAccessVisibility() {
+    const admin = isAdmin();
+    document.querySelectorAll('[data-admin-only="true"], .admin-only-item').forEach(el => {
+        if (el.id === 'view-configuracoes') return; // controlado pela rota .admin-view.active
+        el.style.display = admin ? '' : 'none';
+        el.setAttribute('aria-hidden', admin ? 'false' : 'true');
+    });
+    const cfgView = document.getElementById('view-configuracoes');
+    if (cfgView && !admin && cfgView.classList.contains('active')) {
+        if (typeof window.goToSection === 'function') window.goToSection('dashboard');
+    }
+}
+
+applyThemeAndVisualPrefs();
+
 const authReady = AmbientalAuth.requireAuth({area:'gestao'}).then(async profile=>{
     currentUserProfile = profile;
+    authResolved = true;
     accessToken = await AmbientalAuth.getAccessToken();
     const name = document.getElementById('userName');
     const role = document.getElementById('userRole');
     if(name) name.textContent = profile?.nome || profile?.email || 'Usuário';
     if(role) role.textContent = profile?.perfil || 'Sessão segura';
+    applyAdminAccessVisibility();
+    if (typeof renderConfiguracoesView === 'function') renderConfiguracoesView();
+    if (location.hash === '#configuracoes') {
+        if (isAdmin()) {
+            if (typeof window.goToSection === 'function') window.goToSection('configuracoes');
+        } else {
+            history.replaceState(null, '', '#dashboard');
+            if (typeof window.goToSection === 'function') window.goToSection('dashboard');
+            if (window.AmbientalUtils?.toast) AmbientalUtils.toast('Acesso restrito a perfis administrativos.', 'warning');
+        }
+    }
     document.getElementById('authLoading')?.remove();
     return profile;
 }).catch(error=>{
+    authResolved = true;
+    applyAdminAccessVisibility();
     document.getElementById('authLoading')?.remove();
     throw error;
 });
@@ -95,7 +170,11 @@ function changeSearchPage(newPage) {
     renderTablePage();
     const el = document.getElementById('atendimentos');
     if (el) {
-        try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_) {}
+        el.scrollTop = 0;
+        try {
+            const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY - 78);
+            window.scrollTo({ top, behavior: 'smooth' });
+        } catch(_) {}
     }
 }
 
@@ -357,7 +436,7 @@ function clearFilters(navigateToSearch = false){
     if(shouldNavigate&&typeof window.goToSection==='function'){window.goToSection('atendimentos')}
     fetchServer().then(()=>{refresh(false);if(window.AmbientalUtils?.toast){AmbientalUtils.toast('Filtros redefinidos com sucesso!')}});
 }
-function focusSearch(){if(typeof window.goToSection==='function'){window.goToSection('atendimentos')}else{const v=document.getElementById('view-busca');if(v)document.querySelectorAll('.admin-view').forEach(x=>x.classList.toggle('active',x===v))}setTimeout(()=>{const el=document.getElementById('search');if(el){el.focus();try{el.scrollIntoView({behavior:'smooth',block:'center'})}catch(_){}}},120)}
+function focusSearch(){if(typeof window.goToSection==='function'){window.goToSection('atendimentos')}else{const v=document.getElementById('view-busca');if(v)document.querySelectorAll('.admin-view').forEach(x=>x.classList.toggle('active',x===v))}setTimeout(()=>{const pnl=document.getElementById('atendimentos');if(pnl)pnl.scrollTop=0;const el=document.getElementById('search');if(el&&getGestaoPrefs().autoFocusSearch!==false){try{el.focus({preventScroll:true})}catch(_){el.focus()}}},120)}
 document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement?.tagName!=='INPUT'&&document.activeElement?.tagName!=='TEXTAREA'){e.preventDefault();focusSearch()}if(e.key==='Escape'&&document.activeElement===document.getElementById('search'))document.getElementById('search').blur()});
 let latestStats=null;
 function pct(n,d){return d?Math.round((Number(n||0)/Number(d||0))*100):0}
@@ -1223,7 +1302,7 @@ function renderStats(s) {
 
     renderDoctorProduction(Array.isArray(s.por_medico) ? s.por_medico : []);
 }
-function row(r){const v=values(r),st=statusOf(r),cls=st==='FINALIZADO'?'done':st==='EM_REVISÃO'?'review':st==='REABERTO'?'reopened':st==='ARQUIVADO'?'archived':'';const id=v.atd||r.atendimento||r.id||'';const isSelected=selectedAtdIds.has(String(id));const adminMode=isAdmin();let more='';if(st==='RASCUNHO')more+=`<button onclick="openModoIA2('${encodeURIComponent(v.atd)}')">🚀 Modo IA 2.0</button><button onclick="openEval('${encodeURIComponent(v.atd)}')">Continuar</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='EM_REVISÃO'||st==='REABERTO')more+=`<button onclick="openModoIA2('${encodeURIComponent(v.atd)}')">🚀 Modo IA 2.0</button><button onclick="openEval('${encodeURIComponent(v.atd)}')">Continuar</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='FINALIZADO')more+=`<button onclick="openReason('reopen','${encodeURIComponent(v.atd)}')">Reabrir</button><button onclick="openDocument('${encodeURIComponent(v.atd)}')">Visualizar documento</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='ARQUIVADO')more+=`<button onclick="openReason('restore','${encodeURIComponent(v.atd)}')">Restaurar</button>`;if(adminMode)more+=`<button onclick="confirmSingleDeleteAdmin('${encodeURIComponent(id)}')" style="color:#DC2626;font-weight:700">🗑️ Excluir do Banco</button>`;const selectTd=`<td class="admin-td-select"><input type="checkbox" class="row-select-checkbox" data-id="${esc(id)}" onchange="toggleRowSelect('${esc(id)}', this.checked)" ${isSelected?'checked':''} style="cursor:pointer;width:16px;height:16px" title="Selecionar para exclusão"></td>`;const nameParts=String(v.patient||'P').trim().split(/\s+/).filter(Boolean);const ini=((nameParts[0]?nameParts[0][0]:'')+(nameParts[1]?nameParts[1][0]:'')).toUpperCase()||'P';let rawDoc=String(v.doctor||'Médico não informado').trim();let cleanDoc=rawDoc.replace(/\s*-\s*CRM.*$/i,'').replace(/\s*CRM[:\s]*\d+.*$/i,'').trim();let crmMatch=rawDoc.match(/CRM[:\s]*([0-9A-Z\/\-]+)/i);let crmVal=v.crm||(crmMatch?crmMatch[1]:'');let cleanUnit=String(v.unidade||'').replace(/^0+\d*\s*-\s*/,'').trim();const esislaLancado=Boolean(v.esislaLancado);const esislaTitle=esislaLancado?`Já lançado no e-SISLA${v.esislaLancadoPor?` por ${v.esislaLancadoPor}`:''}${v.esislaLancadoEm?` em ${dt(v.esislaLancadoEm)}`:''}. Clique para desmarcar.`:'Não lançado no e-SISLA. Clique para marcar como já lançado.';const esislaBtn=`<button class="row-btn-esisla-lancado ${esislaLancado?'is-lancado':'is-pending'}" type="button" onclick="toggleEsislaLancado('${encodeURIComponent(id)}', this)" title="${esc(esislaTitle)}"><span>${esislaLancado?'✓ Lançado e-SISLA':'☐ e-SISLA'}</span></button>`;return`<tr>${selectTd}<td class="col-patient"><div class="patient-cell-wrap"><div class="patient-avatar">${esc(ini)}</div><div class="patient-info"><span class="main-id">${esc(v.patient||'Paciente não informado')}</span>${v.cpf?`<span class="patient-cpf-pill">CPF ${esc(v.cpf)}</span>`:''}<span class="sub sub-clamp" title="${esc(v.doenca||'Avaliação médico-pericial')}">${esc(v.doenca||'Avaliação médico-pericial')}</span></div></div></td><td><div class="date-cell-wrap"><strong class="date-val">${esc(date(v.date))}</strong>${v.time?`<span class="time-badge">⏰ ${esc(v.time)}</span>`:'<span class="sub" style="color:#94A3B8">Início pendente</span>'}</div></td><td><div class="doctor-cell-wrap"><span class="main-name doctor-name-title">${esc(cleanDoc||'Médico não informado')}</span>${crmVal?`<span class="doctor-crm-tag">CRM ${esc(crmVal)}</span>`:''}</div></td><td><div class="data-cell-wrap"><b class="cargo-title">${esc(v.cargo&&v.cargo!=='—'?v.cargo:'Cargo não informado')}</b>${cleanUnit?`<span class="unit-row" title="${esc(cleanUnit)}">🏢 ${esc(cleanUnit)}</span>`:''}<div class="pills-row"><span class="sub-tag-cid">CID ${esc(v.cid||'—')}</span><span class="sub-tag-age">${esc(v.idade||'—')}a</span>${v.dias?`<span class="sub-tag-days">⏱️ ${esc(v.dias)} dias</span>`:''}</div></div></td><td><span class="badge ${cls}"><span class="dot"></span>${esc(stateLabel[st]||st)}</span></td><td><strong class="updated-date">${esc(dt(v.updated))}</strong></td><td><div class="row-actions">${esislaBtn}<button class="row-btn-open" type="button" onclick="generateEsisla('${encodeURIComponent(v.atd)}')" title="Gerar e abrir diretamente a Ficha e-SISLA pela IA"><span>Abrir ficha</span><span class="row-btn-arrow">→</span></button><button class="row-btn-viewmore" type="button" onclick="view('${encodeURIComponent(v.atd)}')" title="Visualizar prontuário e detalhes completos deste atendimento"><span>Ver mais</span></button><details class="more"><summary class="row-btn-more" title="Mais opções para este atendimento"><span>Mais</span><span class="more-caret">▾</span></summary><div class="more-menu">${more}<button onclick="view('${encodeURIComponent(v.atd)}')">Ver prontuário completo</button><button onclick="openHistory('${encodeURIComponent(v.atd)}')">Ver histórico</button></div></details></div></td></tr>`}
+function row(r){const v=values(r),st=statusOf(r),cls=st==='FINALIZADO'?'done':st==='EM_REVISÃO'?'review':st==='REABERTO'?'reopened':st==='ARQUIVADO'?'archived':'';const id=v.atd||r.atendimento||r.id||'';const isSelected=selectedAtdIds.has(String(id));const adminMode=isAdmin();let more='';if(st==='RASCUNHO')more+=`<button onclick="openModoIA2('${encodeURIComponent(v.atd)}')">🚀 Modo IA 2.0</button><button onclick="openEval('${encodeURIComponent(v.atd)}')">Continuar</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='EM_REVISÃO'||st==='REABERTO')more+=`<button onclick="openModoIA2('${encodeURIComponent(v.atd)}')">🚀 Modo IA 2.0</button><button onclick="openEval('${encodeURIComponent(v.atd)}')">Continuar</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='FINALIZADO')more+=`<button onclick="openReason('reopen','${encodeURIComponent(v.atd)}')">Reabrir</button><button onclick="openDocument('${encodeURIComponent(v.atd)}')">Visualizar documento</button><button onclick="openReason('archive','${encodeURIComponent(v.atd)}')">Arquivar</button>`;if(st==='ARQUIVADO')more+=`<button onclick="openReason('restore','${encodeURIComponent(v.atd)}')">Restaurar</button>`;if(adminMode)more+=`<button onclick="confirmSingleDeleteAdmin('${encodeURIComponent(id)}')" style="color:#DC2626;font-weight:700">🗑️ Excluir do Banco</button>`;const selectTd=`<td class="admin-td-select"><input type="checkbox" class="row-select-checkbox" data-id="${esc(id)}" onchange="toggleRowSelect('${esc(id)}', this.checked)" ${isSelected?'checked':''} style="cursor:pointer;width:16px;height:16px" title="Selecionar para exclusão"></td>`;const nameParts=String(v.patient||'P').trim().split(/\s+/).filter(Boolean);const ini=((nameParts[0]?nameParts[0][0]:'')+(nameParts[1]?nameParts[1][0]:'')).toUpperCase()||'P';let rawDoc=String(v.doctor||'Médico não informado').trim();let cleanDoc=rawDoc.replace(/\s*-\s*CRM.*$/i,'').replace(/\s*CRM[:\s]*\d+.*$/i,'').trim();let crmMatch=rawDoc.match(/CRM[:\s]*([0-9A-Z\/\-]+)/i);let crmVal=v.crm||(crmMatch?crmMatch[1]:'');let cleanUnit=String(v.unidade||'').replace(/^0+\d*\s*-\s*/,'').trim();const esislaLancado=Boolean(v.esislaLancado);const esislaTitle=esislaLancado?`Já lançado no e-SISLA${v.esislaLancadoPor?` por ${v.esislaLancadoPor}`:''}${v.esislaLancadoEm?` em ${dt(v.esislaLancadoEm)}`:''}. Clique para desmarcar.`:'Não lançado no e-SISLA. Clique para marcar como já lançado.';const esislaBtn=`<button class="row-btn-esisla-lancado ${esislaLancado?'is-lancado':'is-pending'}" type="button" onclick="toggleEsislaLancado('${encodeURIComponent(id)}', this)" title="${esc(esislaTitle)}"><span>${esislaLancado?'✓ Lançado e-SISLA':'☐ e-SISLA'}</span></button>`;return`<tr class="${esislaLancado?'':'row-esisla-pending'}">${selectTd}<td class="col-patient"><div class="patient-cell-wrap"><div class="patient-avatar">${esc(ini)}</div><div class="patient-info"><span class="main-id">${esc(v.patient||'Paciente não informado')}</span>${v.cpf?`<span class="patient-cpf-pill">CPF ${esc(v.cpf)}</span>`:''}<span class="sub sub-clamp" title="${esc(v.doenca||'Avaliação médico-pericial')}">${esc(v.doenca||'Avaliação médico-pericial')}</span></div></div></td><td><div class="date-cell-wrap"><strong class="date-val">${esc(date(v.date))}</strong>${v.time?`<span class="time-badge">⏰ ${esc(v.time)}</span>`:'<span class="sub" style="color:#94A3B8">Início pendente</span>'}</div></td><td><div class="doctor-cell-wrap"><span class="main-name doctor-name-title">${esc(cleanDoc||'Médico não informado')}</span>${crmVal?`<span class="doctor-crm-tag">CRM ${esc(crmVal)}</span>`:''}</div></td><td><div class="data-cell-wrap"><b class="cargo-title">${esc(v.cargo&&v.cargo!=='—'?v.cargo:'Cargo não informado')}</b>${cleanUnit?`<span class="unit-row" title="${esc(cleanUnit)}">🏢 ${esc(cleanUnit)}</span>`:''}<div class="pills-row"><span class="sub-tag-cid">CID ${esc(v.cid||'—')}</span><span class="sub-tag-age">${esc(v.idade||'—')}a</span>${v.dias?`<span class="sub-tag-days">⏱️ ${esc(v.dias)} dias</span>`:''}</div></div></td><td><span class="badge ${cls}"><span class="dot"></span>${esc(stateLabel[st]||st)}</span></td><td><strong class="updated-date">${esc(dt(v.updated))}</strong></td><td><div class="row-actions">${esislaBtn}<button class="row-btn-open" type="button" onclick="generateEsisla('${encodeURIComponent(v.atd)}')" title="Gerar e abrir diretamente a Ficha e-SISLA pela IA"><span>Abrir ficha</span><span class="row-btn-arrow">→</span></button><button class="row-btn-viewmore" type="button" onclick="view('${encodeURIComponent(v.atd)}')" title="Visualizar prontuário e detalhes completos deste atendimento"><span>Ver mais</span></button><details class="more"><summary class="row-btn-more" title="Mais opções para este atendimento"><span>Mais</span><span class="more-caret">▾</span></summary><div class="more-menu">${more}<button onclick="view('${encodeURIComponent(v.atd)}')">Ver prontuário completo</button><button onclick="openHistory('${encodeURIComponent(v.atd)}')">Ver histórico</button></div></details></div></td></tr>`}
 
 async function toggleEsislaLancado(enc, btnEl) {
     const id = decodeURIComponent(enc);
@@ -1538,7 +1617,7 @@ async function generateEsisla(enc, forceRefresh = false){
         if(!response.ok||!data?.ficha_esisla) throw new Error(data?.detail||data?.error?.detail||data?.error?.message||'Não foi possível gerar a ficha eSisla.');
         target.value = data.ficha_esisla;
         renderEsislaBlocos(data.ficha_esisla);
-        setEsislaViewMode('blocos');
+        setEsislaViewMode(getGestaoPrefs().defaultEsislaMode === 'txt' ? 'txt' : 'blocos');
         const wasReused = Boolean(data?.reused_from_atendimento || data?.meta?.reused);
         sub.textContent = 'Atendimento ' + id + ' · ' + (wasReused ? '✓ Ficha salva reutilizada (sem recriação)' : (forceRefresh ? '↻ Ficha refeita agora' : (data?.meta?.cached ? 'resultado em cache' : 'gerado agora')));
         updateEsislaStats(data.ficha_esisla);
@@ -2567,14 +2646,19 @@ function renderEsislaBlocos(textoFicha) {
 
     function getQuesitoVal(num, busca) {
         if (isRetro) return 'SIM';
+        const rxLine = new RegExp(`(?:^|\\r?\\n)\\s*${num}\\s*[\\)\\.\\-][^\\r\\n]*?\\b(sim|n[ãa]o)\\b\\s*(?:$|\\r?\\n)`, 'i');
+        const mLine = str.match(rxLine);
+        if (mLine) {
+            return mLine[1].toLowerCase().startsWith('s') ? 'SIM' : 'NÃO';
+        }
         const qStr = (ext(str, busca, '\n') || ext(str, num + ')', '\n')).toLowerCase();
         if (qStr.includes('sim')) return 'SIM';
         if (qStr.includes('não') || qStr.includes('nao')) return 'NÃO';
         const qArr = st.quesitos || aux.quesitos;
         if (Array.isArray(qArr) && qArr[num - 1]) {
             const r = String(qArr[num - 1].resposta || qArr[num - 1] || '').trim().toLowerCase();
-            if (r === 'sim' || r === 's') return 'SIM';
-            if (r === 'não' || r === 'nao' || r === 'n') return 'NÃO';
+            if (r === 'sim' || r === 's') return (num === 1 && cid) ? 'SIM' : 'SIM';
+            if (r === 'não' || r === 'nao' || r === 'n') return (num === 1 && cid) ? 'SIM' : 'NÃO';
         }
         if (isContra) {
             if (num === 1) return 'SIM';
@@ -2588,7 +2672,10 @@ function renderEsislaBlocos(textoFicha) {
     const q3 = getQuesitoVal(3, '3) A(s) limitação(ões)');
 
     const isFavCard = parecerTipo.toUpperCase().includes('FAVOR') || parecerTipo.toUpperCase() === 'F';
-    const isAcompCard = (cid && cid.toUpperCase().startsWith('Z76')) || Boolean(st.isAcompanhante || aux.isAcompanhante) || /acompanha/i.test(st.doencaMotivo || aux.doencaMotivo || str);
+    const isAcompCard = (cid && cid.toUpperCase().startsWith('Z76'))
+        || Boolean(st.isAcompanhante || aux.isAcompanhante)
+        || String(st.tipoAtendimentoPericia || aux.tipoAtendimentoPericia || '').toUpperCase() === 'ACOMPANHANTE'
+        || /\b(?:acompanhante|familiar\s+(?:enfermo|doente|dependente)|dependente\s+(?:enfermo|doente)|art(?:igo)?\.?\s*199|pessoa\s+em\s+boa\s+sa[úu]de\s+acompanhando)\b/i.test(String(st.doencaMotivo || aux.doencaMotivo || cidDesc || '') + ' ' + str);
     if (isFavCard && isAcompCard) {
         if (!justif || justif.includes('Artigos 191 e 193') || justif.includes('não preenche os requisitos') || justif.includes('Capacidade laborativa própria preservada. O pleito')) {
             justif = 'Capacidade laborativa própria preservada, sendo o parecer FAVORÁVEL à concessão de licença por motivo de doença em pessoa da família nos termos do Artigo 199 da Lei Estadual nº 10.261/1968, comprovada a necessidade de assistência direta e contínua ao familiar dependente pelo período concedido.';
@@ -2775,6 +2862,15 @@ function renderEsislaBlocos(textoFicha) {
         s = s.replace(/acompanhamento\s+de\s+familiar(?:\/dependente)?\s+enfermo\s*\(\s*familiar(?:\s+dependente)?\s*\)/gi, 'acompanhamento de familiar dependente');
         s = s.replace(/familiar(?:\/dependente)?\s+enfermo\s*\(\s*familiar(?:\s+dependente)?\s*\)/gi, 'familiar dependente');
         s = s.replace(/familiar\/dependente\s+enfermo/gi, 'familiar dependente');
+
+        // Normalização semiológica PT-BR e cargo fallback
+        s = s.replace(/\bmurmur\s+v[ée]sicular\b/gi, 'murmúrio vesicular');
+        s = s.replace(/\bmurmur[íi]o\s+vesicular\b/gi, 'murmúrio vesicular');
+        s = s.replace(/\bmurm[úu]reo\s+vesicular\b/gi, 'murmúrio vesicular');
+        s = s.replace(/\bbulias\b/gi, 'bulhas');
+        s = s.replace(/\bcom\s+r[íi]tmico\s+bulhas\s+normofon[ée]ticas\b/gi, 'com ritmo cardíaco regular e bulhas normofonéticas');
+        s = s.replace(/\bf[áa]cies\s+de\s+cansad([oa])\b/gi, 'fácies cansad$1');
+        s = s.replace(/\b(do|para\s+o)\s+cargo\s+de\s*[—–\-]+(?=\s|[,\.;:\)]|$)/gi, '$1 cargo de servidor');
 
         return s;
     }
@@ -3549,6 +3645,11 @@ function gerarJsonEsisla(textoFicha, enc) {
 
     function getQuesitoVal(num, busca) {
         if (isRetroJson) return 'S';
+        const rxLine = new RegExp(`(?:^|\\r?\\n)\\s*${num}\\s*[\\)\\.\\-][^\\r\\n]*?\\b(sim|n[ãa]o)\\b\\s*(?:$|\\r?\\n)`, 'i');
+        const mLine = texto.match(rxLine);
+        if (mLine) {
+            return mLine[1].toLowerCase().startsWith('s') ? 'S' : 'N';
+        }
         const qStr = (ext(texto, busca, '\n') || ext(texto, num + ')', '\n')).toLowerCase();
         if (qStr.includes('sim')) return 'S';
         if (qStr.includes('não') || qStr.includes('nao')) return 'N';
@@ -3556,7 +3657,7 @@ function gerarJsonEsisla(textoFicha, enc) {
         if (Array.isArray(qArr) && qArr[num - 1]) {
             const r = String(qArr[num - 1].resposta || qArr[num - 1] || '').trim().toLowerCase();
             if (r === 'sim' || r === 's') return 'S';
-            if (r === 'não' || r === 'nao' || r === 'n') return 'N';
+            if (r === 'não' || r === 'nao' || r === 'n') return (num === 1 && (cid1 || st.cid || aux.cid)) ? 'S' : 'N';
         }
         if (flPfinal === 'C') {
             if (num === 1) return 'S';
@@ -4683,14 +4784,16 @@ async function triggerRefresh(opts = true){
           AmbientalUtils.toast('Dados da gestão administrativa atualizados!');
         }
       } else if(hasChanged){
-        if(prevCount > 0 && newCount > prevCount){
-          const diff = newCount - prevCount;
-          if(window.AmbientalUtils?.toast){
-            AmbientalUtils.toast(`🔄 ${diff} novo(s) atendimento(s) sincronizado(s)!`, 'info');
-          }
-        } else if(prevCount > 0){
-          if(window.AmbientalUtils?.toast){
-            AmbientalUtils.toast('🔄 Atendimentos atualizados com novas alterações.', 'info');
+        if(getGestaoPrefs().toastOnSync !== false){
+          if(prevCount > 0 && newCount > prevCount){
+            const diff = newCount - prevCount;
+            if(window.AmbientalUtils?.toast){
+              AmbientalUtils.toast(`🔄 ${diff} novo(s) atendimento(s) sincronizado(s)!`, 'info');
+            }
+          } else if(prevCount > 0){
+            if(window.AmbientalUtils?.toast){
+              AmbientalUtils.toast('🔄 Atendimentos atualizados com novas alterações.', 'info');
+            }
           }
         }
       }
@@ -4719,22 +4822,28 @@ async function triggerRefresh(opts = true){
     if(searchIco) searchIco.classList.remove('spinning');
     if(bar) bar.classList.remove('active');
     updateSyncChipUi();
+    const cfgSyncEl = document.getElementById('cfgLastSyncText');
+    if (cfgSyncEl) cfgSyncEl.textContent = dt(new Date(lastSyncTimestamp || Date.now()));
   }
 }
 
 function initAutoSync(){
   if(autoSyncIntervalTimer) clearInterval(autoSyncIntervalTimer);
   if(autoSyncUiTimer) clearInterval(autoSyncUiTimer);
+  autoSyncIntervalTimer = null;
 
   previousFingerprint = computeDatasetFingerprint(serverItems);
   previousTotalCount = serverItems.length;
   lastSyncTimestamp = Date.now();
   updateSyncChipUi();
 
-  autoSyncIntervalTimer = setInterval(async () => {
-    if(document.visibilityState === 'hidden') return;
-    await triggerRefresh({ silent: true, force: false });
-  }, 60000);
+  const syncMs = Number(getGestaoPrefs().autoSyncMs ?? 60000);
+  if (syncMs > 0) {
+    autoSyncIntervalTimer = setInterval(async () => {
+      if(document.visibilityState === 'hidden') return;
+      await triggerRefresh({ silent: true, force: false });
+    }, syncMs);
+  }
 
   autoSyncUiTimer = setInterval(updateSyncChipUi, 5000);
 
@@ -5477,7 +5586,7 @@ function copiarCodigoBookmarkletEsisla() {
 document.getElementById('filter').addEventListener('change',()=>fetchServer().then(refresh));
 ['periodoInicio','periodoFim'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{if(document.getElementById('periodoInicio').value&&document.getElementById('periodoFim').value&&document.getElementById('periodoInicio').value>document.getElementById('periodoFim').value){alert('O período inicial não pode ser posterior ao período final.');return;} fetchServer().then(refresh)}));
 ['medico','cid','unidade'].forEach(id=>document.getElementById(id).addEventListener('change',()=>fetchServer().then(refresh)));
-function goToSection(id){if(typeof window.goToSection==='function'&&window.goToSection!==goToSection){return window.goToSection(id)}const route={dashboard:'view-dashboard',atendimentos:'view-busca',historico:'view-historico',medicos:'view-medicos',indicadores:'view-indicadores'};if(route[id]){document.querySelectorAll('.admin-view').forEach(v=>v.classList.toggle('active',v.id===route[id]));document.querySelectorAll('.sidebar-link[data-target]').forEach(x=>x.classList.toggle('active',x.dataset.target===id));if(id==='atendimentos')setTimeout(focusSearch,120);window.scrollTo({top:0,behavior:'smooth'});}}
+function goToSection(id){if(typeof window.goToSection==='function'&&window.goToSection!==goToSection){return window.goToSection(id)}const route={dashboard:'view-dashboard',atendimentos:'view-busca',historico:'view-historico',medicos:'view-medicos',indicadores:'view-indicadores',configuracoes:'view-configuracoes'};if(id==='configuracoes'&&!isAdmin()){if(authResolved&&window.AmbientalUtils?.toast){AmbientalUtils.toast('Acesso restrito a perfis administrativos.','warning');}id='dashboard';}if(route[id]){document.querySelectorAll('.admin-view').forEach(v=>v.classList.toggle('active',v.id===route[id]));document.querySelectorAll('.sidebar-link[data-target]').forEach(x=>x.classList.toggle('active',x.dataset.target===id));document.getElementById('topConfigBtn')?.classList.toggle('active',id==='configuracoes');if(id==='configuracoes'&&typeof renderConfiguracoesView==='function')renderConfiguracoesView();if(id==='atendimentos')setTimeout(focusSearch,120);window.scrollTo({top:0,behavior:'smooth'});}}
 function renderRecentHistory(){const el=document.getElementById('recentHistoryList');if(!el)return;const items=[...serverItems].filter(r=>r&&r.atendimento).sort((a,b)=>String(b.__registryAt||b.atualizado_em||'').localeCompare(String(a.__registryAt||a.atualizado_em||''))).slice(0,8);if(!items.length){el.innerHTML='<div class="empty" style="grid-column:1/-1;padding:24px">Nenhum atendimento disponível para exibir.</div>';return;}el.innerHTML=items.map(r=>{const v=values(r), st=statusOf(r), cls=st==='FINALIZADO'?'done':st==='EM_REVISÃO'?'review':'';return `<article class="history-item"><div><strong>${esc(v.patient||'Paciente não informado')}</strong><small>${esc(v.doctor||'Médico não informado')} · ${esc(v.cid||'Sem CID')} · ${dt(v.updated)}</small></div><div class="hi-actions"><span class="hi-status ${cls}">${esc(stateLabel[st]||st)}</span><button class="hi-btn" type="button" onclick="openHistory('${encodeURIComponent(String(v.atd))}')">Histórico</button></div></article>`}).join('')}
 document.querySelectorAll('.modal').forEach(modal=>modal.addEventListener('mousedown',e=>{if(e.target===modal)closeModal(modal.id)}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){const open=[...document.querySelectorAll('.modal.open')];if(open.length)closeModal(open[open.length-1].id);}});
@@ -5485,6 +5594,21 @@ document.getElementById('esislaText')?.addEventListener('input', e => updateEsis
 document.getElementById('logoutBtn')?.addEventListener('click',()=>AmbientalAuth.logout());
 
 (async()=>{
+  try {
+    const bootPrefs = getGestaoPrefs();
+    applyThemeAndVisualPrefs(bootPrefs);
+    if (bootPrefs.defaultTab && ['all','draft','review','done','archived'].includes(bootPrefs.defaultTab)) {
+      tab = bootPrefs.defaultTab;
+      document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+      const fEl = document.getElementById('filter');
+      if (fEl) fEl.value = tab==='all'?'all':({draft:'RASCUNHO',review:'EM_REVISÃO',done:'FINALIZADO',archived:'ARQUIVADO'}[tab]||'all');
+    }
+    if (bootPrefs.defaultSort) {
+      const sEl = document.getElementById('sort');
+      if (sEl) sEl.value = bootPrefs.defaultSort;
+    }
+  } catch(_) {}
+
   let hadCache = false;
   try {
     const cachedRaw = sessionStorage.getItem('ambiental.gestao.atendimentos_cache') || localStorage.getItem('ambiental.gestao.atendimentos_cache');
@@ -5508,6 +5632,7 @@ document.getElementById('logoutBtn')?.addEventListener('click',()=>AmbientalAuth
     setDataLoading('session','Validando acesso','Sessão segura confirmada. Carregando a central...',28);
   }
   await authReady;
+  applyAdminAccessVisibility();
   if (!hadCache) {
     setDataLoading('data','Carregando atendimentos','Buscando registros e atualizando sua visão operacional...',62);
   }
@@ -5525,11 +5650,47 @@ document.getElementById('logoutBtn')?.addEventListener('click',()=>AmbientalAuth
 /* --- COMBINED SCRIPT SECTION --- */
 
 (function(){
-  const sidebar=document.getElementById('adminSidebar'), overlay=document.getElementById('sidebarOverlay'), toggle=document.getElementById('sidebarToggle');
+  const sidebar=document.getElementById('adminSidebar'), overlay=document.getElementById('sidebarOverlay'), toggle=document.getElementById('sidebarToggle'), collapseBtn=document.getElementById('sidebarCollapseBtn');
   const links=[...document.querySelectorAll('.sidebar-link[data-target]')];
-  const route={dashboard:'view-dashboard',atendimentos:'view-busca',historico:'view-historico',medicos:'view-medicos',indicadores:'view-indicadores'};
+  const route={dashboard:'view-dashboard',atendimentos:'view-busca',historico:'view-historico',medicos:'view-medicos',indicadores:'view-indicadores',configuracoes:'view-configuracoes'};
   const targetFromHash=()=>String(location.hash||'#dashboard').replace(/^#/,'')||'dashboard';
   function setOpen(v){sidebar?.classList.toggle('open',v);overlay?.classList.toggle('open',v)}
+  function setSidebarCollapsed(collapsed){
+    const isMobile=window.innerWidth<=1020;
+    const next=!isMobile&&Boolean(collapsed);
+    document.documentElement.classList.toggle('sidebar-collapsed',next);
+    document.body.classList.toggle('sidebar-collapsed',next);
+    try{localStorage.setItem('ambiental_gestao_sidebar_collapsed',collapsed?'1':'0')}catch(_){}
+    if(collapseBtn){
+      collapseBtn.setAttribute('aria-expanded',String(!next));
+      collapseBtn.title=next?'Expandir menu lateral':'Minimizar menu lateral';
+      collapseBtn.setAttribute('aria-label',next?'Expandir menu lateral':'Minimizar menu lateral');
+    }
+  }
+  try{setSidebarCollapsed(localStorage.getItem('ambiental_gestao_sidebar_collapsed')==='1')}catch(_){}
+  if(collapseBtn){
+    collapseBtn.addEventListener('click',function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      setSidebarCollapsed(!document.documentElement.classList.contains('sidebar-collapsed'));
+    });
+  }
+  if(sidebar){
+    sidebar.addEventListener('click',function(e){
+      if(window.innerWidth>1020&&document.documentElement.classList.contains('sidebar-collapsed')){
+        if(e.target.closest('#sidebarCollapseBtn'))return;
+        setSidebarCollapsed(false);
+      }
+    });
+  }
+  window.addEventListener('resize',function(){
+    if(window.innerWidth<=1020){
+      document.documentElement.classList.remove('sidebar-collapsed');
+      document.body.classList.remove('sidebar-collapsed');
+    }else{
+      try{setSidebarCollapsed(localStorage.getItem('ambiental_gestao_sidebar_collapsed')==='1')}catch(_){}
+    }
+  });
   function syncIdentity(){
     const name=document.getElementById('userName'), role=document.getElementById('userRole'), sname=document.getElementById('sidebarName'), srole=document.getElementById('sidebarRole'), avatar=document.getElementById('sidebarAvatar');
     if(sname)sname.textContent=name?.textContent||'Administrador';
@@ -5539,11 +5700,33 @@ document.getElementById('logoutBtn')?.addEventListener('click',()=>AmbientalAuth
   function syncCount(){const total=document.getElementById('statTotal'), badge=document.getElementById('sideCount');if(badge&&total)badge.textContent=total.textContent||'—'}
   function activate(id,{updateHash=true,focus=false}={}){
     if(!route[id])id='dashboard';
+    if(id==='configuracoes'&&!isAdmin()){
+      if(!authResolved){
+        // Aguarda authReady confirmar se o usuário é administrador antes de reescrever o hash
+        id='dashboard';
+        updateHash=false;
+      } else {
+        if(window.AmbientalUtils?.toast) AmbientalUtils.toast('Acesso restrito a perfis administrativos.','warning');
+        id='dashboard';
+        updateHash=true;
+      }
+    }
     document.querySelectorAll('.admin-view').forEach(v=>v.classList.toggle('active',v.id===route[id]));
     links.forEach(x=>x.classList.toggle('active',x.dataset.target===id));
+    document.getElementById('topConfigBtn')?.classList.toggle('active',id==='configuracoes');
     if(updateHash && location.hash!==('#'+id)) history.replaceState(null,'','#'+id);
     setOpen(false);
-    if(id==='atendimentos'&&focus){setTimeout(()=>document.getElementById('search')?.focus(),220)}
+    if(id==='configuracoes'&&typeof renderConfiguracoesView==='function'){renderConfiguracoesView();}
+    if(id==='atendimentos'){
+      const pnl=document.getElementById('atendimentos');
+      if(pnl)pnl.scrollTop=0;
+      if(focus&&getGestaoPrefs().autoFocusSearch!==false){
+        setTimeout(()=>{
+          const el=document.getElementById('search');
+          if(el){try{el.focus({preventScroll:true})}catch(_){el.focus()}}
+        },180);
+      }
+    }
     window.scrollTo({top:0,behavior:'smooth'});
   }
   window.goToSection=function(id){activate(id,{focus:id==='atendimentos'})};
@@ -6007,3 +6190,237 @@ function desfazerRefinamentoIA() {
     AmbientalUtils.toast('Versão anterior restaurada com sucesso!');
   }
 }
+
+/* =========================================================
+   CONFIGURAÇÕES ADMINISTRATIVAS & MODO ESCURO
+   ========================================================= */
+function saveGestaoPrefs(nextPrefs) {
+  try {
+    localStorage.setItem(GESTAO_PREFS_KEY, JSON.stringify(nextPrefs));
+  } catch (_) {}
+  applyThemeAndVisualPrefs(nextPrefs);
+  flashConfigSavedBadge();
+  return nextPrefs;
+}
+
+function flashConfigSavedBadge() {
+  const badge = document.getElementById('cfgSaveBadge');
+  if (!badge) return;
+  badge.textContent = '✓ Preferências salvas agora';
+  clearTimeout(window._cfgBadgeTimer);
+  window._cfgBadgeTimer = setTimeout(() => {
+    if (document.getElementById('cfgSaveBadge')) {
+      document.getElementById('cfgSaveBadge').textContent = '✓ Preferências sincronizadas localmente';
+    }
+  }, 2400);
+}
+
+function setThemeMode(mode) {
+  if (!isAdmin() && authResolved) return;
+  const normalized = ['light', 'dark', 'auto'].includes(mode) ? mode : 'light';
+  const prefs = { ...getGestaoPrefs(), theme: normalized };
+  saveGestaoPrefs(prefs);
+  syncConfigFormUI(prefs);
+  if (window.AmbientalUtils?.toast) {
+    const label = normalized === 'dark' ? 'Modo Escuro ativado' : (normalized === 'auto' ? 'Tema Automático (Sistema) ativado' : 'Tema Claro Corporativo ativado');
+    AmbientalUtils.toast(`🎨 ${label}.`);
+  }
+}
+window.setThemeMode = setThemeMode;
+
+function updateGestaoPref(key, value) {
+  if (!isAdmin() && authResolved) return;
+  const prefs = { ...getGestaoPrefs(), [key]: value };
+  saveGestaoPrefs(prefs);
+  syncConfigFormUI(prefs);
+
+  if (key === 'defaultTab' && ['all', 'draft', 'review', 'done', 'archived'].includes(value)) {
+    setTab(value);
+  } else if (key === 'defaultSort') {
+    const sEl = document.getElementById('sort');
+    if (sEl) { sEl.value = value; refresh(false); }
+  } else if (key === 'autoSyncMs') {
+    try { initAutoSync(); } catch (_) {}
+  }
+}
+window.updateGestaoPref = updateGestaoPref;
+
+function resetGestaoPrefs() {
+  if (!isAdmin()) return;
+  saveGestaoPrefs({ ...DEFAULT_GESTAO_PREFS });
+  syncConfigFormUI(DEFAULT_GESTAO_PREFS);
+  try { initAutoSync(); } catch (_) {}
+  if (window.AmbientalUtils?.toast) {
+    AmbientalUtils.toast('↺ Configurações restauradas para o padrão corporativo.');
+  }
+}
+window.resetGestaoPrefs = resetGestaoPrefs;
+
+function syncConfigFormUI(prefs = getGestaoPrefs()) {
+  const mapTheme = { light: 'themeOptLight', dark: 'themeOptDark', auto: 'themeOptAuto' };
+  Object.entries(mapTheme).forEach(([k, id]) => {
+    document.getElementById(id)?.classList.toggle('active', (prefs.theme || 'light') === k);
+  });
+  const setChk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = Boolean(v); };
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.value = String(v); };
+
+  setChk('cfgDensityCompact', prefs.density === 'compact');
+  setChk('cfgHighlightEsisla', prefs.highlightEsislaPending);
+  setChk('cfgAnimations', prefs.animations !== false);
+  setChk('cfgAutoFocusSearch', prefs.autoFocusSearch !== false);
+  setChk('cfgToastOnSync', prefs.toastOnSync !== false);
+
+  setVal('cfgDefaultTab', prefs.defaultTab || 'all');
+  setVal('cfgDefaultSort', prefs.defaultSort || 'updated');
+  setVal('cfgDefaultEsislaMode', prefs.defaultEsislaMode || 'blocos');
+  setVal('cfgAutoSyncMs', prefs.autoSyncMs ?? 60000);
+}
+
+let _lastDiagRunAt = 0;
+async function runAdminDiagnostics(opts = {}) {
+  if (!isAdmin()) return;
+  const btn = document.getElementById('btnRunDiagnostics');
+  const apiEl = document.getElementById('cfgDiagApi');
+  const dbEl = document.getElementById('cfgDiagDb');
+  const aiEl = document.getElementById('cfgDiagAi');
+  const envEl = document.getElementById('cfgDiagEnv');
+  const cntEl = document.getElementById('cfgDiagCounts');
+  const latEl = document.getElementById('cfgDiagLatency');
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Verificando conectividade...'; }
+  const startedAt = performance.now();
+  try {
+    const [hRes, rRes] = await Promise.all([
+      fetch('/health', { cache: 'no-store' }),
+      fetch('/ready', { cache: 'no-store' }).catch(() => null)
+    ]);
+    const latency = Math.round(performance.now() - startedAt);
+    const hJson = await hRes.json().catch(() => ({}));
+    const rJson = rRes ? await rRes.json().catch(() => ({})) : {};
+
+    if (apiEl) {
+      apiEl.textContent = hRes.ok && hJson.status === 'online' ? '● Online (HTTP 200)' : `▲ Alerta (HTTP ${hRes.status})`;
+      apiEl.className = hRes.ok && hJson.status === 'online' ? 'ok' : 'warn';
+    }
+    const dbOk = Boolean(rJson?.checks?.database);
+    if (dbEl) {
+      dbEl.textContent = rRes ? (dbOk ? '● Conectado e operacional' : '✕ Indisponível') : (hJson.persistencia || 'PostgreSQL');
+      dbEl.className = dbOk ? 'ok' : (rRes ? 'err' : '');
+    }
+    const hasKey = Boolean(hJson.chave_configurada);
+    const modelName = hJson.modelo || 'Gemini';
+    if (aiEl) {
+      aiEl.textContent = hasKey ? `● Ativa (${modelName})` : `▲ Chave não detectada (${modelName})`;
+      aiEl.className = hasKey ? 'ok' : 'warn';
+    }
+    if (envEl) {
+      envEl.textContent = String(hJson.ambiente || 'production').toUpperCase();
+    }
+    if (cntEl) {
+      cntEl.textContent = `${serverItems.length} servidor · ${localItems.length} rascunhos locais`;
+    }
+    const nowStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    if (latEl) {
+      latEl.textContent = `${latency} ms · às ${nowStr}`;
+      latEl.className = latency < 450 ? 'ok' : 'warn';
+    }
+    _lastDiagRunAt = Date.now();
+    if (!opts?.silent && window.AmbientalUtils?.toast) {
+      AmbientalUtils.toast(`🩺 Diagnóstico concluído em ${latency} ms.`);
+    }
+  } catch (err) {
+    if (apiEl) { apiEl.textContent = '✕ Sem resposta'; apiEl.className = 'err'; }
+    if (latEl) { latEl.textContent = 'Falha na checagem'; latEl.className = 'err'; }
+    if (!opts?.silent && window.AmbientalUtils?.toast) {
+      AmbientalUtils.toast('Falha ao consultar /health do servidor.', 'error');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Testar conectividade (/health & /ready)'; }
+  }
+}
+window.runAdminDiagnostics = runAdminDiagnostics;
+
+function renderConfiguracoesView() {
+  if (!isAdmin()) return;
+  const prefs = getGestaoPrefs();
+  syncConfigFormUI(prefs);
+
+  const nameEl = document.getElementById('cfgAdminName');
+  const roleEl = document.getElementById('cfgAdminRole');
+  const syncEl = document.getElementById('cfgLastSyncText');
+  if (nameEl) nameEl.textContent = currentUserProfile?.nome || currentUserProfile?.email || 'Administrador';
+  if (roleEl) roleEl.textContent = `${currentUserProfile?.perfil || 'Administrador'} · Permissões administrativas e de auditoria ativas`;
+  if (syncEl) syncEl.textContent = lastSyncTimestamp ? dt(new Date(lastSyncTimestamp)) : 'Sincronizado nesta sessão';
+
+  if (Date.now() - _lastDiagRunAt > 20000) {
+    runAdminDiagnostics({ silent: true });
+  }
+}
+window.renderConfiguracoesView = renderConfiguracoesView;
+
+function exportarAtendimentosCSV() {
+  if (!isAdmin()) return;
+  const dataset = Array.isArray(lastFilteredList) && lastFilteredList.length ? lastFilteredList : serverItems;
+  if (!dataset || !dataset.length) {
+    if (window.AmbientalUtils?.toast) AmbientalUtils.toast('Nenhum atendimento disponível para exportação.', 'warning');
+    return;
+  }
+  const csvEsc = (val) => {
+    const s = String(val ?? '').replace(/\r?\n/g, ' ').trim();
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+  const headers = ['Atendimento', 'Paciente', 'CPF', 'Data Atendimento', 'Hora', 'Médico Perito', 'CRM', 'Cargo', 'Unidade', 'CID', 'Dias Solicitados', 'Parecer', 'Status', 'e-SISLA Lançado', 'Atualizado Em'];
+  const lines = [headers.map(csvEsc).join(';')];
+  dataset.forEach(r => {
+    const v = values(r);
+    const st = stateLabel[statusOf(r)] || statusOf(r);
+    lines.push([
+      v.atd, v.patient, v.cpf, date(v.date), v.time || '',
+      v.doctor, v.crm || '', v.cargo, v.unidade || '',
+      v.cid || '', v.dias || '', v.parecer || '', st,
+      v.esislaLancado ? 'Sim' : 'Não', dt(v.updated)
+    ].map(csvEsc).join(';'));
+  });
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const today = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `atendimentos_ambiental_${today}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  if (window.AmbientalUtils?.toast) {
+    AmbientalUtils.toast(`📥 Planilha exportada (${dataset.length} registros).`);
+  }
+}
+window.exportarAtendimentosCSV = exportarAtendimentosCSV;
+
+async function limparCacheGestaoLocal() {
+  if (!isAdmin()) return;
+  try {
+    sessionStorage.removeItem('ambiental.gestao.atendimentos_cache');
+    localStorage.removeItem('ambiental.gestao.atendimentos_cache');
+    sessionStorage.removeItem('ambiental.gestao.dataset_version');
+    lastServerDatasetVersion = null;
+  } catch (_) {}
+  await fetchServer({ force: true });
+  refresh(true);
+  renderRecentHistory();
+  if (typeof renderConfiguracoesView === 'function') renderConfiguracoesView();
+  if (window.AmbientalUtils?.toast) {
+    AmbientalUtils.toast('🧹 Cache de sessão renovado com sucesso!');
+  }
+}
+window.limparCacheGestaoLocal = limparCacheGestaoLocal;
+
+try {
+  const mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+  if (mql && typeof mql.addEventListener === 'function') {
+    mql.addEventListener('change', () => {
+      if (getGestaoPrefs().theme === 'auto') applyThemeAndVisualPrefs();
+    });
+  }
+} catch (_) {}
+

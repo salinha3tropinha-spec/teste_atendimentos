@@ -1311,8 +1311,12 @@ function applyState(){
   state.outrasDoencas=normalizeLegacyYesNo(state.outrasDoencas||state.aux.outrasDoencas)||"Não";
   state.alteracaoMed=normalizeLegacyYesNo(state.alteracaoMed||state.aux.alteracaoMed);
   state.queixaDuracao=state.queixaDuracao||state.aux.queixaDuracao||""; state.exameFisicoTipo=state.exameFisicoTipo||state.exam.selected||""; state.exameFisicoDescricao=state.exameFisicoDescricao||state.exam.descricao||""; state.alteracoesClinicasExames=state.alteracoesClinicasExames||state.examDescription||"";
-  state.aux.nomePaciente=state.aux.nomePaciente||state.nomePaciente||""; state.aux.cpfPaciente=state.aux.cpfPaciente||state.cpfPaciente||"";
-  $("atd").value=state.atendimento||""; $("atdDisplay").textContent=state.atendimento?"Identificação registrada":["Será gerada ao salvar"][0]; $("atdNumber").textContent=state.atendimento?"Atendimento salvo":"Novo atendimento"; $("atdDate").textContent=formatDate(state.aux.dataAtd||today()); $("dataAtd").value=state.aux.dataAtd||today(); $("horaAtd").value=state.aux.horaAtd||timeNow(); $("medico").value=state.medico||""; $("crmResponsavel").value=state.aux.crmResponsavel||"";
+  const isUuidAtd = (val) => Boolean(val && /^[0-9a-fA-F-]{36}$/.test(String(val).trim()));
+  const protoCandApply = state.protocolo || state.aux?.protocolo || state.aux?.agenda_protocolo || (new URLSearchParams(location.search).get("protocolo")) || "";
+  if (isUuidAtd(state.atendimento) && protoCandApply) {
+    state.atendimento = protoCandApply;
+  }
+  $("atd").value=state.atendimento||""; $("atdDisplay").textContent=state.atendimento?"Identificação registrada":["Será gerada ao salvar"][0]; $("atdNumber").textContent=state.atendimento||"Novo atendimento"; $("atdDate").textContent=formatDate(state.aux.dataAtd||today()); $("dataAtd").value=state.aux.dataAtd||today(); $("horaAtd").value=state.aux.horaAtd||timeNow(); $("medico").value=state.medico||""; $("crmResponsavel").value=state.aux.crmResponsavel||"";
   Object.keys(state.aux).forEach(k=>{const el=$(k);if(el&&k!=="dataAtd"&&k!=="horaAtd")el.value=state.aux[k]??"";});
   $("queixaDuracao") && ($("queixaDuracao").value=state.queixaDuracao||state.aux.queixaDuracao||"");
   $("exameFisicoTipo") && ($("exameFisicoTipo").value=state.exameFisicoTipo||"");
@@ -2342,7 +2346,16 @@ function abrirModoIA2(view = "selecao") {
   const nome = state.aux?.nomePaciente || state.nomePaciente || v.nomePaciente || $("agilNomePaciente")?.value || $("nomePaciente")?.value || "Não informado";
   const cpf = formatCPF(state.aux?.cpfPaciente || state.cpfPaciente || v.cpfPaciente || $("agilCpfPaciente")?.value || $("cpfPaciente")?.value || "");
   const cargo = state.aux?.cargo || state.cargo || v.cargo || $("agilCargo")?.value || $("cargo")?.value || "Não informado";
-  const atd = state.atendimento || v.atendimento || $("atd")?.value || "—";
+  const isUuidVal = (x) => Boolean(x && /^[0-9a-fA-F-]{36}$/.test(String(x).trim()));
+  const protoCand = state.protocolo || state.aux?.protocolo || state.aux?.agenda_protocolo || (new URLSearchParams(location.search).get("protocolo")) || "";
+  let atd = state.atendimento || v.atendimento || $("atd")?.value || "";
+  if ((!atd || isUuidVal(atd)) && protoCand) {
+    atd = protoCand;
+    state.atendimento = protoCand;
+    if ($("atd")) $("atd").value = protoCand;
+    if ($("atdNumber")) $("atdNumber").textContent = protoCand;
+  }
+  atd = atd || "—";
   const diasSol = state.diasSolicitados || state.aux?.diasSolicitados || v.diasSolicitados || $("agilDiasSolicitados")?.value || $("diasSolicitados")?.value || "";
   const dtDoc = state.dataDocumento || state.aux?.dataDocumento || v.dataDocumento || $("agilDataDocumento")?.value || $("dataDocumento")?.value || "";
   const dtExp = state.aux?.dataExpedicao || state.dataExpedicao || v.dataExpedicao || $("agilDataExpedicao")?.value || $("dataExpedicao")?.value || "";
@@ -4325,7 +4338,7 @@ async function finalizarAtendimentoIA2(origem) {
           if ($("cid")) $("cid").value = cCode;
         }
 
-        // Parecer
+        // Parecer apenas como dica prévia (decisão soberana vem do modal do perito)
         if (/\b(?:contr[aá]rio|desfavor[aá]vel|inapto|sem\s+incapacidade)\b/i.test(txtUtil)) {
           state.parecer = "CONTRÁRIO";
           state.aux.parecer = "CONTRÁRIO";
@@ -4335,22 +4348,8 @@ async function finalizarAtendimentoIA2(origem) {
           state.aux.parecer = "FAVORÁVEL";
           state.parecerManualOverride = "FAVORÁVEL";
         }
-
-        // Queixa / Sintomas / Exame Físico
-        if (!state.aux.sintomasLimitacao || state.aux.sintomasLimitacao === "Conforme queixa") {
-          state.aux.sintomasLimitacao = txtUtil;
-          state.descLimitacao = txtUtil;
-          if ($("agilSintomasLimitacao")) $("agilSintomasLimitacao").value = txtUtil;
-        }
-        if (!state.aux.doencaMotivo) {
-          state.aux.doencaMotivo = txtUtil.slice(0, 300);
-          state.doencaMotivo = state.aux.doencaMotivo;
-          if ($("agilDoencaMotivo")) $("agilDoencaMotivo").value = state.aux.doencaMotivo;
-        }
-        if (!state.exameFisicoDescricao && !$("exameFisicoDescricao")?.value) {
-          state.exameFisicoDescricao = txtUtil.slice(0, 400);
-          if ($("agilExameFisicoDescricao")) $("agilExameFisicoDescricao").value = state.exameFisicoDescricao;
-        }
+        // Limpa eventual rascunho pré-IA contaminado para que a estruturação pós-IA gere Queixa e Duração limpa
+        state.aux._ia2ModoPendente = true;
       } catch (e) {
         console.warn("Aviso na extração de dados da escrita livre:", e);
       }
@@ -4358,12 +4357,6 @@ async function finalizarAtendimentoIA2(origem) {
 
     if (typeof recalcularRetroacaoAgil === "function") {
       try { recalcularRetroacaoAgil(); } catch (_) {}
-    }
-    if (typeof ensureAgileBackgroundDefaults === "function") {
-      ensureAgileBackgroundDefaults();
-    }
-    if (typeof syncAgilToExtended === "function") {
-      syncAgilToExtended();
     }
     syncState();
 
@@ -4944,9 +4937,30 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
           state.aux.capacidade = "Capacidade laborativa preservada";
           if (typeof setRadio === "function") {
             setRadio("limitacaoFuncional", "Não");
+            setRadio("agilLimitacaoFuncional", "Não");
             setRadio("limitacaoRol", "Não");
+            setRadio("agilLimitacaoRol", "Não");
           }
           if ($("capacidade")) $("capacidade").value = "Capacidade laborativa preservada";
+        } else if (isRetroFinal) {
+          state.limitacaoFuncional = "Sim";
+          state.limitacaoRol = "Sim";
+          state.capacidade = "Capacidade parcial e temporariamente prejudicada";
+          state.aux.limitacaoFuncional = "Sim";
+          state.aux.limitacaoRol = "Sim";
+          state.aux.capacidade = "Capacidade parcial e temporariamente prejudicada";
+          if (!state.atividadesComprometidas && (dados.atividades_comprometidas || state.descLimitacao)) {
+            state.atividadesComprometidas = String(dados.atividades_comprometidas || state.descLimitacao || "").trim();
+            state.aux.atividadesComprometidas = state.atividadesComprometidas;
+          }
+          if (typeof setRadio === "function") {
+            setRadio("limitacaoFuncional", "Sim");
+            setRadio("agilLimitacaoFuncional", "Sim");
+            setRadio("limitacaoRol", "Sim");
+            setRadio("agilLimitacaoRol", "Sim");
+          }
+          if ($("capacidade")) $("capacidade").value = "Capacidade parcial e temporariamente prejudicada";
+          if ($("atividadesComprometidas") && state.atividadesComprometidas) $("atividadesComprometidas").value = state.atividadesComprometidas;
         }
         if (typeof ajustarQuesitosPorParecerEReadaptacao === "function") {
           ajustarQuesitosPorParecerEReadaptacao();
@@ -4970,6 +4984,23 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
         } else if (typeof preservarDadosFichaVinculada === "function") {
           preservarDadosFichaVinculada();
         }
+      }
+    }
+
+    if (!state.aux) state.aux = {};
+    state.aux._ia2Estruturado = true;
+    state.aux._ia2ModoPendente = false;
+
+    if (typeof gerarNarrativaQueixaMelhoriaContinua === "function") {
+      state.queixaDuracao = "";
+      state.aux.queixaDuracao = "";
+      if ($("queixaDuracao")) $("queixaDuracao").value = "";
+      const valObjIA2 = typeof values === "function" ? values() : Object.assign({}, state.aux, state);
+      const qNarrIA2 = gerarNarrativaQueixaMelhoriaContinua(state, valObjIA2);
+      if (qNarrIA2) {
+        state.queixaDuracao = qNarrIA2;
+        state.aux.queixaDuracao = qNarrIA2;
+        if ($("queixaDuracao")) $("queixaDuracao").value = qNarrIA2;
       }
     }
 
@@ -6713,7 +6744,16 @@ function aplicarPreenchimentoIAResultado(dados) {
     state.sexo = esislaSexo || dados.sexo || state.sexo || "Feminino";
 
     const esislaReadaptado = (state.readaptado || state.aux?.readaptado || "").trim();
-    state.readaptado = esislaReadaptado || dados.readaptado || state.readaptado || "Não";
+    const rawReadapTxt = String(dados.texto_bruto || dados.texto || $("txtPreenchimentoIABruto")?.value || $("ia2EscritaText")?.value || $("ia2GravacaoTranscricao")?.value || window.__ia2UltimoTextoProcessado || "");
+    const dadosReadapSim = String(dados.readaptado || "").trim().toLowerCase() === "sim";
+    const rawReadapSim = /\b(?:sou|é|e|está|esta|relatou\s+ser|servidora?|periciad[oa])\s+readaptad[oa]\b/i.test(rawReadapTxt) && !/\bn[ãa]o\s+(?:sou|é|e|ser|estar)?\s*readaptad[oa]\b/i.test(rawReadapTxt);
+    if (esislaReadaptado.toLowerCase() === "sim" || dadosReadapSim || rawReadapSim) {
+      state.readaptado = "Sim";
+    } else {
+      state.readaptado = esislaReadaptado || dados.readaptado || state.readaptado || "Não";
+    }
+    if (!state.aux) state.aux = {};
+    state.aux.readaptado = state.readaptado;
 
     state.alteracaoMed = dados.alteracao_med || state.alteracaoMed || "Não";
     state.outrasDoencas = dados.outras_doencas || state.outrasDoencas || "Não";
@@ -6735,19 +6775,22 @@ function aplicarPreenchimentoIAResultado(dados) {
       .replace(/(?:faz|realiza)\s+fisioterapia\s+ou\s+psicoterapia\??\s*:?/gi, " ");
 
     // 1. Avaliar rawTxtStr (texto original do médico/paciente) de forma primária e soberana (suporta 1ª e 3ª pessoa, antes ou depois do termo)
+    const rawTxtPos = rawTxtStr
+      .replace(/\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+estou\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|n[ãa]o\s+t[ôo]\s+fazendo|sem|nunca\s+fez|nunca\s+fiz|recusa|n[ãa]o\s+iniciou|n[ãa]o\s+iniciei|parou|parei|suspendeu|suspendi)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst|psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)(?:\s+(?:e|ou|nem)\s+(?:fisioterapia|fisio|psicoterapia|psico))?\b/gi, " ");
+
     let afirmFisioRaw =
-      /\b(?:iniciou|inicia|iniciando|iniciei|comecei|come[çc]ou|realiza|realizando|realizo|faz|fazendo|fa[çc]o|fiz|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|frequento|passo\s+(?:na|no|em|com)|passa\s+(?:na|no|em|com)|vou\s+(?:na|no|[àa])|vai\s+(?:na|no|[àa])|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m|mantenho)\s+(?:de\s+|as\s+|os\s+)?(?:tratamento\s+(?:de|com)\s+|acompanhamento\s+(?:de|em|com)\s+|sess[õo]es\s+de\s+)?(?:fisioterapia|fisioterapeuta|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\b/i.test(rawTxtStr) ||
-      /\b(?:fisioterapia|fisioterapeuta|fisio|cinesioterapia|fst)\s*[,:\-]?\s*(?:em\s+curso|motora|respirat[óo]ria|analg[ée]sica|p[ée]lvica|ortop[ée]dica|para\b|nas?\b|nos?\b|em\b|h[áa]\b|desde\b|com\b|pela\b|pelo\b|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|quatro\s+vezes|semanal|quinzenal|mensal|por\s+semana|por\s+m[êe]s|ambulatorial|di[áa]ria|faz|fazendo|fa[çc]o|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|realiza|realizando|realizo|iniciou|iniciei|sim)\b/i.test(rawTxtStr) ||
-      /\b(?:faz|fa[çc]o|em|realiza|realizo)\s+fisio\b/i.test(rawTxtStr);
+      /\b(?:iniciou|inicia|iniciando|iniciei|comecei|come[çc]ou|realiza|realizando|realizo|faz|fazendo|fa[çc]o|fiz|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|frequento|passo\s+(?:na|no|em|com)|passa\s+(?:na|no|em|com)|vou\s+(?:na|no|[àa])|vai\s+(?:na|no|[àa])|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m|mantenho)\s+(?:de\s+|as\s+|os\s+)?(?:tratamento\s+(?:de|com)\s+|acompanhamento\s+(?:de|em|com)\s+|sess[õo]es\s+de\s+)?(?:fisioterapia|fisioterapeuta|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\b/i.test(rawTxtPos) ||
+      /\b(?:fisioterapia|fisioterapeuta|fisio|cinesioterapia|fst)\s*[,:\-]?\s*(?:em\s+curso|motora|respirat[óo]ria|analg[ée]sica|p[ée]lvica|ortop[ée]dica|para\b|nas?\b|nos?\b|em\b|h[áa]\b|desde\b|com\b|pela\b|pelo\b|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|quatro\s+vezes|semanal|quinzenal|mensal|por\s+semana|por\s+m[êe]s|ambulatorial|di[áa]ria|faz|fazendo|fa[çc]o|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|realiza|realizando|realizo|iniciou|iniciei|sim)\b/i.test(rawTxtPos) ||
+      /\b(?:faz|fa[çc]o|em|realiza|realizo)\s+fisio\b/i.test(rawTxtPos);
 
     let negFisioRaw =
       /\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+estou\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|n[ãa]o\s+t[ôo]\s+fazendo|sem|nunca\s+fez|nunca\s+fiz|recusa|n[ãa]o\s+iniciou|n[ãa]o\s+iniciei|parou|parei|suspendeu|suspendi)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\b/i.test(rawTxtStr) ||
       /\b(?:fisioterapia|fisio|cinesioterapia|reabilita[çc][ãa]o\s+motora|fst)\s*[,:\-]?\s*(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+estou\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|n[ãa]o\s+t[ôo]\s+fazendo|sem\s+fazer|nunca\s+fez|nunca\s+fiz|recusa|n[ãa]o\s+iniciou|n[ãa]o\s+iniciei|parou|parei|suspendeu|suspendi|n[ãa]o)\b/i.test(rawTxtStr);
 
     let afirmPsicoRaw =
-      /\b(?:iniciou|inicia|iniciando|iniciei|comecei|come[çc]ou|realiza|realizando|realizo|faz|fazendo|fa[çc]o|fiz|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|frequento|passo\s+(?:na|no|em|com)|passa\s+(?:na|no|em|com)|vou\s+(?:na|no|[àa])|vai\s+(?:na|no|[àa])|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m|mantenho)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)\b/i.test(rawTxtStr) ||
-      /\b(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)\s*[,:\-]?\s*(?:em\s+curso|para\b|h[áa]\b|desde\b|com\b|pela\b|pelo\b|semanal|quinzenal|mensal|por\s+semana|por\s+m[êe]s|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|ambulatorial|faz|fazendo|fa[çc]o|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|realiza|realizando|realizo|iniciou|iniciei|sim)\b/i.test(rawTxtStr) ||
-      /\b(?:faz|fa[çc]o|em|realiza|realizo)\s+psico\b/i.test(rawTxtStr);
+      /\b(?:iniciou|inicia|iniciando|iniciei|comecei|come[çc]ou|realiza|realizando|realizo|faz|fazendo|fa[çc]o|fiz|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|em|sess[õo]es\s+de|frequenta|frequentando|frequento|passo\s+(?:na|no|em|com)|passa\s+(?:na|no|em|com)|vou\s+(?:na|no|[àa])|vai\s+(?:na|no|[àa])|encaminhad[oa]\s+para|prescrit[oa]|indica[çc][ãa]o\s+de|mant[ée]m|mantenho)\s+(?:de\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)\b/i.test(rawTxtPos) ||
+      /\b(?:psicoterapia|psico|terapia\s+psicol[óo]gica|psic[oó]log[ao]|acompanhamento\s+psicol[óo]gico|pst)\s*[,:\-]?\s*(?:em\s+curso|para\b|h[áa]\b|desde\b|com\b|pela\b|pelo\b|semanal|quinzenal|mensal|por\s+semana|por\s+m[êe]s|[0-9]+\s*(?:x|vez|vezes)|uma\s+vez|duas\s+vezes|tr[êe]s\s+vezes|ambulatorial|faz|fazendo|fa[çc]o|t[áa]\s+fazendo|est[áa]\s+fazendo|t[ôo]\s+fazendo|estou\s+fazendo|realiza|realizando|realizo|iniciou|iniciei|sim)\b/i.test(rawTxtPos) ||
+      /\b(?:faz|fa[çc]o|em|realiza|realizo)\s+psico\b/i.test(rawTxtPos);
 
     let negPsicoRaw =
       /\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|n[ãa]o\s+realiza|n[ãa]o\s+realizo|n[ãa]o\s+alegou|n[ãa]o\s+est[áa]\s+fazendo|n[ãa]o\s+estou\s+fazendo|n[ãa]o\s+t[áa]\s+fazendo|n[ãa]o\s+t[ôo]\s+fazendo|sem|nunca\s+fez|nunca\s+fiz|recusa|n[ãa]o\s+iniciou|n[ãa]o\s+iniciei|parou|parei|suspendeu|suspendi)\s+(?:de\s+)?(?:fazer\s+|realizar\s+)?(?:tratamento\s+de\s+|acompanhamento\s+de\s+|sess[õo]es\s+de\s+)?(?:psicoterapia|psico|psic[oó]log[ao]|terapia\s+psicol[óo]gica|acompanhamento\s+psicol[óo]gico|pst)\b/i.test(rawTxtStr) ||
@@ -6756,6 +6799,8 @@ function aplicarPreenchimentoIAResultado(dados) {
     if (/\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|sem)\s+(?:fazer\s+|realizar\s+)?(?:fisioterapia|fisio)\s+(?:e|ou|nem)\s+(?:psicoterapia|psico)\b|\b(?:nega|nego|n[ãa]o\s+faz|n[ãa]o\s+fa[çc]o|sem)\s+(?:fazer\s+|realizar\s+)?(?:psicoterapia|psico)\s+(?:e|ou|nem)\s+(?:fisioterapia|fisio)\b/i.test(rawTxtStr)) {
       negFisioRaw = true;
       negPsicoRaw = true;
+      afirmFisioRaw = false;
+      afirmPsicoRaw = false;
     }
 
     let fisio;
@@ -7179,8 +7224,10 @@ function aplicarPreenchimentoIAResultado(dados) {
         QuesitoService.set(2, "Sim");
         state.quesitos = QuesitoService.get();
       } else if (Array.isArray(dados.quesitos)) {
+        const hasCidNow = Boolean(String(dados.cid || state.cid || "").trim());
         dados.quesitos.forEach((q, idx) => {
-          QuesitoService.set(idx, q.resposta || "Sim");
+          const resp = (idx === 0 && hasCidNow) ? "Sim" : (q.resposta || "Sim");
+          QuesitoService.set(idx, resp);
         });
         state.quesitos = QuesitoService.get();
       }
@@ -7460,6 +7507,24 @@ function aplicarPreenchimentoIAResultado(dados) {
     setVal("obsTerapias", obsTerapiasFinal);
     setVal("agilObsTerapias", obsTerapiasFinal);
 
+    if (!state.aux) state.aux = {};
+    state.aux._ia2Estruturado = true;
+    state.aux._ia2ModoPendente = false;
+    state.aux._ia2StructuredAt = new Date().toISOString();
+
+    if (typeof gerarNarrativaQueixaMelhoriaContinua === "function") {
+      state.queixaDuracao = "";
+      state.aux.queixaDuracao = "";
+      if ($("queixaDuracao")) $("queixaDuracao").value = "";
+      const valObjQ = typeof values === "function" ? values() : Object.assign({}, state.aux, state);
+      const qNarr = gerarNarrativaQueixaMelhoriaContinua(state, valObjQ);
+      if (qNarr) {
+        state.queixaDuracao = qNarr;
+        state.aux.queixaDuracao = qNarr;
+        if ($("queixaDuracao")) $("queixaDuracao").value = qNarr;
+      }
+    }
+
     // 8. Se for Outros, reforçar o destaque do chip e resultado selecionado
     if (state.exameFisicoTipo === "Outros" && typeof renderOutrosUI === "function") {
       renderOutrosUI();
@@ -7536,7 +7601,19 @@ async function tryServerLoad(id){
         }
         if (typeof preservarDadosFichaVinculada === "function") preservarDadosFichaVinculada();
       }
-      state.atendimento = d.atendimento || d.id || id || state.atendimento;
+      const isUuidStr = (val) => Boolean(val && /^[0-9a-fA-F-]{36}$/.test(String(val).trim()));
+      const protoFromData = d.protocolo || d.payload?.protocolo || d.payload?.aux?.protocolo || d.payload?.aux?.agenda_protocolo || state.protocolo || state.aux?.protocolo || state.aux?.agenda_protocolo || (new URLSearchParams(location.search).get("protocolo")) || "";
+      if (protoFromData && (!d.atendimento || isUuidStr(d.atendimento) || d.atendimento === d.id || isUuidStr(state.atendimento))) {
+        state.atendimento = protoFromData;
+      } else {
+        state.atendimento = d.atendimento || d.id || id || state.atendimento;
+      }
+      if (protoFromData) {
+        state.protocolo = protoFromData;
+        if (!state.aux || typeof state.aux !== "object") state.aux = {};
+        state.aux.protocolo = protoFromData;
+        state.aux.agenda_protocolo = protoFromData;
+      }
       const pacienteNome = state.nomePaciente || state.aux.nomePaciente || d.paciente_nome || d.paciente || "";
       if (pacienteNome) { state.nomePaciente = pacienteNome; state.aux.nomePaciente = pacienteNome; }
       const pacienteCpf = state.cpfPaciente || state.aux.cpfPaciente || d.paciente_cpf || d.cpf || "";
@@ -9041,6 +9118,9 @@ function newEmptyState(){
   state.medico = "";
   state.capacidade = "";
   state.parecer = "";
+  state.parecerManualOverride = "";
+  state.retroacaoInvalida = false;
+  state.retroacaoDias = null;
   state.finalizado = false;
   state.finalizadoEm = "";
   state.workflowStatus = "RASCUNHO";
@@ -9054,6 +9134,9 @@ function newEmptyState(){
   state.exameFisicoDescricao = "";
   state.alteracoesClinicasExames = "";
   state.queixaDuracao = "";
+  state.descLimitacao = "";
+  state.atividadesComprometidas = "";
+  state.justificativa = "";
   state.aux = {};
   state.exameMentalResultado = "";
   state.osteomuscularRegioes = {};
@@ -9206,7 +9289,9 @@ async function init(){
      if (!state.aux) state.aux = {};
      state.aux.protocolo = protocoloParam;
      state.aux.agenda_protocolo = protocoloParam;
-     if (!recovered && (!state.atendimento || isNew)) {
+     state.protocolo = protocoloParam;
+     const isUuidStr = (val) => Boolean(val && /^[0-9a-fA-F-]{36}$/.test(String(val).trim()));
+     if (!recovered || (!state.atendimento || isNew || isUuidStr(state.atendimento))) {
        state.atendimento = protocoloParam;
        if ($("atd")) $("atd").value = protocoloParam;
        if ($("atdNumber")) $("atdNumber").textContent = protocoloParam;
@@ -11374,6 +11459,42 @@ function aplicarExameMentalAlterado() {
    Garante atendimento integral às diretrizes e-SISLA / DPME sem burocracia para o médico no Modo Ágil.
    ========================================================= */
 
+function isAcompanhanteContext(st, aux, v) {
+  st = st || (typeof state !== "undefined" ? state : {}) || {};
+  aux = aux || st.aux || {};
+  v = v || {};
+  if (st.isAcompanhante || aux.isAcompanhante) return true;
+  const tipoAtd = String(st.tipoAtendimentoPericia || aux.tipoAtendimentoPericia || "").trim().toUpperCase();
+  if (tipoAtd === "ACOMPANHANTE") return true;
+  const cidRaw = String(st.cid || aux.cid || v.cid || (typeof $ === "function" ? $("agilCid")?.value : "") || "").trim().toUpperCase();
+  if (cidRaw.startsWith("Z76")) return true;
+  const txt = `${st.doencaMotivo || ""} ${aux.doencaMotivo || ""} ${v.doencaMotivo || ""}`;
+  if (/\b(?:acompanhante|pessoa\s+doente|familiar\s+(?:enfermo|doente|dependente)|artigo\s*199)\b/i.test(txt)) return true;
+  if (/acompanhamento\s+de\s+(?:familiar|pessoa\s+doente|dependente|filh[oa]|m[ãa]e|pai|c[ôo]njuge|espos[oa])/i.test(txt)) return true;
+  return false;
+}
+if (typeof window !== "undefined") window.isAcompanhanteContext = isAcompanhanteContext;
+
+function inferIsFemininoJS(st, aux, v) {
+  st = st || (typeof state !== "undefined" ? state : {}) || {};
+  aux = aux || st.aux || {};
+  v = v || {};
+  const sx = String(st.sexo || aux.sexo || v.sexo || (typeof $ === "function" ? $("sexo")?.value : "") || "").trim().toLowerCase();
+  if (/^(?:m|masculino|homem)$/i.test(sx)) return false;
+  if (/^(?:f|feminino|mulher)$/i.test(sx)) return true;
+  const cidUp = String(st.cid || aux.cid || v.cid || (typeof $ === "function" ? $("agilCid")?.value : "") || "").trim().toUpperCase();
+  if (/^(?:O|C5[1-8]|D06|D2[5-8]|N[789]|Z3[2-79])/.test(cidUp)) return true;
+  const cargoStr = String(st.cargo || aux.cargo || v.cargo || (typeof $ === "function" ? $("agilCargo")?.value : "") || "");
+  if (/servidora|periciada|professora|diretora|supervisora|coordenadora|enfermeira|psic[óo]loga/i.test(cargoStr)) return true;
+  const nomeStr = String(st.nomePaciente || aux.nomePaciente || v.nomePaciente || (typeof $ === "function" ? $("agilNomePaciente")?.value : "") || "").trim();
+  const first = nomeStr ? (nomeStr.split(/\s+/)[0] || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+  const femNames = new Set(["patricia","audria","jeniffer","jennifer","ingrid","marilian","priscila","iris","luisis","maria","ana","julia","juliana","camila","fernanda","beatriz","amanda","larissa","leticia","bruna","mariana","gabriela","rafaela","carolina","carla","daniela","vanessa","paula","luciana","adriana","renata","simone","tatiana","claudia","sandra","monica","elaine","denise","flavia","fabiana","andrea","cristina","regina","rosana","sonia","veronica","solange","celia","sueli","lilian","viviane","kelly","sabrina","thaise","thais","raquel","bianca","natalia","isabela","isabella","aline","dayane","daiane","karina","elisangela","sheila","michele","michelle","debora","silvia","angela","helena","alice","laura","livia","giovanna","yasmin","luana","eloa"]);
+  const mascA = new Set(["luca","joshua","nicola","nikola","mustafa","jeova","ezra","sasha","uba"]);
+  if (first && (femNames.has(first) || (/a$/.test(first) && !mascA.has(first) && first.length >= 3))) return true;
+  return false;
+}
+if (typeof window !== "undefined") window.inferIsFemininoJS = inferIsFemininoJS;
+
 function gerarNarrativaQueixaMelhoriaContinua(st, v) {
   v = v || {};
   st = st || state;
@@ -11466,16 +11587,9 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
     return cleanQueixaDuracao(rawQ, aux.dataAtd || st.aux?.dataAtd || $("dataAtd")?.value);
   }
 
-  const isAcomp = !!(
-    st.isAcompanhante ||
-    aux.isAcompanhante ||
-    cidVal === "Z763" ||
-    cidVal === "Z76.3" ||
-    /acompanha/i.test(doenca || "") ||
-    /artigo\s*199/i.test(doenca || "") ||
-    /pessoa\s+doente/i.test(doenca || "") ||
-    /familiar\s+enfermo/i.test(doenca || "")
-  );
+  const isAcomp = typeof isAcompanhanteContext === "function"
+    ? isAcompanhanteContext(st, aux, v)
+    : !!(st.isAcompanhante || aux.isAcompanhante || cidVal === "Z763" || cidVal === "Z76.3");
 
   function flexibilizarCargoFem(cargoStr, isFeminino) {
     if (!cargoStr) return cargoStr;
@@ -11513,8 +11627,9 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
     const rawDep = (aux.nomeDependente || st.nomeDependente || st.pessoa || "").trim();
     const isGenericDep = !rawDep || /^(?:familiar(?:\s+dependente|\/dependente)?(?:\s+enfermo)?|dependente(?:\s+enfermo)?|o\s+próprio|próprio|a\s+pedido)$/i.test(rawDep);
     const depNome = isGenericDep ? "" : rawDep;
-    const sexo = (st.sexo || v.sexo || "").toLowerCase();
-    const isFem = sexo === "f" || sexo === "feminino" || /servidora|periciada|professora/i.test(st.cargo || v.cargo || "");
+    const isFem = typeof inferIsFemininoJS === "function"
+      ? inferIsFemininoJS(st, aux, v)
+      : (/servidora|periciada|professora/i.test(st.cargo || v.cargo || "") || ["f", "feminino"].includes(String(st.sexo || v.sexo || "").toLowerCase()));
     let ident = isFem ? "Servidora" : "Servidor";
     if (idade) ident += ` de ${idade} anos`;
     if (readap) {
@@ -11555,8 +11670,9 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
   let partes = [];
   
   // 1. Identificação funcional
-  const sexo = (st.sexo || v.sexo || "").toLowerCase();
-  const isFem = sexo === "f" || sexo === "feminino";
+  const isFem = typeof inferIsFemininoJS === "function"
+    ? inferIsFemininoJS(st, aux, v)
+    : ["f", "feminino"].includes(String(st.sexo || v.sexo || "").toLowerCase());
   let ident = isFem ? "Servidora" : "Servidor";
   if (idade) ident += ` de ${idade} anos`;
   
@@ -11670,7 +11786,7 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
   if (medsStr) {
     partes.push(`Em uso de ${medsStr}.`);
   } else if (!hasAntineoplasicoOuInfusao) {
-    if (isAcomp || /acompanha/i.test(sintomas || "") || /familiar/i.test(doenca || "")) {
+    if (isAcomp || /\b(?:acompanhante|familiar\s+(?:enfermo|doente|dependente))\b/i.test((sintomas || "") + " " + (doenca || ""))) {
       partes.push(isFem ? "A servidora negou uso de medicações próprias de uso contínuo." : "O servidor negou uso de medicações próprias de uso contínuo.");
     } else {
       partes.push("Negou uso de medicações.");
@@ -11678,7 +11794,9 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
   }
   
   // 6. Alteração de medicação (CID F e geral)
-  const temRelatoAlt = /\b(?:aumentad[oa]|aumento|ajustad[oa]|ajuste|reduzid[oa]|redução|reducao|trocad[oa]|troca)\s+(?:a\s+medica[çc][ãa]o|de\s+medica[çc][ãa]o|d[ae]\s+dosagem|d[ae]\s+dose)\b|\b(?:foi\s+aumentada\s+a\s+medica[çc][ãa]o|aumentou\s+a\s+dose|trocou\s+a\s+medica[çc][ãa]o|ajustou\s+a\s+dose)\b|\b(?:recentemente\s+foi\s+aumentada\s+a\s+medica[çc][ãa]o)\b/i.test(sintomas || "");
+  const sintRawTxt = String(sintomas || "") + " " + String(rawQ || "");
+  const temRelatoAlt = /\b(?:aumentad[oa]|aumento|ajustad[oa]|ajuste|reduzid[oa]|redução|reducao|trocad[oa]|troca|introdu[çc][ãa]o|in[íi]cio|iniciou)\s+(?:terap[êe]utic[oa]\s+recente|medicamentos[oa]|a\s+medica[çc][ãa]o|de\s+medica[çc][ãa]o|d[ae]\s+dosagem|d[ae]\s+dose|de\s+[A-ZÀ-ÿa-z]{3,})\b|\b(?:foi\s+aumentada\s+a\s+medica[çc][ãa]o|aumentou\s+a\s+dose|trocou\s+a\s+medica[çc][ãa]o|ajustou\s+a\s+dose|ajuste\s+terap[êe]utico)\b|\b(?:recentemente\s+foi\s+aumentada\s+a\s+medica[çc][ãa]o)\b/i.test(sintRawTxt);
+  const temNegacaoTroca = /\b(?:sem\s+trocas?\s+(?:recentes?\s+)?de\s+medica[çc][ãa]o|sem\s+altera[çc][ãa]o\s+de\s+dosagem|n[ãa]o\s+relatou\s+troca\s+de\s+medica[çc][ãa]o|n[ãa]o\s+trocou\s+de\s+medica[çc][ãa]o)\b/i.test(sintRawTxt);
   const altMed = String(st.alteracaoMed || aux.alteracaoMed || getRadio("agilAlteracaoMed") || "").toLowerCase() === "sim" || temRelatoAlt;
   if (altMed) {
     const dtAlt = aux.dataAlteracaoMed || $("agilDataAlteracaoMed")?.value || "";
@@ -11688,7 +11806,7 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
     } else {
       partes.push(`Informa alteração recente na prescrição medicamentosa${dtAlt ? ` em ${formatDate(dtAlt)}` : ""}${obsAlt ? `, ${obsAlt}` : ""}.`);
     }
-  } else {
+  } else if (!temNegacaoTroca && (medsStr || hasAntineoplasicoOuInfusao)) {
     partes.push("Não relatou troca de medicação ou alteração de dosagem.");
   }
   
@@ -11875,7 +11993,15 @@ function gerarNarrativaAntecedentesMelhoriaContinua(st, v) {
 
     const low = t.toLowerCase();
     const lowAfirmativo = low.replace(/\b(?:nega|sem|n[ãa]o\s+refere|n[ãa]o\s+apresenta)\b[^\.\n\r]*/gi, "");
-    const temCancer = /\b(?:c[âa]ncer|carcinoma|tumor|tumores|oncol[óo]gic[oa]|linfoma|leucemia|melanoma|met[áa]stase|met[áa]stases|metast[áa]tic[oa]|sarcoma|antineopl[áa]sic[oa]|bevacizumab[e]?|pembrolizumab[e]?|trastuzumab[e]?|rituximab[e]?)\b/i.test(lowAfirmativo) || /\bneopl[áa]s(?:ia|ias|ic[oa])\b/i.test(lowAfirmativo);
+    const cidAntUp = String(st.cid || aux.cid || v.cid || $("agilCid")?.value || "").trim().toUpperCase();
+    const cidsSecAnt = Array.isArray(st.cidsSecundarios || aux.cidsSecundarios)
+      ? (st.cidsSecundarios || aux.cidsSecundarios).map(c => String(c?.cid || c?.codigo || c || "").trim().toUpperCase())
+      : [];
+    const temCidOnco = /^(?:C|D0)/.test(cidAntUp) || cidsSecAnt.some(c => /^(?:C|D0)/.test(c));
+    const motivoAnt = String(st.doencaMotivo || aux.doencaMotivo || v.doencaMotivo || "").toLowerCase();
+    const temCancer = temCidOnco
+      || /\b(?:c[âa]ncer|carcinoma|tumor|tumores|oncol[óo]gic[oa]|linfoma|leucemia|melanoma|met[áa]stase|met[áa]stases|metast[áa]tic[oa]|sarcoma|antineopl[áa]sic[oa]|bevacizumab[e]?|pembrolizumab[e]?|trastuzumab[e]?|rituximab[e]?|endoc[ée]rvice)\b/i.test(lowAfirmativo + " " + motivoAnt)
+      || /\bneopl[áa]s(?:ia|ias|ic[oa])\b/i.test(lowAfirmativo + " " + motivoAnt);
     const temCirurgias = /\b(?:cirurgias|cirurgia|cir[úu]rgic[oa]|p[óo]s-operat[óo]rio|operad[oa]|mastectomia|histerectomia|artroplastia|colecistectomia|apendicectomia|herniorrafia|vasectomia|blefaroplastia|tenorrafia)\b/i.test(lowAfirmativo);
     const temNeoplasias = temCancer || /\bneopl[áa]s(?:ia|ias)\b/i.test(low);
     const temCirurgiasMencao = temCirurgias || /\bcirurg(?:ia|ias)\b/i.test(low);
@@ -11986,19 +12112,13 @@ function gerarNarrativaLimitacoesMelhoriaContinua(st, v) {
   const isFav = !isExplicitContr && (pVal === "F" || pVal.startsWith("FAV") || isOsteoAlterado || isMentalAlterado || isRetroInv);
   const doencaMot = String(st.doencaMotivo || st.aux?.doencaMotivo || v.doencaMotivo || "patologia avaliada").trim();
 
-  const isAcomp = !!(
-    st.isAcompanhante ||
-    st.aux?.isAcompanhante ||
-    st.cid === "Z763" ||
-    st.cid === "Z76.3" ||
-    st.aux?.cid === "Z763" ||
-    st.aux?.cid === "Z76.3" ||
-    /acompanha/i.test(st.doencaMotivo || st.aux?.doencaMotivo || "") ||
-    /artigo\s*199/i.test(st.doencaMotivo || st.aux?.doencaMotivo || "")
-  );
+  const isAcomp = typeof isAcompanhanteContext === "function"
+    ? isAcompanhanteContext(st, st.aux, v)
+    : !!(st.isAcompanhante || st.aux?.isAcompanhante || st.cid === "Z763" || st.cid === "Z76.3");
 
-  const sexo = String(st.sexo || v.sexo || "").toLowerCase();
-  const isFem = sexo === "f" || sexo === "feminino" || /servidora|periciada|professora/i.test(cargo);
+  const isFem = typeof inferIsFemininoJS === "function"
+    ? inferIsFemininoJS(st, st.aux, v)
+    : (/servidora|periciada|professora/i.test(cargo) || ["f", "feminino"].includes(String(st.sexo || v.sexo || "").toLowerCase()));
   const termoServ = isFem ? "Servidora" : "Servidor";
   const higidoTerm = isFem ? "hígida" : "hígido";
   const existingLimRaw = String(st.descLimitacao || st.aux?.descLimitacao || v.descLimitacao || "").trim();
@@ -12106,16 +12226,9 @@ function gerarNarrativaJustificativaMelhoriaContinua(st, v) {
   }
   const isFav = String(st.parecer || v.parecer || (typeof getRadio === 'function' ? getRadio("parecer") : "") || "").toUpperCase().startsWith("FAV");
 
-  const isAcomp = !!(
-    st.isAcompanhante ||
-    st.aux?.isAcompanhante ||
-    st.cid === "Z763" ||
-    st.cid === "Z76.3" ||
-    st.aux?.cid === "Z763" ||
-    st.aux?.cid === "Z76.3" ||
-    /acompanha/i.test(st.doencaMotivo || st.aux?.doencaMotivo || "") ||
-    /artigo\s*199/i.test(st.doencaMotivo || st.aux?.doencaMotivo || "")
-  );
+  const isAcomp = typeof isAcompanhanteContext === "function"
+    ? isAcompanhanteContext(st, st.aux, v)
+    : !!(st.isAcompanhante || st.aux?.isAcompanhante || st.cid === "Z763" || st.cid === "Z76.3");
 
   if (isAcomp) {
     if (isFav) {
@@ -12313,16 +12426,9 @@ function ensureAgileBackgroundDefaults() {
     if ($("diasSolicitados") && !$("diasSolicitados").value) $("diasSolicitados").value = state.aux.diasSolicitados;
   }
   
-  const isAcomp = !!(
-    state.isAcompanhante ||
-    state.aux?.isAcompanhante ||
-    state.cid === "Z763" ||
-    state.cid === "Z76.3" ||
-    state.aux?.cid === "Z763" ||
-    state.aux?.cid === "Z76.3" ||
-    /acompanha/i.test(state.doencaMotivo || state.aux?.doencaMotivo || "") ||
-    /artigo\s*199/i.test(state.doencaMotivo || state.aux?.doencaMotivo || "")
-  );
+  const isAcomp = typeof isAcompanhanteContext === "function"
+    ? isAcompanhanteContext(state, state.aux, {})
+    : !!(state.isAcompanhante || state.aux?.isAcompanhante || state.cid === "Z763" || state.cid === "Z76.3");
 
   // CID sincronizado com fallback garantido
   let cidVal = state.cid || state.aux?.cid || $("agilCid")?.value || $("cid")?.value || (hasFichaVinculada() ? (state.aux?.dadosFichaVinculada?.cid || "") : "");
@@ -12365,7 +12471,7 @@ function ensureAgileBackgroundDefaults() {
     try {
       limText = isFavGeneral
         ? gerarNarrativaLimitacoesMelhoriaContinua(state, values())
-        : (state.aux.descLimitacao || (state.exameMentalResultado === "Alterado" ? TEXTO_LIMITACAO_ALTERADO : (state.exameMentalResultado === "Normal" ? TEXTO_LIMITACAO_NORMAL : "Conforme exame físico/mental")));
+        : (state.aux.descLimitacao || state.descLimitacao || (state.exameMentalResultado === "Alterado" ? TEXTO_LIMITACAO_ALTERADO : (state.exameMentalResultado === "Normal" ? TEXTO_LIMITACAO_NORMAL : "Conforme exame físico/mental")));
     } catch (_) {}
     if (!limText || limText.trim() === "") {
       limText = isFavGeneral
@@ -12373,8 +12479,11 @@ function ensureAgileBackgroundDefaults() {
         : "Do ponto de vista médico não se observam limitações funcionais incapacitantes para as atribuições do cargo constantes no rol de atividades.";
     }
     state.aux.sintomasLimitacao = limText;
-    state.descLimitacao = limText;
-    state.aux.descLimitacao = limText;
+    state.sintomasLimitacao = limText;
+    if (!state.aux._ia2Estruturado || !state.descLimitacao) {
+      state.descLimitacao = limText;
+      state.aux.descLimitacao = limText;
+    }
     if ($("sintomasLimitacao")) $("sintomasLimitacao").value = limText;
     if ($("agilSintomasLimitacao")) $("agilSintomasLimitacao").value = limText;
   }
@@ -12432,7 +12541,7 @@ function ensureAgileBackgroundDefaults() {
     state.aux.justificativa = $("agilJustificativa")?.value || state.justificativa || state.aux.justificativa || gerarNarrativaJustificativaMelhoriaContinua(state, values());
     state.justificativa = state.aux.justificativa;
   } else if (state.exameFisicoTipo === "Exame Mental") {
-    if (state.exameMentalResultado === "Alterado") {
+    if (!isExplicitContrary && state.exameMentalResultado === "Alterado") {
       state.limitacaoFuncional = "Sim";
       state.limitacaoRol = "Sim";
       state.capacidade = "Capacidade parcial e temporariamente prejudicada";
@@ -12441,19 +12550,19 @@ function ensureAgileBackgroundDefaults() {
         state.descLimitacao = gerarNarrativaLimitacoesMelhoriaContinua(state, values());
         state.aux.descLimitacao = state.descLimitacao;
       }
-      state.aux.justificativa = state.aux.justificativa || $("agilJustificativa")?.value || TEXTO_JUSTIFICATIVA_ALTERADO;
+      state.aux.justificativa = state.aux.justificativa || state.justificativa || $("agilJustificativa")?.value || TEXTO_JUSTIFICATIVA_ALTERADO;
       state.justificativa = state.aux.justificativa;
     } else {
       state.limitacaoFuncional = "Não";
       state.limitacaoRol = "Não";
       state.capacidade = "Capacidade laborativa preservada";
       state.parecer = "CONTRÁRIO";
-      state.aux.justificativa = state.aux.justificativa || $("agilJustificativa")?.value || TEXTO_JUSTIFICATIVA_NORMAL;
+      state.aux.justificativa = state.aux.justificativa || state.justificativa || $("agilJustificativa")?.value || gerarNarrativaJustificativaMelhoriaContinua(state, values()) || TEXTO_JUSTIFICATIVA_NORMAL;
       state.justificativa = state.aux.justificativa;
     }
   } else if (state.exameFisicoTipo === "Aparelho Osteomuscular e Tecido Conjutivo") {
     const hasAlterado = Object.values(state.osteomuscularRegioes || {}).some(v => v === "Alterado");
-    if (hasAlterado) {
+    if (!isExplicitContrary && hasAlterado) {
       state.limitacaoFuncional = "Sim";
       state.limitacaoRol = "Sim";
       state.capacidade = "Capacidade parcial e temporariamente prejudicada";
@@ -12462,30 +12571,30 @@ function ensureAgileBackgroundDefaults() {
         state.descLimitacao = gerarNarrativaLimitacoesMelhoriaContinua(state, values());
         state.aux.descLimitacao = state.descLimitacao;
       }
-      state.aux.justificativa = state.aux.justificativa || $("agilJustificativa")?.value || (state.descLimitacao ? `Capacidade parcial e temporariamente prejudicada, ${state.descLimitacao}` : TEXTO_JUSTIFICATIVA_ALTERADO);
+      state.aux.justificativa = state.aux.justificativa || state.justificativa || $("agilJustificativa")?.value || (state.descLimitacao ? `Capacidade parcial e temporariamente prejudicada, ${state.descLimitacao}` : TEXTO_JUSTIFICATIVA_ALTERADO);
       state.justificativa = state.aux.justificativa;
     } else {
       state.limitacaoFuncional = "Não";
       state.limitacaoRol = "Não";
       state.capacidade = "Capacidade laborativa preservada";
       state.parecer = "CONTRÁRIO";
-      state.aux.justificativa = state.aux.justificativa || $("agilJustificativa")?.value || TEXTO_OSTEO_NORMAL_JUSTIFICATIVA;
+      state.aux.justificativa = state.aux.justificativa || state.justificativa || $("agilJustificativa")?.value || gerarNarrativaJustificativaMelhoriaContinua(state, values()) || TEXTO_OSTEO_NORMAL_JUSTIFICATIVA;
       state.justificativa = state.aux.justificativa;
     }
   } else if (state.exameFisicoTipo === "Outros") {
-    if (state.outrosResultado === "Alterado" || isFavGeneral || curParecerStr.startsWith("FAV")) {
+    if (!isExplicitContrary && (state.outrosResultado === "Alterado" || isFavGeneral || curParecerStr.startsWith("FAV"))) {
       state.limitacaoFuncional = "Sim";
       state.limitacaoRol = "Sim";
       state.capacidade = isAcomp ? "Capacidade laborativa própria preservada" : "Capacidade parcial e temporariamente prejudicada";
       state.parecer = "FAVORÁVEL";
-      state.aux.justificativa = state.aux.justificativa || $("agilJustificativa")?.value || gerarNarrativaJustificativaMelhoriaContinua(state, values()) || "Quadro clínico com sintomatologia temporariamente incapacitante para as atividades laborativas habituais, conforme atestado e avaliação médica pericial.";
+      state.aux.justificativa = state.aux.justificativa || state.justificativa || $("agilJustificativa")?.value || gerarNarrativaJustificativaMelhoriaContinua(state, values()) || "Quadro clínico com sintomatologia temporariamente incapacitante para as atividades laborativas habituais, conforme atestado e avaliação médica pericial.";
       state.justificativa = state.aux.justificativa;
     } else {
       state.limitacaoFuncional = "Não";
       state.limitacaoRol = "Não";
       state.capacidade = "Capacidade laborativa preservada";
       state.parecer = "CONTRÁRIO";
-      state.aux.justificativa = state.aux.justificativa || $("agilJustificativa")?.value || gerarNarrativaJustificativaMelhoriaContinua(state, values()) || "Avaliação pericial clínica sem evidências de incapacidade laborativa no momento do exame pericial.";
+      state.aux.justificativa = state.aux.justificativa || state.justificativa || $("agilJustificativa")?.value || gerarNarrativaJustificativaMelhoriaContinua(state, values()) || "Avaliação pericial clínica sem evidências de incapacidade laborativa no momento do exame pericial.";
       state.justificativa = state.aux.justificativa;
     }
   } else {
@@ -13028,10 +13137,19 @@ function limparFragmentoClinicoRetroacaoJS(texto) {
 }
 window.limparFragmentoClinicoRetroacaoJS = limparFragmentoClinicoRetroacaoJS;
 
+function normalizeCargoLabelJS(rawCargo) {
+  const c = String(rawCargo || "").trim().replace(/^[,.;:\s]+|[,.;:\s]+$/g, "");
+  if (!c || /^[—–\-]+$/.test(c) || /^(?:n\/a|na|não\s+informado|nao\s+informado|sem\s+cargo)$/i.test(c)) {
+    return "servidor";
+  }
+  return c;
+}
+window.normalizeCargoLabelJS = normalizeCargoLabelJS;
+
 function construirJustificativaRetroacaoSemParentesesJS(st, v) {
   st = st || state || {};
   v = v || {};
-  const cargo = String(st.aux?.cargo || st.cargo || v.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor").trim();
+  const cargo = normalizeCargoLabelJS(st.aux?.cargo || st.cargo || v.cargo || $("agilCargo")?.value || $("cargo")?.value);
   const cidVal = String(st.cid || st.aux?.cid || v.cid || $("agilCid")?.value || $("cid")?.value || "").trim().toUpperCase();
   const cidInfo = typeof findCID === "function" ? findCID(cidVal) : null;
   const doencaMot = String(st.doencaMotivo || st.aux?.doencaMotivo || v.doencaMotivo || cidInfo?.n || "").trim();
@@ -13053,7 +13171,9 @@ function construirJustificativaRetroacaoSemParentesesJS(st, v) {
     ? `a guia foi expedida com ${retroNum} dias de retroação`
     : `a guia foi expedida com mais de 3 dias de retroação`;
 
-  let justTexto = `Embora o periciado apresente ${quadroClean}${cidClause} e limitações temporárias para o cargo de ${cargo}, ${prazoClause} sem internação hospitalar, ensejando parecer CONTRÁRIO por critério administrativo e normativo do DPME SP.`;
+  const isFemRetro = typeof inferIsFemininoJS === "function" ? inferIsFemininoJS(st, st.aux, v) : false;
+  const artPeric = isFemRetro ? "a periciada" : "o periciado";
+  let justTexto = `Embora ${artPeric} apresente ${quadroClean}${cidClause} e limitações temporárias para o cargo de ${cargo}, ${prazoClause} sem internação hospitalar, ensejando parecer CONTRÁRIO por critério administrativo e normativo do DPME SP.`;
   justTexto = justTexto.replace(/\b([eE])\s+(?:e\b)+/g, "$1");
   return removerParentesesTextoJS(justTexto);
 }
@@ -13069,7 +13189,8 @@ function aprimorarJustificativaRetroacaoEsislaJS(st, v, baseJust) {
     just = removerParentesesTextoJS(just);
   }
   
-  const cargo = String(st.aux?.cargo || st.cargo || v.cargo || "servidor").trim();
+  const cargo = normalizeCargoLabelJS(st.aux?.cargo || st.cargo || v.cargo);
+  just = just.replace(/\b(do|para\s+o)\s+cargo\s+de\s*[—–\-]+\b/gi, `$1 cargo de ${cargo}`);
   const cidVal = String(st.cid || st.aux?.cid || v.cid || "").trim().toUpperCase();
   const cidInfo = typeof findCID === "function" ? findCID(cidVal) : null;
   const cidNome = (cidInfo?.n || st.aux?.doencaMotivo || v.doencaMotivo || "").trim();
@@ -13102,7 +13223,7 @@ function aplicarParecerContrarioRetroacao(silent = false) {
   }
   state.aux._retroacaoAplicadaAutomaticamente = true;
 
-  const cargo = state.aux?.cargo || state.cargo || $("agilCargo")?.value || $("cargo")?.value || "servidor";
+  const cargo = normalizeCargoLabelJS(state.aux?.cargo || state.cargo || $("agilCargo")?.value || $("cargo")?.value);
   const justTexto = construirJustificativaRetroacaoSemParentesesJS(state, typeof values === "function" ? values() : {});
 
   state.parecer = "CONTRÁRIO";
