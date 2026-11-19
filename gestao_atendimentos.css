@@ -1499,6 +1499,26 @@ tbody tr:hover {
 .row-btn-open:hover .row-btn-arrow {
   transform: translateX(2px);
 }
+.row-btn-open:disabled,
+.row-btn-open.is-disabled {
+  background: #E2E8F0 !important;
+  color: #94A3B8 !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.78;
+  transform: none !important;
+}
+.row-btn-open:disabled:hover .row-btn-arrow,
+.row-btn-open.is-disabled:hover .row-btn-arrow {
+  transform: none;
+}
+html.theme-dark .row-btn-open:disabled,
+html.theme-dark .row-btn-open.is-disabled {
+  background: #1B273C !important;
+  color: #64748B !important;
+  border: 1px solid #243248 !important;
+  box-shadow: none !important;
+}
 .row-btn-esisla-lancado {
   display: inline-flex;
   align-items: center;
