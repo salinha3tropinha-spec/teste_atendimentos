@@ -5595,3 +5595,434 @@ body.sidebar-collapsed .sidebar-collapse-btn svg {
     display: none;
   }
 }
+
+/* ===== MONITOR AO VIVO DE MÉDICOS ON-LINE & EM ATENDIMENTO ===== */
+.online-top-chip {
+  cursor: pointer;
+  border-color: #BAE6FD;
+  background: linear-gradient(135deg, #F0F9FF 0%, #ECFDF5 100%);
+}
+.online-top-chip:hover {
+  border-color: #38BDF8;
+  transform: translateY(-1px);
+}
+.online-pulse-dot {
+  background: #10B981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.22);
+}
+.online-pulse-dot.is-idle {
+  background: #94A3B8 !important;
+  box-shadow: none;
+}
+
+.online-doctors-panel {
+  margin-bottom: 20px;
+}
+.online-doctors-head {
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.online-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.online-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.online-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  color: #047857;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+.online-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 8px #10B981;
+  animation: pulseOnlineDot 1.8s infinite ease-in-out;
+}
+@keyframes pulseOnlineDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.28); opacity: 0.65; }
+}
+.online-head-sub {
+  font-size: 11.5px;
+  color: #64748B;
+  font-weight: 500;
+}
+.online-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.online-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.onl-chip {
+  border: 1px solid #E2E8F0;
+  background: #FFFFFF;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.onl-chip:hover {
+  border-color: #CBD5E1;
+  background: #F8FAFC;
+  color: #0F172A;
+}
+.onl-chip.active {
+  background: #0284C7;
+  border-color: #0284C7;
+  color: #FFFFFF;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.25);
+}
+
+.online-doctors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
+  gap: 14px;
+  padding: 18px 20px 20px;
+}
+
+.onl-doc-card {
+  position: relative;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 15px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.onl-doc-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+.onl-doc-card.st-em_atendimento {
+  border-color: #6EE7B7;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.1);
+}
+.onl-doc-card.st-online {
+  border-color: #BAE6FD;
+}
+.onl-doc-card.st-recente {
+  border-color: #FDE68A;
+}
+
+.onl-doc-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.onl-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.onl-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #073F87, #0284C7);
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+}
+.onl-status-ring {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2.5px solid #FFFFFF;
+  background: #94A3B8;
+}
+.st-em_atendimento .onl-status-ring,
+.st-online .onl-status-ring {
+  background: #10B981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+}
+.st-recente .onl-status-ring {
+  background: #F59E0B;
+}
+
+.onl-doc-meta {
+  flex: 1;
+  min-width: 0;
+}
+.onl-doc-name {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.onl-doc-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.onl-crm-tag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #F1F5F9;
+  color: #475569;
+}
+.onl-mode-tag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #EFF6FF;
+  color: #0284C7;
+}
+.onl-time-tag {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+}
+
+.onl-activity-box {
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.st-em_atendimento .onl-activity-box {
+  background: #ECFDF5;
+  border-color: #A7F3D0;
+}
+.st-online .onl-activity-box {
+  background: #F0F9FF;
+  border-color: #BAE6FD;
+}
+.st-recente .onl-activity-box {
+  background: #FFFBEB;
+  border-color: #FDE68A;
+}
+
+.onl-activity-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.onl-status-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #475569;
+}
+.st-em_atendimento .onl-status-badge { color: #047857; }
+.st-online .onl-status-badge { color: #0369A1; }
+.st-recente .onl-status-badge { color: #B45309; }
+
+.onl-activity-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1E293B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.onl-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.onl-metric-pill {
+  background: #F8FAFC;
+  border: 1px solid #F1F5F9;
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.onl-metric-pill small {
+  display: block;
+  font-size: 9.5px;
+  color: #64748B;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.onl-metric-pill b {
+  display: block;
+  font-size: 13px;
+  font-weight: 900;
+  color: #0F172A;
+  margin-top: 1px;
+}
+
+.onl-actions-row {
+  display: flex;
+  gap: 7px;
+  margin-top: auto;
+}
+.onl-btn {
+  flex: 1;
+  border: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 7px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.onl-btn:hover {
+  background: #F0F9FF;
+  border-color: #7DD3FC;
+  color: #0284C7;
+}
+.onl-btn.primary {
+  background: #0284C7;
+  border-color: #0284C7;
+  color: #FFFFFF;
+}
+.onl-btn.primary:hover {
+  background: #0369A1;
+}
+
+/* Modo Escuro — Monitor de Médicos On-line */
+html.theme-dark .online-top-chip {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(52, 211, 153, 0.32) !important;
+}
+html.theme-dark .online-live-pill {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #6EE7B7;
+}
+html.theme-dark .online-head-sub {
+  color: #94A3B8;
+}
+html.theme-dark .onl-chip {
+  background: #162238;
+  border-color: #27354A;
+  color: #CBD5E1;
+}
+html.theme-dark .onl-chip:hover {
+  background: #1E2E4A;
+  border-color: #38BDF8;
+  color: #FFFFFF;
+}
+html.theme-dark .onl-chip.active {
+  background: #0284C7;
+  border-color: #38BDF8;
+  color: #FFFFFF;
+}
+html.theme-dark .onl-doc-card {
+  background: #0E1729;
+  border-color: #243248;
+}
+html.theme-dark .onl-doc-card.st-em_atendimento {
+  border-color: rgba(52, 211, 153, 0.48);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.12);
+}
+html.theme-dark .onl-doc-card.st-online {
+  border-color: rgba(56, 189, 248, 0.42);
+}
+html.theme-dark .onl-doc-card.st-recente {
+  border-color: rgba(251, 191, 36, 0.38);
+}
+html.theme-dark .onl-status-ring {
+  border-color: #0E1729;
+}
+html.theme-dark .onl-doc-name {
+  color: #F1F5F9;
+}
+html.theme-dark .onl-crm-tag {
+  background: #162238;
+  color: #CBD5E1;
+}
+html.theme-dark .onl-mode-tag {
+  background: rgba(56, 189, 248, 0.15);
+  color: #7DD3FC;
+}
+html.theme-dark .onl-time-tag {
+  color: #94A3B8;
+}
+html.theme-dark .onl-activity-box {
+  background: #131E33;
+  border-color: #243248;
+}
+html.theme-dark .st-em_atendimento .onl-activity-box {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+html.theme-dark .st-online .onl-activity-box {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+html.theme-dark .st-recente .onl-activity-box {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+html.theme-dark .onl-status-badge { color: #CBD5E1; }
+html.theme-dark .st-em_atendimento .onl-status-badge { color: #6EE7B7; }
+html.theme-dark .st-online .onl-status-badge { color: #7DD3FC; }
+html.theme-dark .st-recente .onl-status-badge { color: #FCD34D; }
+html.theme-dark .onl-activity-text {
+  color: #F1F5F9;
+}
+html.theme-dark .onl-metric-pill {
+  background: #131E33;
+  border-color: #1E293B;
+}
+html.theme-dark .onl-metric-pill small {
+  color: #94A3B8;
+}
+html.theme-dark .onl-metric-pill b {
+  color: #F1F5F9;
+}
+html.theme-dark .onl-btn {
+  background: #162238;
+  border-color: #2B3B55;
+  color: #E2E8F0;
+}
+html.theme-dark .onl-btn:hover {
+  background: #1E2E4A;
+  border-color: #38BDF8;
+  color: #38BDF8;
+}
+html.theme-dark .onl-btn.primary {
+  background: #0284C7;
+  border-color: #38BDF8;
+  color: #FFFFFF;
+}
+

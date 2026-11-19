@@ -6424,3 +6424,194 @@ try {
   }
 } catch (_) {}
 
+/* =========================================================
+   MONITOR AO VIVO DE MÉDICOS ON-LINE & EM ATENDIMENTO
+   ========================================================= */
+let onlineDoctorsData = [];
+let onlineDoctorsSummary = null;
+let onlineDoctorsFilter = 'all';
+let onlineDoctorsTimer = null;
+
+async function fetchOnlineDoctors(manual = false) {
+  try {
+    const fn = window.AmbientalAuth?.authFetch
+      ? (u) => window.AmbientalAuth.authFetch(u)
+      : (u) => fetch(u, { credentials: 'same-origin' });
+    const res = await fn('/api/admin/medicos/online');
+    if (!res || !res.ok) return;
+    const json = await res.json().catch(() => null);
+    if (!json || !json.success || !json.data) return;
+    onlineDoctorsData = Array.isArray(json.data.items) ? json.data.items : [];
+    onlineDoctorsSummary = json.data.summary || {};
+    renderOnlineDoctorsMonitor();
+    if (manual && window.AmbientalUtils?.toast) {
+      AmbientalUtils.toast('🟢 Presença dos médicos atualizada em tempo real.');
+    }
+  } catch (_) {}
+}
+
+function setOnlineDoctorsFilter(filterKey) {
+  onlineDoctorsFilter = filterKey || 'all';
+  document.querySelectorAll('#onlineDoctorsFilterBar .onl-chip').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.onlFilter === onlineDoctorsFilter);
+  });
+  renderOnlineDoctorsMonitor();
+}
+
+function renderOnlineDoctorsMonitor() {
+  const grid = document.getElementById('onlineDoctorsGrid');
+  const s = onlineDoctorsSummary || {};
+  const list = Array.isArray(onlineDoctorsData) ? onlineDoctorsData : [];
+
+  const onlineNow = Number(s.online_now || 0);
+  const emAtd = Number(s.em_atendimento || 0);
+  const disp = Number(s.disponiveis || 0);
+  const off = Number(s.offline || 0);
+
+  // Atualiza chip da Topbar
+  const topCntEl = document.getElementById('topOnlineCountText');
+  const topSubEl = document.getElementById('topOnlineSubText');
+  const topDotEl = document.getElementById('topOnlineDot');
+  if (topCntEl) {
+    topCntEl.textContent = `${onlineNow} médico${onlineNow === 1 ? '' : 's'} on-line`;
+  }
+  if (topSubEl) {
+    topSubEl.textContent = emAtd > 0
+      ? `${emAtd} em atendimento · ${disp} livre${disp === 1 ? '' : 's'}`
+      : (onlineNow > 0 ? `${disp} disponível(is) no portal` : 'Nenhum conectado agora');
+  }
+  if (topDotEl) {
+    topDotEl.classList.toggle('is-idle', onlineNow === 0);
+  }
+
+  // Atualiza contadores dos filtros
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
+  setTxt('onlCntAll', list.length);
+  setTxt('onlCntOnline', onlineNow);
+  setTxt('onlCntAtendendo', emAtd);
+  setTxt('onlCntDisp', disp);
+  setTxt('onlCntOff', off);
+
+  if (!grid) return;
+
+  const filtered = list.filter(d => {
+    if (onlineDoctorsFilter === 'online_any') return d.status_presenca === 'em_atendimento' || d.status_presenca === 'online';
+    if (onlineDoctorsFilter === 'em_atendimento') return d.status_presenca === 'em_atendimento';
+    if (onlineDoctorsFilter === 'disponivel') return d.status_presenca === 'online';
+    if (onlineDoctorsFilter === 'offline') return d.status_presenca === 'offline';
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1;padding:26px;text-align:center">Nenhum médico encontrado para o filtro selecionado.</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(doc => {
+    const parts = String(doc.nome || 'M').trim().split(/\s+/).filter(Boolean);
+    const ini = ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || 'M';
+    const st = doc.status_presenca || 'offline';
+    const badgeIcon = st === 'em_atendimento' ? '🩺' : (st === 'online' ? '🟢' : (st === 'recente' ? '🟡' : '⚪'));
+    const modeLabel = doc.modo_atendimento === 'ia2' ? '🤖 Modo IA 2.0' : '⚡ Modo Ágil';
+    const encName = encodeURIComponent(doc.nome || '');
+    const encAtd = doc.atendimento_atual_id ? encodeURIComponent(doc.atendimento_atual_id) : '';
+
+    return `
+      <article class="onl-doc-card st-${esc(st)}">
+        <div class="onl-doc-top">
+          <div class="onl-avatar-wrap">
+            <div class="onl-avatar">${esc(ini)}</div>
+            <span class="onl-status-ring" title="${esc(doc.status_label)}"></span>
+          </div>
+          <div class="onl-doc-meta">
+            <strong class="onl-doc-name" title="${esc(doc.nome)}">${esc(doc.nome)}</strong>
+            <div class="onl-doc-tags">
+              ${doc.crm ? `<span class="onl-crm-tag">CRM ${esc(doc.crm)}</span>` : ''}
+              <span class="onl-mode-tag">${modeLabel}</span>
+              <span class="onl-time-tag">${esc(doc.tempo_label || '')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="onl-activity-box">
+          <div class="onl-activity-head">
+            <span class="onl-status-badge">${badgeIcon} ${esc(doc.status_label)}</span>
+          </div>
+          <div class="onl-activity-text" title="${esc(doc.atividade_atual || '')}">${esc(doc.atividade_atual || '')}</div>
+        </div>
+
+        <div class="onl-metrics-row">
+          <div class="onl-metric-pill">
+            <small>Agenda hoje</small>
+            <b>${Number(doc.agendados_hoje || 0)}</b>
+          </div>
+          <div class="onl-metric-pill">
+            <small>Em andamento</small>
+            <b>${Number(doc.em_andamento || 0)}</b>
+          </div>
+          <div class="onl-metric-pill">
+            <small>Finalizados hoje</small>
+            <b>${Number(doc.finalizados_hoje || 0)}</b>
+          </div>
+        </div>
+
+        <div class="onl-actions-row">
+          ${encAtd && st === 'em_atendimento'
+            ? `<button type="button" class="onl-btn primary" onclick="view('${encAtd}')" title="Abrir o prontuário que este médico está atendendo agora">Ver atendimento atual</button>`
+            : `<button type="button" class="onl-btn primary" onclick="filterByOnlineDoctor('${encName}')" title="Listar atendimentos deste médico em Buscar atendimento">Filtrar atendimentos</button>`
+          }
+          <button type="button" class="onl-btn" onclick="openOnlineDoctorDossier('${encName}')" title="Abrir produção e pauta deste médico">Produção</button>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function filterByOnlineDoctor(encName) {
+  const docName = decodeURIComponent(encName || '');
+  goToSection('atendimentos');
+  const medInput = document.getElementById('medico');
+  if (medInput) {
+    medInput.value = docName;
+  }
+  searchCurrentPage = 1;
+  refresh(true);
+}
+
+function openOnlineDoctorDossier(encName) {
+  const docName = decodeURIComponent(encName || '');
+  goToSection('medicos');
+  if (typeof openDoctorDetail === 'function') {
+    setTimeout(() => openDoctorDetail(docName), 80);
+  }
+}
+
+function scrollToOnlineDoctorsMonitor() {
+  goToSection('dashboard');
+  setTimeout(() => {
+    const panel = document.getElementById('onlineDoctorsPanel');
+    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    fetchOnlineDoctors(false);
+  }, 80);
+}
+
+window.fetchOnlineDoctors = fetchOnlineDoctors;
+window.setOnlineDoctorsFilter = setOnlineDoctorsFilter;
+window.filterByOnlineDoctor = filterByOnlineDoctor;
+window.openOnlineDoctorDossier = openOnlineDoctorDossier;
+window.scrollToOnlineDoctorsMonitor = scrollToOnlineDoctorsMonitor;
+
+if (typeof authReady !== 'undefined' && authReady && typeof authReady.then === 'function') {
+  authReady.then(() => {
+    fetchOnlineDoctors(false);
+    if (!onlineDoctorsTimer) {
+      onlineDoctorsTimer = setInterval(() => {
+        if (document.visibilityState !== 'hidden') fetchOnlineDoctors(false);
+      }, 20000);
+    }
+  }).catch(() => {});
+} else {
+  setTimeout(() => fetchOnlineDoctors(false), 1200);
+}
+
+

@@ -775,6 +775,50 @@ def request_origin_guard():
         if origin and origin != same_origin and origin not in allowed:
             return _error("CSRF_ORIGIN_DENIED", "Origem da solicitação não autorizada.", False, 403)
 
+_ONLINE_PRESENCE = {}
+_ONLINE_PRESENCE_LOCK = threading.Lock()
+
+def _touch_user_presence(profile, *, path="", tela="", atendimento_id="", paciente_nome=""):
+    if not profile or not isinstance(profile, dict):
+        return
+    try:
+        uid = str(profile.get("id") or "").strip()
+        imp_id = (request.headers.get("X-Impersonate-Medico-Id") or "").strip()
+        is_imp = False
+        if imp_id and profile.get("perfil") == "Administrador":
+            uid = imp_id
+            is_imp = True
+        if not uid:
+            return
+        now_ts = time.time()
+        now_iso = _utc_now()
+        with _ONLINE_PRESENCE_LOCK:
+            prev = _ONLINE_PRESENCE.get(uid) or {}
+            inferred_tela = tela or prev.get("tela") or ""
+            if not tela:
+                if path in {"/gestao_medicos.html", "/gestao-medicos", "/gestao-medicos.html"} or path.startswith("/api/medico/"):
+                    inferred_tela = inferred_tela or "portal_medico"
+                elif path in {"/app", "/ambiental_avaliacao_medica_lts_cid_assistente.html"} or path.startswith("/api/ai/"):
+                    inferred_tela = "ficha_avaliacao"
+                elif path in {"/gestao", "/gestao_atendimentos.html"}:
+                    inferred_tela = inferred_tela or "gestao_admin"
+            _ONLINE_PRESENCE[uid] = {
+                "user_id": uid,
+                "nome": profile.get("nome") if not is_imp else (prev.get("nome") or ""),
+                "perfil": "Médico" if is_imp else (profile.get("perfil") or prev.get("perfil") or ""),
+                "crm": profile.get("crm") if not is_imp else (prev.get("crm") or ""),
+                "last_seen_ts": now_ts,
+                "last_seen_iso": now_iso,
+                "path": path or prev.get("path") or "",
+                "tela": inferred_tela,
+                "atendimento_id": atendimento_id if atendimento_id != "" else (prev.get("atendimento_id") or ""),
+                "paciente_nome": paciente_nome if paciente_nome != "" else (prev.get("paciente_nome") or ""),
+                "is_impersonating": is_imp or bool(prev.get("is_impersonating")),
+            }
+    except Exception:
+        pass
+
+
 @app.before_request
 def request_security_context():
     path = request.path
@@ -808,6 +852,7 @@ def request_security_context():
         request.user_email = profile["email"]
         request.user_name = profile["nome"]
         request.user_role = profile["perfil"]
+        _touch_user_presence(profile, path=path)
         return
 
     if path.startswith("/api/"):
@@ -825,6 +870,7 @@ def request_security_context():
         request.user_email = profile["email"]
         request.user_name = profile["nome"]
         request.user_role = profile["perfil"]
+        _touch_user_presence(profile, path=path)
 
 
 def _has_permission(permission):
@@ -11201,6 +11247,230 @@ def api_admin_medicos_lista_impersonate():
     with _MEDICOS_CACHE_LOCK:
         _MEDICOS_CACHE["impersonate"] = {"items": rows, "expires": now + 25.0}
     return _ok({"items": rows})
+
+
+@app.post("/api/presence/heartbeat")
+def api_presence_heartbeat():
+    profile = getattr(request, "user_profile", None)
+    body = _json_body() or {}
+    tela = str(body.get("tela") or "").strip()[:40]
+    path = str(body.get("path") or "").strip()[:120]
+    atendimento_id = str(body.get("atendimento_id") or "").strip()[:80]
+    paciente_nome = str(body.get("paciente_nome") or "").strip()[:120]
+    if profile:
+        _touch_user_presence(
+            profile,
+            path=path,
+            tela=tela,
+            atendimento_id=atendimento_id,
+            paciente_nome=paciente_nome,
+        )
+    return _ok({"status": "alive", "ts": _utc_now()})
+
+
+def _parse_iso_to_epoch(iso_str: str) -> float:
+    s = str(iso_str or "").strip()
+    if not s:
+        return 0.0
+    try:
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        dt_obj = datetime.fromisoformat(s)
+        if dt_obj.tzinfo is None:
+            dt_obj = dt_obj.replace(tzinfo=timezone.utc)
+        return dt_obj.timestamp()
+    except Exception:
+        return 0.0
+
+
+@app.get("/api/admin/medicos/online")
+def api_admin_medicos_online():
+    denied = _require_permission("view")
+    if denied:
+        return denied
+
+    now_ts = time.time()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("""
+        SELECT u.id, u.nome, u.crm, u.email,
+               COALESCE(u.modo_atendimento, 'agil') AS modo_atendimento,
+               u.ativo,
+               COUNT(a.id) AS total_atendimentos,
+               COUNT(a.id) FILTER (WHERE a.status IN ('RASCUNHO', 'EM_REVISÃO', 'REABERTO')) AS em_andamento,
+               COUNT(a.id) FILTER (WHERE a.status = 'FINALIZADO' AND SUBSTRING(COALESCE(a.finalizado_em, a.atualizado_em, ''), 1, 10) = %s) AS finalizados_hoje,
+               COUNT(a.id) FILTER (WHERE SUBSTRING(COALESCE(a.atualizado_em, a.criado_em, ''), 1, 10) = %s) AS movimentados_hoje
+          FROM usuarios u
+          LEFT JOIN atendimentos a ON a.usuario_id = u.id
+         WHERE (u.perfil ILIKE 'm%%dico' OR u.perfil = 'Médico' OR u.perfil = 'Medico')
+           AND COALESCE(u.ativo, 1) = 1
+         GROUP BY u.id, u.nome, u.crm, u.email, u.modo_atendimento, u.ativo
+         ORDER BY u.nome ASC
+    """, (today_str, today_str))
+    doctors = cur.fetchall() or []
+
+    # Último atendimento atualizado por médico (priorizando rascunhos/em revisão recentes)
+    cur.execute("""
+        SELECT DISTINCT ON (usuario_id)
+               usuario_id, id, numero, status, paciente_nome, cid, atualizado_em
+          FROM atendimentos
+         WHERE usuario_id IS NOT NULL AND usuario_id <> ''
+         ORDER BY usuario_id, atualizado_em DESC
+    """)
+    latest_by_doc = {str(r["usuario_id"]): r for r in (cur.fetchall() or [])}
+
+    # Último atendimento em aberto (RASCUNHO / EM_REVISÃO / REABERTO) por médico
+    cur.execute("""
+        SELECT DISTINCT ON (usuario_id)
+               usuario_id, id, numero, status, paciente_nome, cid, atualizado_em
+          FROM atendimentos
+         WHERE usuario_id IS NOT NULL AND usuario_id <> ''
+           AND status IN ('RASCUNHO', 'EM_REVISÃO', 'REABERTO')
+         ORDER BY usuario_id, atualizado_em DESC
+    """)
+    open_by_doc = {str(r["usuario_id"]): r for r in (cur.fetchall() or [])}
+
+    # Agendados para hoje por médico
+    agendas_by_doc = {}
+    try:
+        cur.execute("""
+            SELECT medico_id,
+                   COUNT(*) AS agendados_hoje,
+                   COUNT(*) FILTER (WHERE atendimento_id IS NOT NULL AND atendimento_id <> '') AS atendidos_agenda_hoje
+              FROM agendas
+             WHERE data = %s
+             GROUP BY medico_id
+        """, (today_str,))
+        for r in (cur.fetchall() or []):
+            agendas_by_doc[str(r["medico_id"])] = r
+    except Exception:
+        pass
+    cur.close()
+
+    with _ONLINE_PRESENCE_LOCK:
+        presence_snapshot = {k: dict(v) for k, v in _ONLINE_PRESENCE.items()}
+
+    items = []
+    counts = {
+        "total_medicos": len(doctors),
+        "online_now": 0,
+        "em_atendimento": 0,
+        "disponiveis": 0,
+        "recentes": 0,
+        "offline": 0,
+    }
+
+    for doc in doctors:
+        uid = str(doc.get("id") or "")
+        pres = presence_snapshot.get(uid) or {}
+        last_atd = latest_by_doc.get(uid) or {}
+        open_atd = open_by_doc.get(uid) or {}
+        ag_info = agendas_by_doc.get(uid) or {}
+
+        hb_ts = float(pres.get("last_seen_ts") or 0.0)
+        atd_ts = _parse_iso_to_epoch(last_atd.get("atualizado_em") or "")
+        open_ts = _parse_iso_to_epoch(open_atd.get("atualizado_em") or "")
+        best_ts = max(hb_ts, atd_ts, open_ts)
+        seconds_ago = int(max(0.0, now_ts - best_ts)) if best_ts > 0 else 999999
+        open_seconds_ago = int(max(0.0, now_ts - open_ts)) if open_ts > 0 else 999999
+
+        tela = str(pres.get("tela") or "")
+        hb_atd_id = str(pres.get("atendimento_id") or "").strip()
+        hb_pac = str(pres.get("paciente_nome") or "").strip()
+
+        # Determina paciente/atendimento ativo
+        active_atd_id = ""
+        active_pac = ""
+        if hb_ts > 0 and (now_ts - hb_ts) <= 180 and (hb_atd_id or hb_pac):
+            active_atd_id = hb_atd_id or str(open_atd.get("id") or "")
+            active_pac = hb_pac or str(open_atd.get("paciente_nome") or "")
+        elif open_atd and open_seconds_ago <= 600:
+            active_atd_id = str(open_atd.get("id") or "")
+            active_pac = str(open_atd.get("paciente_nome") or "")
+
+        is_in_form = (hb_ts > 0 and (now_ts - hb_ts) <= 180 and tela in {"ficha_avaliacao", "modo_ia2"})
+        has_fresh_draft = (open_atd and open_seconds_ago <= 300)
+
+        if (seconds_ago <= 180 and (is_in_form or bool(active_pac))) or has_fresh_draft:
+            status_presenca = "em_atendimento"
+            status_label = "Em atendimento agora"
+            counts["online_now"] += 1
+            counts["em_atendimento"] += 1
+        elif seconds_ago <= 180:
+            status_presenca = "online"
+            status_label = "On-line · Disponível"
+            counts["online_now"] += 1
+            counts["disponiveis"] += 1
+        elif seconds_ago <= 900 or (open_atd and open_seconds_ago <= 3600):
+            status_presenca = "recente"
+            status_label = "Ativo há pouco"
+            counts["recentes"] += 1
+        else:
+            status_presenca = "offline"
+            status_label = "Off-line"
+            counts["offline"] += 1
+
+        if seconds_ago < 60:
+            tempo_label = "Agora mesmo"
+        elif seconds_ago < 3600:
+            tempo_label = f"Há {max(1, seconds_ago // 60)} min"
+        elif seconds_ago < 86400:
+            tempo_label = f"Há {seconds_ago // 3600}h"
+        else:
+            tempo_label = "Sem acesso recente"
+
+        if status_presenca == "em_atendimento":
+            pac_display = active_pac or str(open_atd.get("paciente_nome") or "Paciente em avaliação")
+            atividade_atual = f"Atendendo: {pac_display}"
+        elif status_presenca == "online":
+            atividade_atual = "Conectado no Portal Médico · Livre para atendimento"
+        elif status_presenca == "recente":
+            if open_atd:
+                atividade_atual = f"Rascunho aberto: {open_atd.get('paciente_nome') or open_atd.get('id')}"
+            else:
+                atividade_atual = f"Última atividade {tempo_label.lower()}"
+        else:
+            if int(doc.get("finalizados_hoje") or 0) > 0:
+                atividade_atual = f"{doc.get('finalizados_hoje')} finalizado(s) hoje"
+            else:
+                atividade_atual = "Aguardando início dos atendimentos"
+
+        items.append({
+            "id": uid,
+            "nome": doc.get("nome") or "Médico",
+            "crm": doc.get("crm") or "",
+            "email": doc.get("email") or "",
+            "modo_atendimento": doc.get("modo_atendimento") or "agil",
+            "status_presenca": status_presenca,
+            "status_label": status_label,
+            "tempo_label": tempo_label,
+            "seconds_ago": seconds_ago,
+            "tela_atual": tela,
+            "atividade_atual": atividade_atual,
+            "atendimento_atual_id": active_atd_id or (str(open_atd.get("id") or "") if open_atd else ""),
+            "paciente_atual": active_pac or (str(open_atd.get("paciente_nome") or "") if open_atd else ""),
+            "is_impersonating": bool(pres.get("is_impersonating")),
+            "agendados_hoje": int(ag_info.get("agendados_hoje") or 0),
+            "atendidos_agenda_hoje": int(ag_info.get("atendidos_agenda_hoje") or 0),
+            "em_andamento": int(doc.get("em_andamento") or 0),
+            "finalizados_hoje": int(doc.get("finalizados_hoje") or 0),
+            "total_atendimentos": int(doc.get("total_atendimentos") or 0),
+            "ultimo_atd_em": last_atd.get("atualizado_em") or pres.get("last_seen_iso") or "",
+        })
+
+    # Ordena priorizando: 1) em_atendimento, 2) online, 3) recente, 4) offline
+    rank_map = {"em_atendimento": 0, "online": 1, "recente": 2, "offline": 3}
+    items.sort(key=lambda x: (rank_map.get(x["status_presenca"], 9), x["seconds_ago"], x["nome"]))
+
+    return _ok({
+        "items": items,
+        "summary": {
+            **counts,
+            "updated_at": _utc_now(),
+        },
+    })
 
 @app.post("/api/admin/medicos")
 def api_admin_criar_medico():

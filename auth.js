@@ -422,9 +422,70 @@
     return h;
   }
 
+  let _heartbeatTimer = null;
+
+  function _collectPresenceInfo() {
+    const path = location.pathname || "";
+    const search = location.search || "";
+    let tela = "sistema";
+    if (path.includes("gestao_medicos") || path.includes("gestao-medicos")) {
+      tela = "portal_medico";
+    } else if (path === "/app" || path.includes("avaliacao_medica")) {
+      const ia2Open = document.getElementById("modoIA2Modal")?.classList.contains("open") || search.includes("modo=ia2");
+      tela = ia2Open ? "modo_ia2" : "ficha_avaliacao";
+    } else if (path.includes("gestao")) {
+      tela = "gestao_admin";
+    }
+    let atendimento_id = "";
+    let paciente_nome = "";
+    try {
+      const params = new URLSearchParams(search);
+      atendimento_id = params.get("atd") || params.get("id") || "";
+      const nomeInput = document.getElementById("nomePaciente");
+      if (nomeInput && nomeInput.value) {
+        paciente_nome = String(nomeInput.value).trim();
+      }
+    } catch (_) {}
+    return { tela, path, atendimento_id, paciente_nome };
+  }
+
+  async function sendPresenceHeartbeat() {
+    if (STATE.signingOut || document.visibilityState === "hidden") return;
+    try {
+      const token = await getAccessToken().catch(() => null);
+      if (!token && !STATE.profile) return;
+      const info = _collectPresenceInfo();
+      await fetch("/api/presence/heartbeat", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify(info),
+        keepalive: true,
+      }).catch(() => {});
+    } catch (_) {}
+  }
+
+  function startPresenceHeartbeat() {
+    if (_heartbeatTimer) return;
+    window.setTimeout(sendPresenceHeartbeat, 600);
+    _heartbeatTimer = window.setInterval(sendPresenceHeartbeat, 25000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") sendPresenceHeartbeat();
+    });
+    window.addEventListener("focus", () => sendPresenceHeartbeat());
+  }
+
+  // Inicia o heartbeat automaticamente em qualquer página autenticada
+  if (typeof window !== "undefined" && !location.pathname.endsWith("/login.html")) {
+    window.addEventListener("DOMContentLoaded", () => {
+      window.setTimeout(startPresenceHeartbeat, 1200);
+    });
+  }
+
   window.AmbientalAuth = {
     init, setRemember, getClient, getAccessToken, getUser, me, login, recover,
     updatePassword, logout, requireAuth, authFetch, syncServerSession, roleHome, areaAllowed, headers,
+    sendPresenceHeartbeat, startPresenceHeartbeat,
     get profile() { return STATE.profile; },
   };
 })();

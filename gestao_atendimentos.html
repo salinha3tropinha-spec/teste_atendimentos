@@ -15,7 +15,7 @@
 <script>
 (function(){try{var p=JSON.parse(localStorage.getItem('ambiental_gestao_prefs_v1')||'{}');var t=p.theme||'light';var d=t==='dark'||(t==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.classList.add('theme-dark');document.documentElement.style.colorScheme='dark';}if(localStorage.getItem('ambiental_gestao_sidebar_collapsed')==='1'&&window.innerWidth>1020){document.documentElement.classList.add('sidebar-collapsed');}}catch(_){}})();
 </script>
-<link rel="stylesheet" href="/gestao_atendimentos.css?v=2.0.7">
+<link rel="stylesheet" href="/gestao_atendimentos.css?v=2.0.8">
 </head>
 <body class="admin-shell"><div class="top-sync-bar" id="topSyncBar"></div><div id="authLoading" style="position:fixed;inset:0;background:#F2F6FA;z-index:999999;display:grid;place-items:center;font-family:Inter,system-ui,sans-serif;color:#073F87"><div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DDE6EF;border-radius:14px;padding:13px 16px;box-shadow:0 12px 35px rgba(10,30,55,.1);font-size:12px;font-weight:800"><img src="/logo.png" alt="" style="width:28px;height:28px;object-fit:contain"><span>Verificando sessão...</span></div></div>
 <script>
@@ -87,6 +87,14 @@
 
   <div class="top-actions">
 
+    <div class="sync-chip online-top-chip" id="onlineDoctorsTopChip" title="Clique para ver quais médicos estão on-line e em atendimento agora" onclick="scrollToOnlineDoctorsMonitor()">
+      <span class="sync-dot online-pulse-dot" id="topOnlineDot"></span>
+      <div class="sync-chip-info">
+        <span class="sync-chip-title" id="topOnlineCountText">0 médicos on-line</span>
+        <small class="sync-chip-sub" id="topOnlineSubText">Monitor em tempo real</small>
+      </div>
+    </div>
+
     <div class="sync-chip" id="syncChip" title="Sincronização em tempo real (clique para forçar atualização)" onclick="triggerRefresh(true)">
       <span class="sync-dot" id="syncDot"></span>
       <div class="sync-chip-info">
@@ -140,7 +148,34 @@
       <div class="bar-row"><span class="bar-label">Rascunhos</span><div class="bar-track"><div class="bar-fill gray" id="barDraft"></div></div><b class="bar-value" id="barDraftVal">0</b></div>
     </div>
   </div>
-</section></div>
+</section>
+
+<!-- Monitor Ao Vivo de Médicos On-line e em Atendimento -->
+<section class="dash-card online-doctors-panel anchor-target" id="onlineDoctorsPanel" aria-label="Monitor de médicos on-line e atendimentos em tempo real">
+  <div class="dash-card-head online-doctors-head">
+    <div class="online-head-left">
+      <div class="online-title-row">
+        <strong>Médicos On-line &amp; Atendimentos em Tempo Real</strong>
+        <span class="online-live-pill"><span class="online-live-dot"></span> AO VIVO</span>
+      </div>
+      <span class="online-head-sub">Acompanhe quais médicos estão conectados agora, quem está realizando atendimento e quem está disponível para organizar a fila.</span>
+    </div>
+    <div class="online-head-actions">
+      <div class="online-filter-chips" id="onlineDoctorsFilterBar" role="tablist">
+        <button type="button" class="onl-chip active" data-onl-filter="all" onclick="setOnlineDoctorsFilter('all')">Todos (<span id="onlCntAll">0</span>)</button>
+        <button type="button" class="onl-chip" data-onl-filter="online_any" onclick="setOnlineDoctorsFilter('online_any')">🟢 On-line (<span id="onlCntOnline">0</span>)</button>
+        <button type="button" class="onl-chip" data-onl-filter="em_atendimento" onclick="setOnlineDoctorsFilter('em_atendimento')">🩺 Em atendimento (<span id="onlCntAtendendo">0</span>)</button>
+        <button type="button" class="onl-chip" data-onl-filter="disponivel" onclick="setOnlineDoctorsFilter('disponivel')">✅ Disponíveis (<span id="onlCntDisp">0</span>)</button>
+        <button type="button" class="onl-chip" data-onl-filter="offline" onclick="setOnlineDoctorsFilter('offline')">⚪ Off-line (<span id="onlCntOff">0</span>)</button>
+      </div>
+      <button type="button" class="admin-btn" onclick="fetchOnlineDoctors(true)" title="Atualizar presença dos médicos agora">↻ Atualizar</button>
+    </div>
+  </div>
+  <div class="online-doctors-grid" id="onlineDoctorsGrid">
+    <div class="empty" style="grid-column:1/-1;padding:24px;text-align:center">Verificando médicos conectados...</div>
+  </div>
+</section>
+</div>
 <div class="admin-view" id="view-historico"><div class="view-header"><div><div class="view-kicker">Auditoria e rastreabilidade</div><h2>Histórico de atendimento</h2><p>Consulte rapidamente as atualizações recentes e abra o histórico completo de cada atendimento.</p></div><span class="view-count">Últimos registros</span></div>
 <section class="dash-card history-panel anchor-target" id="historico" style="margin-bottom:18px"><div class="dash-card-head"><div><strong>Histórico recente de atendimentos</strong><span style="display:block;margin-top:3px">Acesso rápido ao histórico de auditoria dos últimos registros atualizados</span></div><button class="admin-btn" type="button" onclick="goToSection('atendimentos')">Ver todos</button></div><div class="history-list" id="recentHistoryList"><div class="empty" style="grid-column:1/-1;padding:24px">Carregando histórico recente...</div></div></section></div>
 <div class="admin-view" id="view-medicos">
