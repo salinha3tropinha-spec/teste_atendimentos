@@ -2059,6 +2059,26 @@ function cleanQueixaDuracao(text) {
     // Deduplicação de especificação redundante na alteração de dose quando já informada na medicação
     t = t.replace(/,\s*com\s+(aumento|redução|reducao|ajuste|troca)\s+de\s+dose\s+recente\s+no\s+tratamento\s+([a-zà-ú]+)/gi, ", com $1 de dose recente");
     t = t.replace(/,\s*para\s+analgesia\s+e\s+/gi, ", para analgesia, e ");
+    t = t.replace(/([.!?]\s*)\([^)]+\)\s+e\s+[^.!?]+?\([^)]+\)\./gi, "$1");
+    t = t.replace(/\bRealiza\s+(psicoterapia|fisioterapia),\s*([^.]+?),\s*e\s+n[ãa]o\s+realiza\s+(psicoterapia|fisioterapia)\./gi, function(_, terAtiva, miolo, terNeg) {
+        const freqMap = { "1": "uma vez por semana", "2": "duas vezes por semana", "3": "três vezes por semana", "4": "quatro vezes por semana", "5": "cinco vezes por semana" };
+        const mNx = String(miolo || "").match(/\(?\b([1-5])\s*x\b(?:\s*(?:por|\/)\s*semana)?\)?/i);
+        const mExt = String(miolo || "").match(/\b((?:uma|duas|tr[êe]s|quatro|cinco)\s+vez(?:es)?\s+por\s+semana|semanal(?:mente)?|quinzenal(?:mente)?|mensal(?:mente)?)\b/i);
+        const mMod = String(miolo || "").match(/\b(motora|analg[ée]sica|respirat[óo]ria|p[ée]lvica)\b/i);
+        const extras = [];
+        if (mMod) extras.push(mMod[1].toLowerCase());
+        if (mNx) extras.push(freqMap[mNx[1]]);
+        else if (mExt) {
+            let w = mExt[1].toLowerCase();
+            if (w === "semanal" || w === "quinzenal" || w === "mensal") w += "mente";
+            extras.push(w);
+        }
+        return `Realiza ${terAtiva.toLowerCase()}${extras.length ? " " + extras.join(" ") : ""} e não realiza ${terNeg.toLowerCase()}.`;
+    });
+    t = t.replace(/\(\s*([1-5])\s*x\s*\)/gi, (_, n) => ({ "1": "uma vez por semana", "2": "duas vezes por semana", "3": "três vezes por semana", "4": "quatro vezes por semana", "5": "cinco vezes por semana" }[n] || ""));
+    t = t.replace(/(\bcom\s+queixa\s+de\s+)([A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+)/g, (_, p, w) => p + w.charAt(0).toLowerCase() + w.slice(1));
+    t = t.replace(/\bcom\s+queixa\s+de\s+sintomatologia\s+depressiva\b/gi, "com queixa de transtorno depressivo");
+    t = t.replace(/\bcompat[íi]vel\s+com\s+sintomatologia\s+depressiva\b/gi, "compatível com transtorno depressivo");
 
     t = t.replace(/\s{2,}/g, ' ');
     t = t.replace(/\.\s*\./g, '.');

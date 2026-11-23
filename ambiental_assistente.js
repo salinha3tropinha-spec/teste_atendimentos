@@ -11531,7 +11531,7 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
       });
       medsStr = nomes.slice(0, -1).join(", ") + " e " + nomes[nomes.length - 1] + ", e não foram informadas suas dosagens";
     } else {
-      medsStr = meds.map(m => {
+      const medItems = meds.map(m => {
         let nome = (m.medicamento || m.nome || "").trim();
         let dose = (m.dosagem || "").trim();
         let freq = (m.frequencia || "").trim();
@@ -11572,7 +11572,10 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
           }
         }
         return item.trim();
-      }).join(" e ");
+      });
+      medsStr = medItems.length > 2
+        ? medItems.slice(0, -1).join(", ") + " e " + medItems[medItems.length - 1]
+        : medItems.join(" e ");
     }
   }
   
@@ -11698,8 +11701,12 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
   if (doenca) {
     let cleanDoenca = doenca.replace(/^[Vv]em\s+com\s+atestado\s+de\s+\d+\s+dias\s*(?:por|de|devido\s+a)?\s*/i, "")
                             .replace(/^[Aa]testado\s+de\s+\d+\s+dias\s*(?:por|de|devido\s+a)?\s*/i, "")
+                            .replace(/^sintomatologia\s+depressiva\b/i, "transtorno depressivo")
                             .replace(/[\.\,\;\:]+$/, "")
                             .trim();
+    if (cleanDoenca && !/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}\b/.test(cleanDoenca)) {
+      cleanDoenca = cleanDoenca.charAt(0).toLowerCase() + cleanDoenca.slice(1);
+    }
     if (/acompanhamento\s+de\s+pessoa\s+doente|familiar\s+enfermo/i.test(cleanDoenca)) {
       ident += `, para acompanhamento de familiar enfermo, ${cleanDoenca.replace(/^acompanhamento\s+de\s+(?:pessoa\s+doente|familiar\s+enfermo)[\s,:]*/i, "")}`;
     } else {
@@ -11811,15 +11818,29 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
   }
   
   // 7. Terapias
-  const obsTerClean = String(obsTerapias || "").replace(/^(?:Realiza\s+(?:fisioterapia|psicoterapia)[\.\,\s]*|N[ãa]o\s+(?:realiza|alegou)[^\.]*\.?\s*)+/gi, "").trim();
+  const extrairComplementoTerapia = (rawObs) => {
+    const s = String(rawObs || "");
+    const freqMap = { "1": "uma vez por semana", "2": "duas vezes por semana", "3": "três vezes por semana", "4": "quatro vezes por semana", "5": "cinco vezes por semana" };
+    const mNx = s.match(/\(?\b([1-5])\s*x\b(?:\s*(?:por|\/)\s*semana)?\)?/i);
+    const mExt = s.match(/\b((?:uma|duas|tr[êe]s|quatro|cinco)\s+vez(?:es)?\s+por\s+semana|semanal(?:mente)?|quinzenal(?:mente)?|mensal(?:mente)?)\b/i);
+    const mMod = s.match(/\b(motora|analg[ée]sica|respirat[óo]ria|p[ée]lvica)\b/i);
+    const extras = [];
+    if (mMod) extras.push(mMod[1].toLowerCase());
+    if (mNx) extras.push(freqMap[mNx[1]]);
+    else if (mExt) {
+      let w = mExt[1].toLowerCase();
+      if (w === "semanal" || w === "quinzenal" || w === "mensal") w += "mente";
+      extras.push(w);
+    }
+    return extras.join(" ");
+  };
+  const compTer = extrairComplementoTerapia(obsTerapias);
   if (fisio && !psico) {
-    const fTxt = obsTerClean ? `Realiza fisioterapia, ${obsTerClean}` : "Realiza fisioterapia";
-    partes.push(`${fTxt.replace(/\.$/, "")}, e não realiza psicoterapia.`);
+    partes.push(`Realiza fisioterapia${compTer ? " " + compTer : ""} e não realiza psicoterapia.`);
   } else if (psico && !fisio) {
-    const pTxt = obsTerClean ? `Realiza psicoterapia, ${obsTerClean}` : "Realiza psicoterapia";
-    partes.push(`${pTxt.replace(/\.$/, "")}, e não realiza fisioterapia.`);
+    partes.push(`Realiza psicoterapia${compTer ? " " + compTer : ""} e não realiza fisioterapia.`);
   } else if (fisio && psico) {
-    partes.push(`Realiza acompanhamento em fisioterapia e psicoterapia${obsTerClean ? `, ${obsTerClean.replace(/\.$/, "")}` : ""}.`);
+    partes.push(`Realiza acompanhamento em fisioterapia e psicoterapia${compTer ? " " + compTer : ""}.`);
   } else {
     partes.push("Não alegou fazer fisioterapia e psicoterapia.");
   }
@@ -15413,9 +15434,10 @@ function cleanQueixaDuracao(text, atdDate) {
   // Remover vazamento de strings de dicionários Python (ex: [{'dosagem': ...}])
   t = t.replace(/\[\s*\{[\s\S]*?\}\s*\]|\{\s*'(?:dosagem|frequência|frequencia|medicamento|nome|observação|observacao)'[\s\S]*?\}/gi, "");
 
-  // Remove fragmentos órfãos de posologia sem nome de fármaco (ex.: "1 comprimido à noite (dor neuropática) e forte (analgesia de resgate).")
+  // Remove fragmentos órfãos de posologia/medicação sem nome de fármaco (ex.: ". (controle pressórico) e Ácido Acetilsalicílico 100 mg...")
   t = t.replace(/(?:^|[.!?]\s*)(?:1|[2-9]|\d+)\s+comprimidos?\s+[^.!?]*\./gi, ".");
   t = t.replace(/(?:^|[.!?]\s*)(?:em caso de dor\s+)?forte\s*\([^)]*\)\.?/gi, ".");
+  t = t.replace(/([.!?]\s*)\([^)]+\)\s+e\s+[^.!?]+?\([^)]+\)\./gi, "$1");
 
   const atd = String(atdDate || state?.aux?.dataAtd || $("dataAtd")?.value || today()).trim();
   const atdBr = typeof formatDate === "function" ? formatDate(atd) : "";
@@ -15717,6 +15739,25 @@ function cleanQueixaDuracao(text, atdDate) {
   t = t.replace(/(\bEm uso de [^.]+?\.)(?:\s*Em uso de [^.]+?\.)+/gi, "$1");
   t = t.replace(/(Não relatou troca de medicação ou alteração de dosagem\.?)(?:\s*\1)+/gi, "$1");
   t = t.replace(/(Não alegou fazer fisioterapia e psicoterapia\.?)(?:\s*\1)+/gi, "$1");
+  t = t.replace(/\bRealiza\s+(psicoterapia|fisioterapia),\s*([^.]+?),\s*e\s+n[ãa]o\s+realiza\s+(psicoterapia|fisioterapia)\./gi, function(_, terAtiva, miolo, terNeg) {
+    const freqMap = { "1": "uma vez por semana", "2": "duas vezes por semana", "3": "três vezes por semana", "4": "quatro vezes por semana", "5": "cinco vezes por semana" };
+    const mNx = String(miolo || "").match(/\(?\b([1-5])\s*x\b(?:\s*(?:por|\/)\s*semana)?\)?/i);
+    const mExt = String(miolo || "").match(/\b((?:uma|duas|tr[êe]s|quatro|cinco)\s+vez(?:es)?\s+por\s+semana|semanal(?:mente)?|quinzenal(?:mente)?|mensal(?:mente)?)\b/i);
+    const mMod = String(miolo || "").match(/\b(motora|analg[ée]sica|respirat[óo]ria|p[ée]lvica)\b/i);
+    const extras = [];
+    if (mMod) extras.push(mMod[1].toLowerCase());
+    if (mNx) extras.push(freqMap[mNx[1]]);
+    else if (mExt) {
+      let w = mExt[1].toLowerCase();
+      if (w === "semanal" || w === "quinzenal" || w === "mensal") w += "mente";
+      extras.push(w);
+    }
+    return `Realiza ${terAtiva.toLowerCase()}${extras.length ? " " + extras.join(" ") : ""} e não realiza ${terNeg.toLowerCase()}.`;
+  });
+  t = t.replace(/\(\s*([1-5])\s*x\s*\)/gi, (_, n) => ({ "1": "uma vez por semana", "2": "duas vezes por semana", "3": "três vezes por semana", "4": "quatro vezes por semana", "5": "cinco vezes por semana" }[n] || ""));
+  t = t.replace(/(\bcom\s+queixa\s+de\s+)([A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+)/g, (_, p, w) => p + w.charAt(0).toLowerCase() + w.slice(1));
+  t = t.replace(/\bcom\s+queixa\s+de\s+sintomatologia\s+depressiva\b/gi, "com queixa de transtorno depressivo");
+  t = t.replace(/\bcompat[íi]vel\s+com\s+sintomatologia\s+depressiva\b/gi, "compatível com transtorno depressivo");
 
   // Deduplicação sistemática de frases repetidas ou quase idênticas no parágrafo
   const rawFrases = t.split(/(?<=[.!?])\s+/).map(f => f.trim()).filter(Boolean);

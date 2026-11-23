@@ -1249,23 +1249,46 @@ class PreenchimentoCompletoResult(BaseModel):
     readaptado: str
     atividades_readaptado: str
 
-    doenca_motivo: str
+    doenca_motivo: str = Field(
+        description=(
+            "Síntese diagnóstica clínica rica, formal e completa da patologia/evento que motivou o afastamento, "
+            "integrando diagnóstico, subtipo clínico e procedimentos/cirurgias/intervenções descritos no texto bruto "
+            "(ex.: 'infarto agudo do miocárdio com supradesnivelamento do segmento ST submetido a intervenção coronariana "
+            "percutânea com implante de stent'; 'transtorno ansioso com crises de pânico e distúrbio do sono'). "
+            "NUNCA copie título abreviado/genérico de tabela CID-10 (como 'Infarto agudo transmural parede ant miocard' "
+            "ou 'Outros transtornos ansiosos') e NUNCA inclua código CID."
+        )
+    )
     inicio_tratamento: str
     freq_consultas: str
-    sintomas_limitacao: str
+    sintomas_limitacao: str = Field(
+        description=(
+            "Narrativa clínica rica, específica e fiel aos fatos do texto bruto descrevendo o início e evolução da "
+            "sintomatologia, atendimento hospitalar/cirúrgico/terapêutico realizado, estado clínico atual na perícia e "
+            "repercussões funcionais específicas (incluindo contexto de readaptação, se aplicável). "
+            "PROIBIDO usar frases genéricas prontas como 'Refere sintomatologia psicoemocional compatível com...' quando o "
+            "texto bruto trouxer queixas ou eventos reais."
+        )
+    )
     medications: list[MedicamentoItem]
     alteracao_med: str
     data_alteracao_med: str
     obs_alteracao_med: str
     psicoterapia: bool
     fisioterapia: bool
-    obs_terapias: str
+    obs_terapias: str = Field(
+        description=(
+            "Frase direta sobre fisioterapia e psicoterapia sem parênteses e sem siglas como (3x), escrevendo a frequência "
+            "por extenso (ex.: 'Realiza psicoterapia três vezes por semana e não realiza fisioterapia.' ou "
+            "'Não alegou fazer fisioterapia e psicoterapia.')."
+        )
+    )
     outras_doencas: str
     conditions: list[CondicaoItem]
     historico_pregresso: str
 
     cid: str
-    cid_descricao: str
+    cid_descricao: str = Field(description="Descrição oficial correspondente ao CID-10 principal.")
     cids_secundarios: list[str]
     crm_cro: str
     nome_medico_assistente: str
@@ -1895,9 +1918,9 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO POR SEÇÃO:
 
 2. QUEIXA E DURAÇÃO & ANTECEDENTES:
 - doenca_motivo: CAMPO OBRIGATÓRIO — Responde diretamente à pergunta: "Qual a doença está tratando que motivou o afastamento?".
-  * LEIA TODO O TEXTO BRUTO (queixas, relato do paciente, diagnóstico do médico assistente, região anatômica, cirurgias e sintomas associados) e identifique com precisão a REAL doença/quadro clínico referido.
-  * PROIBIÇÃO ESTRITA: NUNCA copie apenas o título genérico da tabela CID-10 (ex.: "Outros transtornos ansiosos", "Outras dorsopatias", "Outros transtornos dos tecidos moles") e NUNCA inclua "(CID XXX)" ou o código do CID dentro deste campo (o código CID tem campo próprio).
-  * Mesmo quando houver apenas sigla, CID ou anotação curta (ex.: "ansiedade, pânico e insônia", "F41", "dor lombar M54.5", "depressão"), desenvolva um sintagma nominal diagnóstico formal, específico e clinicamente rico que se encaixe naturalmente após "com queixa de " (ex.: "transtorno ansioso com crises de pânico e distúrbio do sono", "quadro de lombalgia mecânica associada a desconforto paravertebral", "episódio depressivo em acompanhamento psiquiátrico com sintomatologia ativa", "edema e hematomas palpebrais no pós-operatório de blefaroplastia").
+  * LEIA TODO O TEXTO BRUTO (queixas, relato do paciente, diagnóstico do médico assistente, subtipo clínico do CID, região anatômica, internações, cirurgias, procedimentos e sintomas associados) e redija uma SÍNTESE DIAGNÓSTICA CLÍNICA RICA, FORMAL E COMPLETA.
+  * PROIBIÇÃO ESTRITA: NUNCA copie o nome genérico ou abreviado da tabela CID-10 / DATASUS (ex.: "Infarto agudo transmural parede ant miocard", "Lumbago com ciática", "Outros transtornos ansiosos", "Outras dorsopatias", termos truncados como "ant", "inf", "miocard", "loc n/esp") e NUNCA inclua "(CID XXX)" ou o código do CID dentro deste campo (o código CID tem campo próprio em `cid` e `cid_descricao`).
+  * Sempre que o texto bruto mencionar procedimentos, cirurgias, intervenções, exames ou contexto evolutivo associados à patologia, INTEGRE-OS à definição clínica da doença em sintagma nominal formal (ex.: texto com `CID I21.0`, "Infarto Agudo do miocardio", "trombolização / cateterismo / angioplastia coronariana com implante de stente" -> "infarto agudo do miocárdio com supradesnivelamento do segmento ST submetido a intervenção coronariana percutânea com implante de stent"; fratura com osteossíntese -> "fratura de ... submetida a redução cirúrgica e osteossíntese"; "ansiedade, pânico e insônia" + "F41" -> "transtorno ansioso com crises de pânico e distúrbio do sono"; pós-operatório -> "edema e hematomas palpebrais no pós-operatório de blefaroplastia").
   * NUNCA inicie doenca_motivo com sujeito ou verbo ("periciando submetido a...", "servidora apresenta...", "paciente relata..."), pois o sistema já antepõe "com queixa de ".
   * Se for perícia de acompanhante (Artigo 199), registre: "Perícia médica para acompanhamento de dependente enfermo com fundamento no Artigo 199 da Lei Estadual nº 10.261/1968".
   * NUNCA DEIXE doenca_motivo VAZIO.
@@ -1906,15 +1929,15 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO POR SEÇÃO:
 - freq_consultas: CAMPO OBRIGATÓRIO — Responde à pergunta: "Com que frequência realiza consultas?".
   * Identifique a frequência ("Mensal", "Quinzenal", "Semanal", "Bimestral"). Se não vier explícito, utilize "Quinzenal" para quadros psiquiátricos/agudos ou "Mensal" para os demais. NUNCA DEIXE VAZIO.
 - sintomas_limitacao: CAMPO OBRIGATÓRIO — Responde à pergunta: "Quais sintomas / limitações são referidos?".
-  * Transforme anotações curtas do médico em uma descrição clínica rica, formal e detalhada da sintomatologia subjetiva referida pelo periciado e de suas repercussões alegadas no cotidiano funcional, corrigindo erros de português e concordância.
-  * NÃO repita literalmente os mesmos termos secos de doenca_motivo e NÃO cole frases formais de conclusão do rol.
+  * Reconstrua em prosa médica culta, rica e específica TODA a história da moléstia atual contida no texto bruto: como o quadro iniciou (ex.: dor torácica aguda, crise depressiva, trauma/fratura), o atendimento/intervenção realizado (ex.: internação hospitalar, trombólise, cateterismo cardíaco, angioplastia coronariana com implante de stent, cirurgia), o estado evolutivo no momento da perícia (ex.: melhora sintomática em convalescença pós-procedimento, manutenção de sintomas) e as limitações específicas referidas (incluindo menção à readaptação vigente, quando aplicável).
+  * PROIBIDO usar frases genéricas vazias se o texto bruto trouxer fatos clínicos específicos. NÃO repita literalmente os mesmos termos secos de doenca_motivo e NÃO cole frases formais de conclusão do rol.
   * Em perícias de acompanhante (Artigo 199 / CID Z76.3), relate os cuidados prestados ao dependente e o quadro clínico do familiar dependente.
   * NUNCA DEIXE ESTE CAMPO VAZIO.
-- medications: Lista de medicamentos em uso. Corrija sempre a grafia comercial/farmacológica ("Utrogestan", "Doxiciclina", "Clonazepam", "Amoxicilina", "Duloxetina", "Carbonato de Lítio", "Bupropiona", "Tramadol", "Dipirona", "Ciclobenzaprina", "Escitalopram", "Sertralina"). Se informado nome informal ou sem dose (ex.: "dipirona"), padronize tecnicamente: medicamento "Dipirona", dosagem "1 g", frequencia "se dor até 6/6h", observacao "analgesia".
+- medications: Lista de medicamentos em uso. Corrija sempre a grafia comercial/farmacológica ("Utrogestan", "Doxiciclina", "Clonazepam", "Amoxicilina", "Duloxetina", "Carbonato de Lítio", "Bupropiona", "Tramadol", "Dipirona", "Ciclobenzaprina", "Escitalopram", "Sertralina", "Losartana", "Ácido Acetilsalicílico", "Clopidogrel"). Se informado nome informal ou sem dose (ex.: "dipirona"), padronize tecnicamente: medicamento "Dipirona", dosagem "1 g", frequencia "se dor até 6/6h", observacao "analgesia".
 - alteracao_med: "Não" (ou "Sim" se relatada troca recente).
 - psicoterapia: false ou true (Analise cuidadosamente se o servidor FAZ ou NÃO FAZ psicoterapia. Se negar ou não houver afirmação clara de acompanhamento psicológico, marque false).
 - fisioterapia: false ou true (Analise cuidadosamente se o servidor FAZ ou NÃO FAZ fisioterapia. Se realizar fisioterapia, marque true; se negar ou não realizar, marque false).
-- obs_terapias: Redação formal pericial sem parênteses descrevendo fielmente as terapias realizadas ou negadas (ex.: "O periciado relata realização de fisioterapia motora duas vezes por semana e nega acompanhamento em psicoterapia." ou "Não alegou fazer fisioterapia e psicoterapia.").
+- obs_terapias: Frase formal, direta e sem parênteses descrevendo as terapias com frequência por extenso, sem siglas como "(3x)" e sem sujeito redundante (ex.: "Realiza psicoterapia três vezes por semana e não realiza fisioterapia.", "Realiza fisioterapia motora duas vezes por semana e não realiza psicoterapia." ou "Não alegou fazer fisioterapia e psicoterapia.").
 - outras_doencas: "Sim" se houver outras patologias informadas, senão "Não".
 - conditions: Lista de comorbidades prévias estruturadas com tratamento.
 - historico_pregresso: CAMPO OBRIGATÓRIO — Histórico patológico pregresso / antecedentes mórbidos formalmente redigido em linguagem médica culta no padrão oficial DPME, sem copiar anotações telegráficas brutas e NUNCA mencionando dias de atestado concedidos.
@@ -2637,50 +2660,125 @@ _CID_TITLE_REFINEMENTS = {
     "M54": "quadro álgico de coluna vertebral em acompanhamento",
     "M75": "lesão inflamatória do ombro e manguito rotador",
     "I10": "hipertensão arterial sistêmica em acompanhamento clínico",
+    "I21.0": "infarto agudo do miocárdio com supradesnivelamento do segmento ST de parede anterior",
+    "I21.1": "infarto agudo do miocárdio com supradesnivelamento do segmento ST de parede inferior",
+    "I21.2": "infarto agudo do miocárdio com supradesnivelamento do segmento ST",
+    "I21.3": "infarto agudo do miocárdio com supradesnivelamento do segmento ST",
+    "I21.4": "infarto agudo do miocárdio sem supradesnivelamento do segmento ST",
+    "I21": "infarto agudo do miocárdio em recuperação clínica",
+    "I20": "angina pectoris em acompanhamento cardiológico",
+    "I50": "insuficiência cardíaca em acompanhamento clínico",
+    "I64": "acidente vascular encefálico em acompanhamento clínico",
+    "J18": "quadro pneumônico agudo em tratamento clínico",
+    "K80": "colelitíase sintomática em acompanhamento clínico",
 }
 
 
-def _is_generic_icd_disease_label(txt: str, cid_desc: str = "") -> bool:
+def _norm_disease_cmp(txt: str) -> str:
+    import unicodedata
+    s = re.sub(r"\s*\(\s*CID\s*[A-Z0-9\.]+\s*\)", "", str(txt or ""), flags=re.I)
+    s = re.sub(r"^[A-Z]\d{2}(?:\.\d+)?\s*[—–\-:]+\s*", "", s.strip(), flags=re.I)
+    s = unicodedata.normalize("NFKD", s.lower())
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return re.sub(r"[^a-z0-9\s]", " ", s).strip()
+
+
+def _is_generic_icd_disease_label(txt: str, cid_desc: str = "", cid: str = "") -> bool:
     s = re.sub(r"\s*\(\s*CID\s*[A-Z0-9\.]+\s*\)", "", str(txt or ""), flags=re.I).strip()
+    s = re.sub(r"^[A-Z]\d{2}(?:\.\d+)?\s*[—–\-:]+\s*", "", s, flags=re.I).strip()
     if not s:
         return True
     s_low = s.lower()
+    s_norm = " ".join(_norm_disease_cmp(s).split())
     if re.match(r"^(?:CID\s*)?[A-Z]\d{2}(?:\.\d+)?$", s, re.I):
         return True
-    if re.match(r"^(?:outros|outras)\s+(?:transtornos|doen[çc]as|dorsopatias|afec[çc][õo]es|sintomas|achados)\b", s_low):
+    if re.match(r"^(?:outros|outras)\s+(?:transtornos|doen[çc]as|dorsopatias|afec[çc][õo]es|sintomas|achados|formas|tipos|localiza)", s_low):
         return True
-    if re.search(r"\bn[ãa]o\s+especificad[oa]s?\b", s_low) or s_low.startswith("patologia clínica"):
+    if re.search(r"\bn[ãa]o\s+especificad[oa]s?\b|\bn[ãa]o\s+espec\b|\bSOE\b|\bNCOP\b", s_low) or s_low.startswith("patologia clínica"):
         return True
-    cd_clean = re.sub(r"\s*\(\s*CID\s*[A-Z0-9\.]+\s*\)", "", str(cid_desc or ""), flags=re.I).strip().lower()
-    if cd_clean and s_low == cd_clean:
+    # Abreviações típicas da tabela DATASUS / CSV de CID-10 (ex.: "Infarto agudo transmural parede ant miocard")
+    if re.search(r"\bparede\s+(?:ant|inf)\b|\b(?:ant|inf|post|lat)\s+miocard\b|\bmiocard\b|\bloc\s+n[ãa]o\b|\blocaliz\b", s_low):
         return True
+    candidates = [cid_desc]
+    if cid:
+        cat_info = get_cid_info(cid)
+        if cat_info and cat_info.get("nome"):
+            candidates.append(cat_info["nome"])
+    for cand in candidates:
+        cd_norm = " ".join(_norm_disease_cmp(cand).split())
+        if cd_norm and s_norm == cd_norm:
+            return True
     return False
 
 
-def _extrair_doenca_clinica_do_texto(texto_bruto: str, sintomas: str = "") -> str:
+def _extrair_doenca_clinica_do_texto(texto_bruto: str, sintomas: str = "", cid: str = "") -> str:
     txt = str(texto_bruto or "").strip()
     if not txt:
         return ""
-    # 1. Padrões explícitos de diagnóstico ou doença tratada
+    cid_up = str(cid or "").strip().upper()
+    comb_proc = f"{txt}\n{sintomas or ''}"
+
+    # 1. Síndromes coronarianas agudas / Infarto Agudo do Miocárdio + procedimentos cardiovasculares
+    has_iam_txt = bool(re.search(r"\b(?:infarto\s+agudo\s+do\s+mioc[aá]rdio|infarto\s+do\s+mioc[aá]rdio|\bIAM\b)\b", txt, re.I))
+    if has_iam_txt or cid_up.startswith("I21"):
+        if cid_up in ("I21.0", "I21.1", "I21.2", "I21.3") or re.search(r"supra(?:desnivelamento)?|transmural", txt, re.I):
+            iam_base = "infarto agudo do miocárdio com supradesnivelamento do segmento ST"
+        elif cid_up == "I21.4" or re.search(r"sem\s+supra|subendoc[aá]rdic", txt, re.I):
+            iam_base = "infarto agudo do miocárdio sem supradesnivelamento do segmento ST"
+        else:
+            iam_base = "infarto agudo do miocárdio"
+
+        proc_iam = ""
+        if re.search(r"\bangioplastia\b", comb_proc, re.I) and re.search(r"\bstent[e]?\b", comb_proc, re.I):
+            proc_iam = "submetido a intervenção coronariana percutânea com implante de stent"
+        elif re.search(r"\brevasculariza[çc][ãa]o\b|\bponte\s+de\s+safena\b", comb_proc, re.I):
+            proc_iam = "submetido a cirurgia de revascularização miocárdica"
+        elif re.search(r"\bangioplastia\b", comb_proc, re.I):
+            proc_iam = "submetido a angioplastia coronariana percutânea"
+        elif re.search(r"\bcateterismo\b", comb_proc, re.I):
+            proc_iam = "submetido a cateterismo cardíaco"
+        elif re.search(r"\btrombol[ií](?:se|za[çc][ãa]o)\b", comb_proc, re.I):
+            proc_iam = "submetido a terapia trombolítica"
+
+        if proc_iam or has_iam_txt:
+            res_iam = f"{iam_base} {proc_iam}".strip()
+            return res_iam[0].upper() + res_iam[1:]
+
+    # 2. Padrões explícitos de diagnóstico ou doença tratada (incluindo internação/evento/pós-operatório)
     pat_list = [
-        r"(?:diagn[óo]stic[oa]\s+de|trata(?:ndo|mento)\s+(?:de|para)|em\s+tratamento\s+de|acompanhamento\s+(?:de|por)|afastamento\s+por|quadro\s+de|queixa\s+de)\s+([A-ZÀ-Úa-zà-ú0-9][^\n\r\.;]{4,110})",
+        r"(?:diagn[óo]stic[oa]\s+de|trata(?:ndo|mento)\s+(?:de|para)|em\s+tratamento\s+de|acompanhamento\s+(?:de|por)|afastamento\s+por|quadro\s+de|queixa\s+de|chegando\s+ao\s+hospital\s+com|internad[oa]\s+(?:por|com)|evoluiu\s+com)\s+([A-ZÀ-Úa-zà-ú0-9][^\n\r\.;]{4,120})",
         r"(?:transtorno\s+(?:de\s+)?(?:ansiedade\s+generalizada|ansioso(?:\s+e\s+depressivo)?|depressivo(?:\s+recorrente)?|afetivo\s+bipolar|do\s+p[âa]nico|de\s+adapta[çc][ãa]o|obsessivo[- ]compulsivo)[^\n\r\.;]{0,70})",
         r"(?:s[íi]ndrome\s+(?:do\s+p[âa]nico|de\s+burnout|do\s+manguito\s+rotador|do\s+t[úu]nel\s+do\s+carpo)[^\n\r\.;]{0,70})",
         r"(?:epis[óo]dio\s+depressivo(?:\s+(?:leve|moderado|grave))?[^\n\r\.;]{0,70})",
-        r"(?:lombociatalgia|lombalgia(?:\s+(?:mec[âa]nica|cr[ôo]nica|aguda))?|cervicalgia|cervicobraquialgia|h[ée]rnia\s+de\s+disco|tendinopatia|tendinite|bursite|fibromialgia|artrose|gonartrose|neoplasia\s+maligna\s+(?:de|do|da)\s+[^\n\r\.;]{3,60}|p[óo]s-operat[óo]rio\s+de\s+[^\n\r\.;]{3,60})[^\n\r\.;]{0,60}",
+        r"(?:acidente\s+vascular\s+(?:cerebral|encef[áa]lico)(?:\s+(?:isqu[êe]mico|hemorr[áa]gico))?[^\n\r\.;]{0,70})",
+        r"(?:fratura\s+(?:de|do|da|dos|das)\s+[^\n\r\.;]{3,70}|lombociatalgia|lombalgia(?:\s+(?:mec[âa]nica|cr[ôo]nica|aguda))?|cervicalgia|cervicobraquialgia|h[ée]rnia\s+de\s+disco|tendinopatia|tendinite|bursite|fibromialgia|artrose|gonartrose|neoplasia\s+maligna\s+(?:de|do|da)\s+[^\n\r\.;]{3,60}|p[óo]s-operat[óo]rio\s+de\s+[^\n\r\.;]{3,60})[^\n\r\.;]{0,60}",
     ]
     for pat in pat_list:
         m = re.search(pat, txt, re.IGNORECASE)
         if m:
             cand = (m.group(1) if m.lastindex else m.group(0)).strip(" ,;:-.")
             cand = re.sub(r"\s*\(\s*CID\s*[A-Z0-9\.]+\s*\)", "", cand, flags=re.I).strip()
-            if len(cand) >= 6 and not _is_generic_icd_disease_label(cand):
+            # Remover trecho colado de "sendo feito..." se já pudermos anexar procedimento limpo
+            proc_suffix = ""
+            if re.search(r"\bosteoss[íi]ntese\b", comb_proc, re.I) and "osteossíntese" not in cand.lower():
+                proc_suffix = "submetida a osteossíntese" if re.search(r"\bfratura\b|\bles[ãa]o\b", cand, re.I) else "submetido a osteossíntese"
+            elif re.search(r"\bartroscopia\b", comb_proc, re.I) and "artroscopia" not in cand.lower():
+                proc_suffix = "submetida a tratamento artroscópico" if re.search(r"\bles[ãa]o\b|\bruptura\b", cand, re.I) else "submetido a tratamento artroscópico"
+            cand = re.split(r",\s*(?:sendo\s+feito|realizado|submetid[oa])\b", cand, maxsplit=1, flags=re.I)[0].strip(" ,;:-.")
+            if proc_suffix:
+                cand = f"{cand} {proc_suffix}"
+            if len(cand) >= 6 and not _is_generic_icd_disease_label(cand, cid=cid):
                 return cand[0].upper() + cand[1:]
-    # 2. Termos sintomáticos/diagnósticos frequentes combinados
+    # 3. Termos sintomáticos/diagnósticos frequentes combinados
+    dep_label = (
+        "transtorno depressivo recorrente"
+        if (cid_up.startswith("F33") or re.search(r"\brecorrente\b", txt, re.I))
+        else ("episódio depressivo" if cid_up.startswith("F32") else "transtorno depressivo")
+    )
     term_map = [
         (r"\b(?:ansiedade|ansioso|ang[úu]stia)\b", "transtorno ansioso"),
         (r"\b(?:p[âa]nico|crise[s]?\s+de\s+p[âa]nico)\b", "crises de pânico"),
-        (r"\b(?:depress[ãa]o|depressiv[oa]|tristeza\s+intensa|choro\s+f[áa]cil|anedonia)\b", "sintomatologia depressiva"),
+        (r"\b(?:depress[ãa]o|depressiv[oa]|tristeza\s+intensa|choro\s+f[áa]cil|anedonia)\b", dep_label),
         (r"\b(?:ins[ôo]nia|dificuldade\s+(?:para|de)\s+dormir|dist[úu]rbio\s+do\s+sono)\b", "distúrbio do sono"),
         (r"\b(?:dor\s+lombar|lombalgia)\b", "quadro de lombalgia"),
         (r"\b(?:dor\s+no\s+ombro|ombro)\b", "quadro álgico em ombro"),
@@ -2700,6 +2798,7 @@ def _extrair_doenca_clinica_do_texto(texto_bruto: str, sintomas: str = "") -> st
 
 def _limpar_doenca_motivo_bruto(raw_val: str, cid: str = "", cid_desc: str = "", is_acomp: bool = False, texto_bruto: str = "", sintomas: str = "") -> str:
     txt = str(raw_val or "").strip()
+    extra_texto = _extrair_doenca_clinica_do_texto(texto_bruto, sintomas, cid=cid)
     if txt:
         # Remove cabeçalhos colados de paciente/protocolo (ex.: 'NOME ...\nCPF: ...\nProtocolo: ...')
         if "\n" in txt or re.search(r"\b(?:protocolo|cpf|rg|data\s+de\s+nascimento|paciente)\s*:", txt, re.I):
@@ -2708,14 +2807,22 @@ def _limpar_doenca_motivo_bruto(raw_val: str, cid: str = "", cid_desc: str = "",
             txt = ""
         else:
             txt_sem_cid = re.sub(r"\s*\(\s*CID\s*[A-Z0-9\.]+\s*\)", "", txt, flags=re.I).strip()
-            if txt_sem_cid and not _is_generic_icd_disease_label(txt_sem_cid, cid_desc):
+            txt_sem_cid = re.sub(r"^[A-Z]\d{2}(?:\.\d+)?\s*[—–\-:]+\s*", "", txt_sem_cid, flags=re.I).strip()
+            if txt_sem_cid and not _is_generic_icd_disease_label(txt_sem_cid, cid_desc, cid=cid):
+                # Se a resposta da IA ainda trouxe apenas o título seco sem mencionar procedimento presente no extra_texto, enriquece
+                if (
+                    extra_texto
+                    and len(extra_texto) > len(txt_sem_cid) + 15
+                    and re.search(r"\bsubmetid[oa]\s+a\b", extra_texto, re.I)
+                    and not re.search(r"\b(?:submetid[oa]|angioplastia|stent|cateterismo|cirurgi|osteoss[íi]ntese|artroscopia|p[óo]s-operat[óo]rio)\b", txt_sem_cid, re.I)
+                ):
+                    return extra_texto
                 return txt_sem_cid
-            if _is_generic_icd_disease_label(txt, cid_desc):
+            if _is_generic_icd_disease_label(txt, cid_desc, cid=cid):
                 txt = ""
     if txt:
         return txt
 
-    extra_texto = _extrair_doenca_clinica_do_texto(texto_bruto, sintomas)
     if extra_texto:
         return extra_texto
 
@@ -2725,7 +2832,7 @@ def _limpar_doenca_motivo_bruto(raw_val: str, cid: str = "", cid_desc: str = "",
     if refined:
         return refined[0].upper() + refined[1:]
     cd = str(cid_desc or "").strip()
-    if cd and not _is_generic_icd_disease_label(cd):
+    if cd and not _is_generic_icd_disease_label(cd, cid=cid):
         if cd.isupper() and len(cd) > 4:
             cd = cd.capitalize()
         if cid_up.startswith("C") and "neoplasia" not in cd.lower() and "câncer" not in cd.lower() and "carcinoma" not in cd.lower():
@@ -2795,12 +2902,72 @@ def _gerar_sintomas_fallback(
 ) -> str:
     cid_up = str(cid or "").strip().upper()
     mot_low = re.sub(r"\s*\(\s*CID\s*[^)]+\)", "", str(doenca_motivo or ""), flags=re.I).strip().lower() or "patologia clínica avaliada"
+    if mot_low.startswith("sintomatologia "):
+        mot_low = "transtorno depressivo recorrente" if cid_up.startswith("F33") else ("episódio depressivo" if cid_up.startswith("F32") else mot_low.replace("sintomatologia ", "quadro ", 1))
     obs_clean = _remover_parenteses_texto(obs or "").strip(" .,;:")
     obs_clause = f", destacando-se {obs_clean[0].lower() + obs_clean[1:] if len(obs_clean) > 1 and not obs_clean[:2].isupper() else obs_clean}" if obs_clean else ""
     if is_acomp:
         return "Refere necessidade de prestar assistência direta e contínua ao familiar dependente sob cuidados médicos."
+
+    txt = str(texto_bruto or "").strip()
+    suj_cap = "A periciada" if is_fem else "O periciado"
+    diag_gen = "diagnosticada" if is_fem else "diagnosticado"
+
+    # 1. Síntese rica a partir do texto bruto para eventos coronarianos / IAM
+    if txt and (cid_up.startswith("I21") or re.search(r"\binfarto\s+agudo\s+do\s+mioc[aá]rdio\b|\bIAM\b", txt, re.I)):
+        intervencoes = []
+        if re.search(r"\bhospital\b|\binterna[çc][ãa]o\b", txt, re.I):
+            intervencoes.append("internação hospitalar")
+        if re.search(r"\btrombol[ií](?:se|za[çc][ãa]o)\b", txt, re.I):
+            intervencoes.append("terapia trombolítica")
+        if re.search(r"\bcateterismo\b", txt, re.I):
+            intervencoes.append("cateterismo cardíaco de urgência")
+        if re.search(r"\bangioplastia\b", txt, re.I) and re.search(r"\bstent[e]?\b", txt, re.I):
+            intervencoes.append("angioplastia coronariana com implante de stent")
+        elif re.search(r"\bangioplastia\b", txt, re.I):
+            intervencoes.append("angioplastia coronariana")
+        interv_str = ""
+        if len(intervencoes) > 1:
+            interv_str = ", necessitando de " + ", ".join(intervencoes[:-1]) + " e " + intervencoes[-1]
+        elif len(intervencoes) == 1:
+            interv_str = f", necessitando de {intervencoes[0]}"
+        evol_str = (
+            " No momento atual do atendimento pericial, relata melhora sintomática, mantendo-se em convalescença pós-procedimento cardiológico com restrição de esforços físicos intensos e necessidade de seguimento médico rigoroso."
+            if re.search(r"\bmelhora\b", txt, re.I)
+            else " Mantém acompanhamento cardiológico regular e restrição a esforços físicos intensos."
+        )
+        return f"{suj_cap} refere que iniciou quadro de dor torácica aguda, sendo {diag_gen} com infarto agudo do miocárdio{interv_str}.{evol_str}"
+
+    # 2. Quadros psiquiátricos com sintomas extraídos do texto bruto e contexto de readaptação
     if cid_up.startswith("F") or "mental" in str(ef_tipo or "").lower():
-        return f"Refere sintomatologia psicoemocional compatível com {mot_low}, cursando com ansiedade, fadiga mental e repercussões na esfera emocional{obs_clause}."
+        sint_psico = []
+        psico_map = [
+            (r"\bansiedade\b|\bansios[oa]\b", "ansiedade"),
+            (r"\bp[âa]nico\b", "crises de pânico"),
+            (r"\bchoro\s+f[áa]cil\b|\bchoro\b", "labilidade afetiva com choro fácil"),
+            (r"\bins[ôo]nia\b|\bsono\b", "alteração do padrão de sono"),
+            (r"\banedonia\b|\bdes[âa]nimo\b|\bapatia\b", "desânimo e anedonia"),
+            (r"\bfadiga\b|\bcansa[çc]o\b|\besgotamento\b", "fadiga mental"),
+            (r"\bconcentra[çc][ãa]o\b|\baten[çc][ãa]o\b|\bmem[óo]ria\b", "dificuldade de concentração"),
+            (r"\btristeza\b|\bhumor\s+deprimido\b", "humor deprimido"),
+            (r"\birritabilidade\b", "irritabilidade"),
+        ]
+        for rgx, lbl in psico_map:
+            if txt and re.search(rgx, txt, re.I) and lbl not in sint_psico:
+                sint_psico.append(lbl)
+        cursando_str = (
+            ", ".join(sint_psico[:-1]) + " e " + sint_psico[-1]
+            if len(sint_psico) >= 2
+            else (sint_psico[0] + ", fadiga mental e repercussões na esfera emocional" if sint_psico else "ansiedade, fadiga mental e repercussões na esfera emocional")
+        )
+        is_readap_txt = bool(txt and re.search(r"\b(?:sou|é|e|está|relatou\s+ser|servidora?|periciad[oa])\s+readaptad[oa]\b", txt, re.I) and not re.search(r"\bn[ãa]o\s+(?:sou|é|e|ser|estar)?\s*readaptad[oa]\b", txt, re.I))
+        readap_clause = (
+            ", mantendo limitações para exposição a fatores agravantes ao estresse e contato direto com alunos, porém já contemplados na readaptação vigente"
+            if is_readap_txt and re.search(r"\bprofessor[a]?\b|\bescola\b|\baluno", txt, re.I)
+            else (", mantendo limitações para exposição a fatores agravantes ao estresse, porém já contempladas na readaptação vigente" if is_readap_txt else "")
+        )
+        return f"Refere sintomatologia psicoemocional compatível com {mot_low}, cursando com {cursando_str}{readap_clause}{obs_clause}."
+
     if cid_up.startswith(("O", "Z34", "Z35")):
         return f"Relata acompanhamento gestacional em decorrência de {mot_low}, com queixas obstétricas referidas durante o período avaliado{obs_clause}."
     if cid_up.startswith(("C", "D0")):
@@ -3232,12 +3399,23 @@ def _desacoplar_e_rotear_fatos_clinicos(payload: dict[str, Any]) -> dict[str, An
     is_fem = bool(re.search(r"\b(?:feminino|mulher|f|servidora)\b", str(p.get("sexo") or a.get("sexo") or "").strip(), re.I))
 
     # 1. Extração de Medicamentos digitados fora do campo
+    is_queixa_estruturada = bool(
+        queixa
+        and len(queixa) > 60
+        and (
+            re.match(r"^\s*Servidor[a]?\b", queixa, re.I)
+            or ("com queixa de" in queixa.lower() and "." in queixa)
+        )
+    )
     meds_extraidos = []
     m_sint, sintomas = _extrair_medicamentos_de_texto(sintomas)
     meds_extraidos.extend(m_sint)
     m_ef, ef_raw = _extrair_medicamentos_de_texto(ef_raw)
     meds_extraidos.extend(m_ef)
-    m_q, queixa = _extrair_medicamentos_de_texto(queixa)
+    if is_queixa_estruturada:
+        m_q, _ = _extrair_medicamentos_de_texto(queixa)
+    else:
+        m_q, queixa = _extrair_medicamentos_de_texto(queixa)
     meds_extraidos.extend(m_q)
     # De antecedentes, extrai caso haja prescrição mencionada, sem destruir histórico pregresso
     m_ant, _ = _extrair_medicamentos_de_texto(ant_raw)
@@ -3246,9 +3424,14 @@ def _desacoplar_e_rotear_fatos_clinicos(payload: dict[str, Any]) -> dict[str, An
     todos_meds = []
     for raw_m in meds_raw:
         if raw_m:
-            cap_m = str(raw_m).strip()
-            if cap_m:
-                todos_meds.append(cap_m[0].upper() + cap_m[1:])
+            if isinstance(raw_m, dict):
+                fmt_m = _formatar_lista_medicamentos([raw_m])
+                if fmt_m:
+                    todos_meds.append(fmt_m)
+            else:
+                cap_m = str(raw_m).strip()
+                if cap_m:
+                    todos_meds.append(cap_m[0].upper() + cap_m[1:])
     for m in meds_extraidos:
         cap_m = str(m).strip()
         if cap_m and not any(cap_m.lower() in str(x).lower() for x in todos_meds):
@@ -3262,7 +3445,10 @@ def _desacoplar_e_rotear_fatos_clinicos(payload: dict[str, Any]) -> dict[str, An
     exames_extraidos.extend(ex_ef)
     ex_ant, ant_raw = _extrair_exames_imagem_de_texto(ant_raw)
     exames_extraidos.extend(ex_ant)
-    ex_q, queixa = _extrair_exames_imagem_de_texto(queixa)
+    if is_queixa_estruturada:
+        ex_q, _ = _extrair_exames_imagem_de_texto(queixa)
+    else:
+        ex_q, queixa = _extrair_exames_imagem_de_texto(queixa)
     exames_extraidos.extend(ex_q)
     
     if exames_extraidos:
@@ -4487,9 +4673,10 @@ def _clean_queixa_duracao_text(text: str) -> str:
             return ""
     t = re.sub(r"\[\s*\{[\s\S]*?\}\s*\]|\{\s*'(?:dosagem|frequência|frequencia|medicamento|nome|observação|observacao)'[\s\S]*?\}", _clean_raw_dict_snippets, t)
 
-    # Remove fragmentos órfãos de posologia sem nome de fármaco (ex.: "1 comprimido à noite (dor neuropática) e forte (analgesia de resgate).")
+    # Remove fragmentos órfãos de posologia/medicação sem nome inicial de fármaco (ex.: ". (controle pressórico) e Ácido Acetilsalicílico 100 mg...")
     t = re.sub(r"(?:^|[.!?]\s*)(?:1|[2-9]|\d+)\s+comprimidos?\s+[^.!?]*\.", ".", t, flags=re.IGNORECASE)
     t = re.sub(r"(?:^|[.!?]\s*)(?:em caso de dor\s+)?forte\s*\([^)]*\)\.?", ".", t, flags=re.IGNORECASE)
+    t = re.sub(r"([.!?]\s*)\([^)]+\)\s+e\s+[^.!?]+?\([^)]+\)\.", r"\1", t, flags=re.IGNORECASE)
 
     # 1. Elimina repetições de "Servidor(a), não readaptado(a), de X anos, relatou não ser readaptado(a)"
     t = re.sub(
@@ -4918,6 +5105,53 @@ def _clean_queixa_duracao_text(text: str) -> str:
     t = re.sub(r"(\bEm uso de [^.]+?\.)(?:\s*Em uso de [^.]+?\.)+", r"\1", t, flags=re.IGNORECASE)
     t = re.sub(r"(Não relatou troca de medicação ou alteração de dosagem\.?)(?:\s*\1)+", r"\1", t, flags=re.IGNORECASE)
     t = re.sub(r"(Não alegou fazer fisioterapia e psicoterapia\.?)(?:\s*\1)+", r"\1", t, flags=re.IGNORECASE)
+
+    # Normaliza colagem de obs_terapias dentro de "Realiza psicoterapia/fisioterapia, O periciado relata..."
+    def _clean_spliced_terapias(m):
+        terapia_ativa = m.group(1).lower()
+        miolo = m.group(2)
+        terapia_neg = m.group(3).lower()
+        freq_map = {"1": "uma vez por semana", "2": "duas vezes por semana", "3": "três vezes por semana", "4": "quatro vezes por semana", "5": "cinco vezes por semana"}
+        m_nx = re.search(r"\(?\b([1-5])\s*x\b(?:\s*(?:por|/)\s*semana)?\)?", miolo, re.I)
+        m_ext = re.search(r"\b((?:uma|duas|tr[êe]s|quatro|cinco)\s+vez(?:es)?\s+por\s+semana|semanal(?:mente)?|quinzenal(?:mente)?|mensal(?:mente)?)\b", miolo, re.I)
+        m_mod = re.search(r"\b(motora|analg[ée]sica|respirat[óo]ria|p[ée]lvica)\b", miolo, re.I)
+        extras = []
+        if m_mod:
+            extras.append(m_mod.group(1).lower())
+        if m_nx:
+            extras.append(freq_map[m_nx.group(1)])
+        elif m_ext:
+            w = m_ext.group(1).lower()
+            if w in ("semanal", "quinzenal", "mensal"):
+                w += "mente"
+            extras.append(w)
+        ext_str = (" " + " ".join(extras)) if extras else ""
+        return f"Realiza {terapia_ativa}{ext_str} e não realiza {terapia_neg}."
+
+    t = re.sub(
+        r"\bRealiza\s+(psicoterapia|fisioterapia),\s*([^.]+?),\s*e\s+n[ãa]o\s+realiza\s+(psicoterapia|fisioterapia)\.",
+        _clean_spliced_terapias,
+        t,
+        flags=re.IGNORECASE,
+    )
+    t = re.sub(
+        r"\(\s*([1-5])\s*x\s*\)",
+        lambda m: {"1": "uma vez por semana", "2": "duas vezes por semana", "3": "três vezes por semana", "4": "quatro vezes por semana", "5": "cinco vezes por semana"}[m.group(1)],
+        t,
+        flags=re.IGNORECASE,
+    )
+
+    # Normaliza inicial minúscula após "com queixa de " (preservando siglas em CAIXA ALTA como IAM, AVC, CID, LER, DORT)
+    def _lower_after_queixa(m):
+        prefix = m.group(1)
+        word = m.group(2)
+        if word.isupper() and len(word) >= 2:
+            return m.group(0)
+        return f"{prefix}{word[0].lower()}{word[1:]}"
+
+    t = re.sub(r"(\bcom\s+queixa\s+de\s+)([A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+)", _lower_after_queixa, t)
+    t = re.sub(r"\bcom\s+queixa\s+de\s+sintomatologia\s+depressiva\b", "com queixa de transtorno depressivo", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bcompat[íi]vel\s+com\s+sintomatologia\s+depressiva\b", "compatível com transtorno depressivo", t, flags=re.IGNORECASE)
 
     # Deduplicação sistemática de frases repetidas ou quase idênticas no parágrafo
     frases = [f.strip() for f in re.split(r"(?<=[.!?])\s+", t) if f.strip()]
@@ -6444,6 +6678,7 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
         else:
             corpo_queixa += " Não alegou fazer fisioterapia e psicoterapia."
 
+    corpo_queixa = _clean_queixa_duracao_text(corpo_queixa)
     ant_raw = str(payload.get("historico_pregresso") or payload.get("antecedentes") or "").strip()
     if ant_raw and ant_raw.lower() not in ("nega", "nega.", "não refere", "nao refere", "-", "sem antecedentes"):
         ant_clean = _clean_antecedentes_morbidos_text(ant_raw)
@@ -8521,7 +8756,7 @@ def api_ai_preencher_ficha():
             if (
                 raw_mot
                 and (
-                    _is_generic_icd_disease_label(raw_mot, result.cid_descricao or "")
+                    _is_generic_icd_disease_label(raw_mot, result.cid_descricao or "", cid=result.cid or "")
                     or (
                         (result.cid or "").strip().upper()[:3] in _CID_TITLE_REFINEMENTS
                         and len(raw_mot) < 25
@@ -8542,14 +8777,17 @@ def api_ai_preencher_ficha():
                     d_motivo = str(esisla_pre["doenca_motivo"]).strip()
                 elif result.sintomas_limitacao:
                     d_motivo = result.sintomas_limitacao.split(".")[0].strip()
-                elif result.cid_descricao:
+                elif result.cid_descricao and not _is_generic_icd_disease_label(result.cid_descricao, cid=result.cid or ""):
                     d_motivo = result.cid_descricao.strip()
                 elif result.cid:
-                    cid_info = get_cid_info(result.cid)
-                    if cid_info and cid_info.get("nome"):
-                        d_motivo = cid_info["nome"].strip()
-                    else:
-                        d_motivo = f"Quadro clínico em acompanhamento referente ao CID {result.cid.strip()}"
+                    d_motivo = _limpar_doenca_motivo_bruto(
+                        "",
+                        cid=result.cid,
+                        cid_desc=result.cid_descricao,
+                        is_acomp=is_acomp,
+                        texto_bruto=texto_bruto,
+                        sintomas=result.sintomas_limitacao or "",
+                    ) or f"Quadro clínico em acompanhamento referente ao CID {result.cid.strip()}"
 
             if d_motivo:
                 if d_motivo.isupper() and len(d_motivo) > 4:
