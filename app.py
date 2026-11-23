@@ -84,9 +84,12 @@ else:
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 ESISLA_PROMPT_VERSION = "esisla-v11-readaptado-sem-parenteses-antecedentes-robusto"
 GEMINI_FALLBACK_MODELS = [
-    m.strip() for m in os.getenv("GEMINI_FALLBACK_MODELS", "gemini-3.5-flash-lite,gemini-flash-lite-latest,gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash").split(",")
+    m.strip() for m in os.getenv("GEMINI_FALLBACK_MODELS", "gemini-3.6-flash,gemini-3.5-flash-lite,gemini-flash-lite-latest").split(",")
     if m.strip() and m.strip() != GEMINI_MODEL
 ]
+GEMINI_THINKING_LEVEL = os.getenv("GEMINI_THINKING_LEVEL", "LOW").strip().upper() or "LOW"
+GEMINI_HTTP_TIMEOUT_MS = max(5000, int(os.getenv("GEMINI_HTTP_TIMEOUT_MS", "25000")))
+GEMINI_MEDIA_TIMEOUT_MS = max(10000, int(os.getenv("GEMINI_MEDIA_TIMEOUT_MS", "45000")))
 GEMINI_RETRIES = max(1, int(os.getenv("GEMINI_RETRIES", "2")))
 GEMINI_BACKOFF_SECONDS = max(0.1, float(os.getenv("GEMINI_BACKOFF_SECONDS", "1.0")))
 API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
@@ -2078,12 +2081,52 @@ def _task_instruction(task: str, payload: dict[str, Any]) -> str:
         return prompt + "\n\n" + _context_text(payload)
     return TASK_PROMPTS[task] + "\n\n" + _context_text(payload)
 
+_GEMINI_CLIENT = None
+_GEMINI_CLIENT_KEY = None
+_GEMINI_CLIENT_FACTORY = None
+_GEMINI_CLIENT_LOCK = threading.Lock()
+
 def _client():
+    global _GEMINI_CLIENT, _GEMINI_CLIENT_KEY, _GEMINI_CLIENT_FACTORY
     if not API_KEY:
         raise RuntimeError("GEMINI_API_KEY não configurada")
     if genai is None:
         raise RuntimeError("Dependência google-genai não instalada")
-    return genai.Client(api_key=API_KEY)
+    factory = getattr(genai, "Client", None)
+    with _GEMINI_CLIENT_LOCK:
+        if (
+            _GEMINI_CLIENT is None
+            or _GEMINI_CLIENT_KEY != API_KEY
+            or _GEMINI_CLIENT_FACTORY is not factory
+        ):
+            _GEMINI_CLIENT = factory(api_key=API_KEY)
+            _GEMINI_CLIENT_KEY = API_KEY
+            _GEMINI_CLIENT_FACTORY = factory
+        return _GEMINI_CLIENT
+
+def _build_thinking_config(model: str, *, mechanical: bool = False):
+    if types is None or not hasattr(types, "ThinkingConfig"):
+        return None
+    m_low = str(model or "").lower()
+    if "2.5" in m_low and "lite" in m_low:
+        return None
+    supports_minimal = ("3.6-flash" in m_low or "flash-lite" in m_low or "3.5-flash-lite" in m_low)
+    if mechanical and supports_minimal:
+        level = "MINIMAL"
+    else:
+        level = GEMINI_THINKING_LEVEL if GEMINI_THINKING_LEVEL in {"LOW", "MEDIUM", "HIGH"} else "LOW"
+    try:
+        return types.ThinkingConfig(thinking_level=level)
+    except Exception:
+        return None
+
+def _build_http_options(*, media: bool = False):
+    if types is None or not hasattr(types, "HttpOptions"):
+        return None
+    try:
+        return types.HttpOptions(timeout=GEMINI_MEDIA_TIMEOUT_MS if media else GEMINI_HTTP_TIMEOUT_MS)
+    except Exception:
+        return None
 
 def _sanitize(value: Any, depth: int = 0) -> Any:
     if depth > 6:
@@ -2323,35 +2366,43 @@ def _is_fatal_auth_error(exc: Exception) -> bool:
     s = str(exc).lower()
     return any(tok in s for tok in ("api key not valid", "api_key_invalid", "invalid api key", "api key expired"))
 
-def _generate_structured(instruction: str, schema):
-    endpoint=getattr(request,"path","/unknown")
+def _generate_structured(instruction: str, schema, *, endpoint_override: str | None = None, atendimento_id_override: str | None = None):
+    endpoint = endpoint_override or getattr(request, "path", "/unknown")
     allowed, retry_after = _rate_limit(endpoint)
     if not allowed:
         raise AIRateLimitError(retry_after)
     client = _client()
     sys_instruction = PREENCHER_FICHA_SYSTEM_PROMPT if endpoint.endswith("/preencher-ficha") else SYSTEM_PROMPT
-    config = types.GenerateContentConfig(
-        system_instruction=sys_instruction,
-        temperature=0.0 if endpoint.endswith("/esisla") else 0.2,
-        response_mime_type="application/json",
-        response_schema=schema,
-    )
+    http_opts = _build_http_options(media=False)
     models = _get_ordered_models()
     last_exc = None
-    started=time.perf_counter()
-    atendimento_id=None
+    started = time.perf_counter()
+    atendimento_id = atendimento_id_override
     try:
-        try:
-            atendimento_id=str((request.get_json(silent=True) or {}).get("atendimento") or "")[:100] or None
-        except Exception:
-            atendimento_id=None
+        if atendimento_id is None:
+            try:
+                atendimento_id = str((request.get_json(silent=True) or {}).get("atendimento") or "")[:100] or None
+            except Exception:
+                atendimento_id = None
         for idx, model in enumerate(models):
             model_started = time.perf_counter()
+            t_cfg = _build_thinking_config(model, mechanical=False)
+            cfg_kwargs = dict(
+                system_instruction=sys_instruction,
+                temperature=0.0 if endpoint.endswith("/esisla") else 0.2,
+                response_mime_type="application/json",
+                response_schema=schema,
+            )
+            if t_cfg is not None:
+                cfg_kwargs["thinking_config"] = t_cfg
+            if http_opts is not None:
+                cfg_kwargs["http_options"] = http_opts
+            config = types.GenerateContentConfig(**cfg_kwargs)
             for attempt in range(GEMINI_RETRIES):
                 try:
                     response = client.models.generate_content(model=model, contents=instruction, config=config)
-                    result=_parse_ai_response(response, schema)
-                    _log_ai(endpoint,model,(time.perf_counter()-started)*1000,"SUCESSO",None,atendimento_id)
+                    result = _parse_ai_response(response, schema)
+                    _log_ai(endpoint, model, (time.perf_counter() - started) * 1000, "SUCESSO", None, atendimento_id)
                     return result
                 except Exception as exc:
                     last_exc = exc
@@ -2367,7 +2418,7 @@ def _generate_structured(instruction: str, schema):
                         backoff = min(backoff, 2.0)
                     time.sleep(backoff)
             if last_exc is not None:
-                _log_ai(endpoint,model,(time.perf_counter()-model_started)*1000,"ERRO",type(last_exc).__name__,atendimento_id)
+                _log_ai(endpoint, model, (time.perf_counter() - model_started) * 1000, "ERRO", type(last_exc).__name__, atendimento_id)
                 has_next_model = idx < len(models) - 1
                 if has_next_model and not _is_fatal_auth_error(last_exc):
                     app.logger.warning(
@@ -2389,11 +2440,11 @@ def _ai_context_hash(endpoint: str, payload: dict[str, Any]) -> str:
     prompt_version = ESISLA_PROMPT_VERSION if endpoint.endswith("/esisla") else "default"
     return hashlib.sha256(f"{endpoint}|{prompt_version}|{canonical}".encode("utf-8")).hexdigest()
 
-def _generate_cached(endpoint: str, payload: dict[str, Any], instruction: str, schema, force_refresh: bool = False):
+def _generate_cached(endpoint: str, payload: dict[str, Any], instruction: str, schema, force_refresh: bool = False, *, endpoint_override: str | None = None, atendimento_id_override: str | None = None):
     context_hash = _ai_context_hash(endpoint, payload)
     db = get_db()
     cur = db.cursor()
-    
+
     if force_refresh:
         cur.execute("DELETE FROM cache_ia WHERE endpoint=%s AND context_hash=%s", (endpoint, context_hash))
         db.commit()
@@ -2411,7 +2462,12 @@ def _generate_cached(endpoint: str, payload: dict[str, Any], instruction: str, s
                 cur.execute("DELETE FROM cache_ia WHERE endpoint=%s AND context_hash=%s", (endpoint, context_hash))
                 db.commit()
     cur.close()
-    result = _generate_structured(instruction, schema)
+    result = _generate_structured(
+        instruction,
+        schema,
+        endpoint_override=endpoint_override,
+        atendimento_id_override=atendimento_id_override,
+    )
     now = _utc_now()
     cur2 = db.cursor()
     cur2.execute(
@@ -7441,21 +7497,28 @@ def api_ai_refinar_ficha_esisla():
         )
 
         ficha_otimizada = None
-        models = [GEMINI_MODEL] + GEMINI_FALLBACK_MODELS
+        models = _get_ordered_models()
+        http_opts = _build_http_options(media=False)
         try:
             client = _client()
             for m in models:
                 try:
+                    t_cfg = _build_thinking_config(m, mechanical=False)
+                    cfg_kw = dict(
+                        system_instruction=system_instruction,
+                        temperature=0.35,
+                        max_output_tokens=4096,
+                        response_mime_type="application/json",
+                        response_schema=RefinarFichaEsislaResult,
+                    )
+                    if t_cfg is not None:
+                        cfg_kw["thinking_config"] = t_cfg
+                    if http_opts is not None:
+                        cfg_kw["http_options"] = http_opts
                     response = client.models.generate_content(
                         model=m,
                         contents=[prompt],
-                        config=types.GenerateContentConfig(
-                            system_instruction=system_instruction,
-                            temperature=0.35,
-                            max_output_tokens=4096,
-                            response_mime_type="application/json",
-                            response_schema=RefinarFichaEsislaResult,
-                        )
+                        config=types.GenerateContentConfig(**cfg_kw)
                     )
                     t = None
                     if hasattr(response, "parsed") and response.parsed:
@@ -7471,6 +7534,7 @@ def api_ai_refinar_ficha_esisla():
                         ficha_otimizada = t
                         break
                 except Exception as m_err:
+                    _mark_model_quota_error(m, m_err)
                     app.logger.warning("Falha ao refinar com modelo %s: %s", m, m_err)
                     continue
         except Exception as client_err:
@@ -7558,21 +7622,28 @@ def api_ai_transcrever_atendimento():
         )
 
         client = _client()
-        models = [GEMINI_MODEL] + GEMINI_FALLBACK_MODELS
+        models = _get_ordered_models()
+        http_opts = _build_http_options(media=True)
         last_exc = None
         for m in models:
             try:
+                t_cfg = _build_thinking_config(m, mechanical=False)
+                cfg_kw = dict(
+                    temperature=0.1,
+                    response_mime_type="application/json",
+                    response_schema=AudioTranscricaoAtendimentoResult,
+                )
+                if t_cfg is not None:
+                    cfg_kw["thinking_config"] = t_cfg
+                if http_opts is not None:
+                    cfg_kw["http_options"] = http_opts
                 resp = client.models.generate_content(
                     model=m,
                     contents=[
                         types.Part.from_bytes(data=audio_bytes, mime_type=mime_type or "audio/webm"),
                         prompt
                     ],
-                    config=types.GenerateContentConfig(
-                        temperature=0.1,
-                        response_mime_type="application/json",
-                        response_schema=AudioTranscricaoAtendimentoResult,
-                    )
+                    config=types.GenerateContentConfig(**cfg_kw)
                 )
                 if hasattr(resp, "parsed") and resp.parsed:
                     p_obj = resp.parsed
@@ -10012,18 +10083,24 @@ def api_esisla_parse_pdf():
                     "Data de Ingresso no Estado / Serviço Público (campo data_ingresso no formato DD/MM/AAAA), "
                     "Local e Data da Expedição (campo data_expedicao no formato DD/MM/AAAA)."
                 )
-                config = types.GenerateContentConfig(
-                    system_instruction="Você é um assistente pericial especializado na extração exata de documentos e-SISLA.",
-                    temperature=0.0,
-                    response_mime_type="application/json",
-                )
-                models = [GEMINI_MODEL] + GEMINI_FALLBACK_MODELS
+                http_opts = _build_http_options(media=True)
+                models = _get_ordered_models()
                 for m in models:
                     try:
+                        t_cfg = _build_thinking_config(m, mechanical=True)
+                        cfg_kw = dict(
+                            system_instruction="Você é um assistente pericial especializado na extração exata de documentos e-SISLA.",
+                            temperature=0.0,
+                            response_mime_type="application/json",
+                        )
+                        if t_cfg is not None:
+                            cfg_kw["thinking_config"] = t_cfg
+                        if http_opts is not None:
+                            cfg_kw["http_options"] = http_opts
                         resp = client.models.generate_content(
                             model=m,
                             contents=[types.Part.from_bytes(data=file_bytes, mime_type=mimetype or "application/pdf"), prompt],
-                            config=config
+                            config=types.GenerateContentConfig(**cfg_kw)
                         )
                         if resp.text:
                             ai_dict = json.loads(resp.text)
@@ -10334,17 +10411,23 @@ def api_esisla_vincular_agenda_batch():
                         "Readaptação, CRM Médico, Nome do Médico Assistente, CID 10, Nº Dias, Data de emissão do atestado, "
                         "Local e Data da Expedição (campo data_expedicao no formato DD/MM/AAAA), Pessoa."
                     )
-                    config = types.GenerateContentConfig(
-                        temperature=0.0,
-                        response_mime_type="application/json"
-                    )
-                    models = [GEMINI_MODEL] + GEMINI_FALLBACK_MODELS
+                    http_opts = _build_http_options(media=True)
+                    models = _get_ordered_models()
                     for m in models:
                         try:
+                            t_cfg = _build_thinking_config(m, mechanical=True)
+                            cfg_kw = dict(
+                                temperature=0.0,
+                                response_mime_type="application/json"
+                            )
+                            if t_cfg is not None:
+                                cfg_kw["thinking_config"] = t_cfg
+                            if http_opts is not None:
+                                cfg_kw["http_options"] = http_opts
                             resp = client.models.generate_content(
                                 model=m,
                                 contents=[types.Part.from_bytes(data=file_bytes, mime_type="application/pdf"), prompt],
-                                config=config
+                                config=types.GenerateContentConfig(**cfg_kw)
                             )
                             if resp.text:
                                 ai_dict = json.loads(resp.text)
@@ -10887,12 +10970,20 @@ def api_ai_transcribe():
             prompt
         ]
         models = _get_ordered_models()
+        http_opts = _build_http_options(media=True)
         transcription = ""
         for model in models:
             try:
+                t_cfg = _build_thinking_config(model, mechanical=True)
+                cfg_kw = dict(temperature=0.0)
+                if t_cfg is not None:
+                    cfg_kw["thinking_config"] = t_cfg
+                if http_opts is not None:
+                    cfg_kw["http_options"] = http_opts
                 response = client.models.generate_content(
                     model=model,
-                    contents=contents
+                    contents=contents,
+                    config=types.GenerateContentConfig(**cfg_kw)
                 )
                 text = str(response.text or "").strip()
                 if text.upper() == "VAZIO":
@@ -11056,15 +11147,22 @@ def api_ai_refinar_dialogo_ia2():
         contents.append(prompt)
 
         models = _get_ordered_models()
+        http_opts = _build_http_options(media=True)
         parsed_result = None
         last_error = None
 
         for model in models:
             try:
+                t_cfg = _build_thinking_config(model, mechanical=False)
+                cfg_kw = dict(response_mime_type="application/json", temperature=0.1)
+                if t_cfg is not None:
+                    cfg_kw["thinking_config"] = t_cfg
+                if http_opts is not None:
+                    cfg_kw["http_options"] = http_opts
                 response = client.models.generate_content(
                     model=model,
                     contents=contents,
-                    config={"response_mime_type": "application/json"}
+                    config=types.GenerateContentConfig(**cfg_kw)
                 )
                 raw_text = str(response.text or "").strip()
                 if raw_text:
@@ -12986,7 +13084,39 @@ def api_state_transition(rid):
     db.commit()
     _invalidate_stats_cache()
     cur.close()
+    if target == "FINALIZADO":
+        _schedule_esisla_prewarm(r["id"], getattr(request, "user_id", None))
     return _ok({"status":target,"atualizado_em":now,"changed":True,"payload":p,"versao":next_version})
+
+
+def _schedule_esisla_prewarm(atendimento_id: str, user_id: str | None = None):
+    if (
+        IS_SERVERLESS
+        or not API_KEY
+        or os.getenv("ESISLA_PREWARM_ON_FINALIZE", "1") != "1"
+        or os.getenv("PYTEST_CURRENT_TEST")
+        or app.config.get("TESTING")
+    ):
+        return
+
+    atd_id = str(atendimento_id or "").strip()
+    if not atd_id:
+        return
+
+    def _worker():
+        try:
+            with app.test_request_context("/api/ai/esisla", method="POST", json={"atendimento": atd_id}):
+                request.user_id = user_id or "prewarm"
+                request.user_role = "Administrador"
+                request.user_name = "Prewarm"
+                request.user_email = ""
+                request.user_profile = {"id": request.user_id, "perfil": "Administrador", "nome": "Prewarm"}
+                api_ai_esisla()
+        except Exception as exc:
+            app.logger.debug("Pré-aquecimento e-SISLA ignorado (%s): %s", atd_id, exc)
+
+    t = threading.Thread(target=_worker, name=f"esisla-prewarm-{atd_id[:16]}", daemon=True)
+    t.start()
 
 @app.post("/api/atendimentos/<rid>/esisla-lancado")
 def api_toggle_esisla_lancado(rid):
