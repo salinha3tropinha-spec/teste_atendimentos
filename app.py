@@ -1895,8 +1895,9 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO POR SEÇÃO:
 
 2. QUEIXA E DURAÇÃO & ANTECEDENTES:
 - doenca_motivo: CAMPO OBRIGATÓRIO — Responde diretamente à pergunta: "Qual a doença está tratando que motivou o afastamento?".
-  * Identifique com precisão a doença, patologia, diagnóstico, CID, queixa motivadora ou motivo do atestado/afastamento presente nas anotações do médico ou dados do atendimento.
-  * Mesmo que o médico tenha anotado apenas uma sigla, CID ou termo curto (ex.: "dor lombar", "M54.5", "ansiedade", "depressão"), desenvolva um sintagma nominal diagnóstico formal, técnico e gramaticalmente perfeito que se encaixe naturalmente após "com queixa de ..." (ex.: "quadro de lombalgia mecânica associada a desconforto paravertebral", "transtorno misto ansioso e depressivo com sintomatologia emocional reativa", "edema e hematomas palpebrais no pós-operatório de blefaroplastia").
+  * LEIA TODO O TEXTO BRUTO (queixas, relato do paciente, diagnóstico do médico assistente, região anatômica, cirurgias e sintomas associados) e identifique com precisão a REAL doença/quadro clínico referido.
+  * PROIBIÇÃO ESTRITA: NUNCA copie apenas o título genérico da tabela CID-10 (ex.: "Outros transtornos ansiosos", "Outras dorsopatias", "Outros transtornos dos tecidos moles") e NUNCA inclua "(CID XXX)" ou o código do CID dentro deste campo (o código CID tem campo próprio).
+  * Mesmo quando houver apenas sigla, CID ou anotação curta (ex.: "ansiedade, pânico e insônia", "F41", "dor lombar M54.5", "depressão"), desenvolva um sintagma nominal diagnóstico formal, específico e clinicamente rico que se encaixe naturalmente após "com queixa de " (ex.: "transtorno ansioso com crises de pânico e distúrbio do sono", "quadro de lombalgia mecânica associada a desconforto paravertebral", "episódio depressivo em acompanhamento psiquiátrico com sintomatologia ativa", "edema e hematomas palpebrais no pós-operatório de blefaroplastia").
   * NUNCA inicie doenca_motivo com sujeito ou verbo ("periciando submetido a...", "servidora apresenta...", "paciente relata..."), pois o sistema já antepõe "com queixa de ".
   * Se for perícia de acompanhante (Artigo 199), registre: "Perícia médica para acompanhamento de dependente enfermo com fundamento no Artigo 199 da Lei Estadual nº 10.261/1968".
   * NUNCA DEIXE doenca_motivo VAZIO.
@@ -2624,10 +2625,80 @@ _CID_TITLE_REFINEMENTS = {
     "C50": "neoplasia maligna da mama",
     "Z35.8": "supervisão de gravidez de alto risco",
     "Z35.9": "supervisão de gravidez de alto risco",
+    "F41.0": "transtorno de pânico com ansiedade paroxística episódica",
+    "F41.1": "transtorno de ansiedade generalizada em acompanhamento",
+    "F41.2": "transtorno misto ansioso e depressivo",
+    "F41": "transtorno ansioso em acompanhamento clínico",
+    "F32": "episódio depressivo em acompanhamento psiquiátrico",
+    "F33": "transtorno depressivo recorrente em acompanhamento",
+    "F43": "transtorno de adaptação e reação aguda ao estresse",
+    "M54.4": "quadro de lombociatalgia em acompanhamento clínico",
+    "M54.5": "quadro de lombalgia mecânica em acompanhamento",
+    "M54": "quadro álgico de coluna vertebral em acompanhamento",
+    "M75": "lesão inflamatória do ombro e manguito rotador",
+    "I10": "hipertensão arterial sistêmica em acompanhamento clínico",
 }
 
 
-def _limpar_doenca_motivo_bruto(raw_val: str, cid: str = "", cid_desc: str = "", is_acomp: bool = False) -> str:
+def _is_generic_icd_disease_label(txt: str, cid_desc: str = "") -> bool:
+    s = re.sub(r"\s*\(\s*CID\s*[A-Z0-9\.]+\s*\)", "", str(txt or ""), flags=re.I).strip()
+    if not s:
+        return True
+    s_low = s.lower()
+    if re.match(r"^(?:CID\s*)?[A-Z]\d{2}(?:\.\d+)?$", s, re.I):
+        return True
+    if re.match(r"^(?:outros|outras)\s+(?:transtornos|doen[çc]as|dorsopatias|afec[çc][õo]es|sintomas|achados)\b", s_low):
+        return True
+    if re.search(r"\bn[ãa]o\s+especificad[oa]s?\b", s_low) or s_low.startswith("patologia clínica"):
+        return True
+    cd_clean = re.sub(r"\s*\(\s*CID\s*[A-Z0-9\.]+\s*\)", "", str(cid_desc or ""), flags=re.I).strip().lower()
+    if cd_clean and s_low == cd_clean:
+        return True
+    return False
+
+
+def _extrair_doenca_clinica_do_texto(texto_bruto: str, sintomas: str = "") -> str:
+    txt = str(texto_bruto or "").strip()
+    if not txt:
+        return ""
+    # 1. Padrões explícitos de diagnóstico ou doença tratada
+    pat_list = [
+        r"(?:diagn[óo]stic[oa]\s+de|trata(?:ndo|mento)\s+(?:de|para)|em\s+tratamento\s+de|acompanhamento\s+(?:de|por)|afastamento\s+por|quadro\s+de|queixa\s+de)\s+([A-ZÀ-Úa-zà-ú0-9][^\n\r\.;]{4,110})",
+        r"(?:transtorno\s+(?:de\s+)?(?:ansiedade\s+generalizada|ansioso(?:\s+e\s+depressivo)?|depressivo(?:\s+recorrente)?|afetivo\s+bipolar|do\s+p[âa]nico|de\s+adapta[çc][ãa]o|obsessivo[- ]compulsivo)[^\n\r\.;]{0,70})",
+        r"(?:s[íi]ndrome\s+(?:do\s+p[âa]nico|de\s+burnout|do\s+manguito\s+rotador|do\s+t[úu]nel\s+do\s+carpo)[^\n\r\.;]{0,70})",
+        r"(?:epis[óo]dio\s+depressivo(?:\s+(?:leve|moderado|grave))?[^\n\r\.;]{0,70})",
+        r"(?:lombociatalgia|lombalgia(?:\s+(?:mec[âa]nica|cr[ôo]nica|aguda))?|cervicalgia|cervicobraquialgia|h[ée]rnia\s+de\s+disco|tendinopatia|tendinite|bursite|fibromialgia|artrose|gonartrose|neoplasia\s+maligna\s+(?:de|do|da)\s+[^\n\r\.;]{3,60}|p[óo]s-operat[óo]rio\s+de\s+[^\n\r\.;]{3,60})[^\n\r\.;]{0,60}",
+    ]
+    for pat in pat_list:
+        m = re.search(pat, txt, re.IGNORECASE)
+        if m:
+            cand = (m.group(1) if m.lastindex else m.group(0)).strip(" ,;:-.")
+            cand = re.sub(r"\s*\(\s*CID\s*[A-Z0-9\.]+\s*\)", "", cand, flags=re.I).strip()
+            if len(cand) >= 6 and not _is_generic_icd_disease_label(cand):
+                return cand[0].upper() + cand[1:]
+    # 2. Termos sintomáticos/diagnósticos frequentes combinados
+    term_map = [
+        (r"\b(?:ansiedade|ansioso|ang[úu]stia)\b", "transtorno ansioso"),
+        (r"\b(?:p[âa]nico|crise[s]?\s+de\s+p[âa]nico)\b", "crises de pânico"),
+        (r"\b(?:depress[ãa]o|depressiv[oa]|tristeza\s+intensa|choro\s+f[áa]cil|anedonia)\b", "sintomatologia depressiva"),
+        (r"\b(?:ins[ôo]nia|dificuldade\s+(?:para|de)\s+dormir|dist[úu]rbio\s+do\s+sono)\b", "distúrbio do sono"),
+        (r"\b(?:dor\s+lombar|lombalgia)\b", "quadro de lombalgia"),
+        (r"\b(?:dor\s+no\s+ombro|ombro)\b", "quadro álgico em ombro"),
+        (r"\b(?:dor\s+no\s+joelho|joelho)\b", "quadro álgico em joelho"),
+        (r"\b(?:dor\s+cervical|cervicalgia)\b", "quadro de cervicalgia"),
+    ]
+    found = []
+    comb_text = f"{txt}\n{sintomas or ''}"
+    for rgx, label in term_map:
+        if re.search(rgx, comb_text, re.I) and label not in found:
+            found.append(label)
+    if found:
+        joined = found[0] if len(found) == 1 else f"{found[0]} associado a {', '.join(found[1:3])}"
+        return joined[0].upper() + joined[1:]
+    return ""
+
+
+def _limpar_doenca_motivo_bruto(raw_val: str, cid: str = "", cid_desc: str = "", is_acomp: bool = False, texto_bruto: str = "", sintomas: str = "") -> str:
     txt = str(raw_val or "").strip()
     if txt:
         # Remove cabeçalhos colados de paciente/protocolo (ex.: 'NOME ...\nCPF: ...\nProtocolo: ...')
@@ -2635,24 +2706,33 @@ def _limpar_doenca_motivo_bruto(raw_val: str, cid: str = "", cid_desc: str = "",
             txt = ""
         elif not is_acomp and re.search(r"\bpara\s+fins\s+de\s+acompanhamento\s+de\s+familiar\b", txt, re.I):
             txt = ""
+        else:
+            txt_sem_cid = re.sub(r"\s*\(\s*CID\s*[A-Z0-9\.]+\s*\)", "", txt, flags=re.I).strip()
+            if txt_sem_cid and not _is_generic_icd_disease_label(txt_sem_cid, cid_desc):
+                return txt_sem_cid
+            if _is_generic_icd_disease_label(txt, cid_desc):
+                txt = ""
     if txt:
         return txt
+
+    extra_texto = _extrair_doenca_clinica_do_texto(texto_bruto, sintomas)
+    if extra_texto:
+        return extra_texto
+
     cid_up = str(cid or "").strip().upper()
     cid_base = cid_up[:3] if len(cid_up) >= 3 else cid_up
     refined = _CID_TITLE_REFINEMENTS.get(cid_up) or _CID_TITLE_REFINEMENTS.get(cid_base)
     if refined:
-        return f"{refined.capitalize()} (CID {cid_up})" if cid_up else refined.capitalize()
+        return refined[0].upper() + refined[1:]
     cd = str(cid_desc or "").strip()
-    if cd and cid_up:
+    if cd and not _is_generic_icd_disease_label(cd):
         if cd.isupper() and len(cd) > 4:
             cd = cd.capitalize()
         if cid_up.startswith("C") and "neoplasia" not in cd.lower() and "câncer" not in cd.lower() and "carcinoma" not in cd.lower():
-            return f"Neoplasia maligna de {cd[0].lower() + cd[1:]} (CID {cid_up})"
-        return f"{cd} (CID {cid_up})"
-    if cd:
-        return cd.capitalize() if cd.isupper() and len(cd) > 4 else cd
+            return f"Neoplasia maligna de {cd[0].lower() + cd[1:]}"
+        return cd
     if cid_up:
-        return f"Patologia clínica avaliada (CID {cid_up})"
+        return f"Quadro clínico em acompanhamento médico referente ao CID {cid_up}"
     return ""
 
 
@@ -8440,9 +8520,13 @@ def api_ai_preencher_ficha():
             raw_mot = (result.doenca_motivo or "").strip()
             if (
                 raw_mot
-                and (result.cid or "").strip().upper()[:3] in _CID_TITLE_REFINEMENTS
-                and raw_mot.lower() == (result.cid_descricao or "").strip().lower()
-                and len(raw_mot) < 25
+                and (
+                    _is_generic_icd_disease_label(raw_mot, result.cid_descricao or "")
+                    or (
+                        (result.cid or "").strip().upper()[:3] in _CID_TITLE_REFINEMENTS
+                        and len(raw_mot) < 25
+                    )
+                )
             ):
                 raw_mot = ""
             d_motivo = _limpar_doenca_motivo_bruto(
@@ -8450,22 +8534,22 @@ def api_ai_preencher_ficha():
                 cid=result.cid,
                 cid_desc=result.cid_descricao,
                 is_acomp=is_acomp,
+                texto_bruto=texto_bruto,
+                sintomas=result.sintomas_limitacao or "",
             )
             if not d_motivo:
                 if is_acomp and esisla_pre.get("doenca_motivo"):
                     d_motivo = str(esisla_pre["doenca_motivo"]).strip()
-                elif result.cid_descricao and result.cid:
-                    d_motivo = f"{result.cid_descricao.strip()} (CID {result.cid.strip()})"
+                elif result.sintomas_limitacao:
+                    d_motivo = result.sintomas_limitacao.split(".")[0].strip()
                 elif result.cid_descricao:
                     d_motivo = result.cid_descricao.strip()
                 elif result.cid:
                     cid_info = get_cid_info(result.cid)
                     if cid_info and cid_info.get("nome"):
-                        d_motivo = f"{cid_info['nome']} (CID {result.cid.strip()})"
+                        d_motivo = cid_info["nome"].strip()
                     else:
-                        d_motivo = f"Patologia clínica motivadora do afastamento (CID {result.cid.strip()})"
-                elif result.sintomas_limitacao:
-                    d_motivo = result.sintomas_limitacao.split(".")[0].strip()
+                        d_motivo = f"Quadro clínico em acompanhamento referente ao CID {result.cid.strip()}"
 
             if d_motivo:
                 if d_motivo.isupper() and len(d_motivo) > 4:
