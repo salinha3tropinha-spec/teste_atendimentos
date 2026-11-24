@@ -1991,9 +1991,14 @@ function cleanQueixaDuracao(text) {
         return match;
     });
 
-    // Duplicação "não informado sua dosagem Não informada"
-    t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+informad[oa]\.?/gi, "não informada sua dosagem.");
-    t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+informad[oa]\b/gi, "não informada sua dosagem");
+    // Duplicação "não informado sua dosagem Não informada" e placeholders como "Não especificada"
+    t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+(?:informad[oa]|especificad[oa])\.?/gi, "não informada sua dosagem.");
+    t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+(?:informad[oa]|especificad[oa])\b/gi, "não informada sua dosagem");
+    t = t.replace(/,?\s*\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+(lavagem\s+nasal(?:\s+com\s+soro\s+fisiol[óo]gico)?)\b/gi, " ($1)");
+    t = t.replace(/(\b(?:Soro\s+fisiol[óo]gico|solu[çc][ãa]o\s+fisiol[óo]gica)\b[^.,;]*?),?\s*\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\b/gi, "$1");
+    t = t.replace(/\s+\bN[ãa]o\s+especificad[oa]\b(?=\s*(?:[,.)(;]|$))/gi, "");
+    t = t.replace(/\bajustad[oa]\s+para,\s*lavagem\s+nasal\s+e\s+nasal\.?/gi, "ajustada para lavagem nasal.");
+    t = t.replace(/\bRecebeu\s+prescri[çc][ãa]o,\s+e\s+/gi, "Recebeu prescrição de ");
 
     // Normaliza "não informado sua dosagem Analgesia" -> "não informado sua dosagem, para analgesia"
     t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+Analgesia\b/gi, "não informado sua dosagem, para analgesia");
@@ -2004,8 +2009,9 @@ function cleanQueixaDuracao(text) {
     t = t.replace(/(não informad[oa]\s+sua\s+dosagem)\s+(a\s+cada\s+\d+|de\s+\d+\/\d+h|se\s+dor|\d+x\s+ao\s+dia|para\s+analgesia)/gi, "$1, $2");
 
     // 14. Remoção de contradição de troca/alteração de dosagem quando o servidor relatou aumento/alteração
-    const temRelatoAltDose = /\b(?:aumentad[oa]|aumento|ajustad[oa]|ajuste|reduzid[oa]|redução|reducao|trocad[oa]|troca)\s+(?:a\s+medica[çc][ãa]o|de\s+medica[çc][ãa]o|d[ae]\s+dosagem|d[ae]\s+dose)\b|\b(?:foi\s+aumentada\s+a\s+medica[çc][ãa]o|aumentou\s+a\s+dose|trocou\s+a\s+medica[çc][ãa]o|ajustou\s+a\s+dose)\b|\b(?:recentemente\s+foi\s+aumentada\s+a\s+medica[çc][ãa]o)\b/i.test(t);
+    const temRelatoAltDose = /\b(?:informa\s+altera[çc][ãa]o\s+recente\s+na\s+prescri[çc][ãa]o\s+medicamentosa|altera[çc][ãa]o\s+(?:recente\s+)?na\s+prescri[çc][ãa]o(?:\s+medicamentosa)?|receita\s+(?:foi\s+)?ajustada|ajuste\s+medicamentoso|substitui[çc][ãa]o\s+d[eo]s?\s+(?:antibi[óo]ticos?|medica[çc][ãa]o|f[áa]rmaco)|novos?\s+antibi[óo]ticos?|troca\s+d[eo]\s+antibi[óo]ticos?)\b|\b(?:aumentad[oa]|aumento|ajustad[oa]|ajuste|reduzid[oa]|redução|reducao|trocad[oa]|troca)\s+(?:a\s+medica[çc][ãa]o|de\s+medica[çc][ãa]o|d[ae]\s+dosagem|d[ae]\s+dose)\b|\b(?:foi\s+aumentada\s+a\s+medica[çc][ãa]o|aumentou\s+a\s+dose|trocou\s+a\s+medica[çc][ãa]o|ajustou\s+a\s+dose)\b|\b(?:recentemente\s+foi\s+aumentada\s+a\s+medica[çc][ãa]o)\b/i.test(t);
     if (temRelatoAltDose) {
+        t = t.replace(/\s*\(?\s*Não relatou troca de (?:medica[çc][ãa]o\s+ou\s+)?alteração de dosagem(?: da medicação)?\.?\s*\)?\s*/gi, " ");
         t = t.replace(/\s*\(?\s*Não relatou troca de alteração de dosagem da medicação\.?\s*\)?\s*/gi, " ");
     }
 

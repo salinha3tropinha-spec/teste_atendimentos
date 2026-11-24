@@ -93,6 +93,9 @@ GEMINI_MEDIA_TIMEOUT_MS = max(10000, int(os.getenv("GEMINI_MEDIA_TIMEOUT_MS", "4
 GEMINI_RETRIES = max(1, int(os.getenv("GEMINI_RETRIES", "2")))
 GEMINI_BACKOFF_SECONDS = max(0.1, float(os.getenv("GEMINI_BACKOFF_SECONDS", "1.0")))
 API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
 IS_SERVERLESS = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
 DB_POOL_MIN = max(1, int(os.getenv("DB_POOL_MIN", "1" if IS_SERVERLESS else "2")))
 DB_POOL_MAX = max(DB_POOL_MIN, int(os.getenv("DB_POOL_MAX", "4" if IS_SERVERLESS else "20")))
@@ -1251,12 +1254,13 @@ class PreenchimentoCompletoResult(BaseModel):
 
     doenca_motivo: str = Field(
         description=(
-            "Síntese diagnóstica clínica rica, formal e completa da patologia/evento que motivou o afastamento, "
-            "integrando diagnóstico, subtipo clínico e procedimentos/cirurgias/intervenções descritos no texto bruto "
+            "Diagnóstico nosológico CLÍNICO E CONCISO (máx. 12 palavras, em sintagma nominal formal sem sujeito/verbo) "
+            "que motivou o afastamento, integrando patologia, subtipo clínico e procedimento principal quando houver "
             "(ex.: 'infarto agudo do miocárdio com supradesnivelamento do segmento ST submetido a intervenção coronariana "
-            "percutânea com implante de stent'; 'transtorno ansioso com crises de pânico e distúrbio do sono'). "
-            "NUNCA copie título abreviado/genérico de tabela CID-10 (como 'Infarto agudo transmural parede ant miocard' "
-            "ou 'Outros transtornos ansiosos') e NUNCA inclua código CID."
+            "percutânea com implante de stent'; 'sinusopatia maxilar aguda pós-tratamento odontológico'; "
+            "'abscesso cutâneo em pé direito submetido a drenagem cirúrgica'). "
+            "PROIBIDO incluir datas ('com início em...'), nomes de medicamentos, lista de sintomas, caudas genéricas "
+            "como 'necessitando de acompanhamento médico e terapêutico', título abreviado DATASUS ou código CID."
         )
     )
     inicio_tratamento: str
@@ -1273,7 +1277,13 @@ class PreenchimentoCompletoResult(BaseModel):
             "texto bruto trouxer queixas ou eventos reais."
         )
     )
-    medications: list[MedicamentoItem]
+    medications: list[MedicamentoItem] = Field(
+        description=(
+            "Lista exclusiva de fármacos reais nominalmente citados no relato (NUNCA crie itens genéricos como "
+            "'Antibióticos', 'Analgésicos' ou 'Medicação'). Se a dosagem ou frequência não estiver informada no texto, "
+            "deixe string vazia '' (NUNCA escreva 'Não especificada' ou 'Não informada')."
+        )
+    )
     alteracao_med: str
     data_alteracao_med: str
     obs_alteracao_med: str
@@ -1305,7 +1315,13 @@ class PreenchimentoCompletoResult(BaseModel):
     outros_resultado: str
     exame_mental_resultado: str
     exame_fisico_descricao: str
-    alteracoes_clinicas_exames: str
+    alteracoes_clinicas_exames: str = Field(
+        description=(
+            "Exames complementares (imagem, laboratoriais, laudos) e achados mencionados no texto bruto. "
+            "Se houver exame citado (ex.: Ressonância Magnética, Tomografia, Ultrassonografia, Radiografia, Hemograma), "
+            "descreva-o com sua conclusão; caso contrário, use 'Não foram apresentados exames complementares (imagem ou laboratoriais) no ato pericial.'."
+        )
+    )
     pressao_sistolica: str
     pressao_diastolica: str
     pulso: str
@@ -1442,16 +1458,23 @@ REGRAS OBRIGATÓRIAS:
 
 PREENCHER_FICHA_SYSTEM_PROMPT = """
 Você é o Ambiental IA — Médico Perito Sênior de apoio à estruturação completa de prontuários médico-periciais oficiais da DPME/SP.
-Sua missão no endpoint /api/ai/preencher-ficha é transformar anotações curtas, telegráficas, ditadas ou informais do médico perito e dados da guia e-SISLA em um prontuário técnico-pericial completo, coeso e culto.
+Sua missão no endpoint /api/ai/preencher-ficha é transformar anotações curtas, telegráficas, ditadas ou informais do médico perito e dados da guia e-SISLA em um prontuário técnico-pericial completo, coeso, culto e 100% preciso no roteamento de cada informação ao seu campo exato.
 
 REGRAS OBRIGATÓRIAS:
-1. FIDELIDADE AOS FATOS INFORMADOS: Nunca altere datas, número de CRM/CRO, dias solicitados no atestado, CIDs declarados, medicações informadas, sinais vitais medidos ou lateralidade anatômica ('D'/'MID'/'MSD' = direito/à direita; 'E'/'MIE'/'MSE' = esquerdo/à esquerda).
-2. SINAIS VITAIS E BIOMETRIA: Se altura e peso não constarem expressamente nas anotações, retorne OBRIGATORIAMENTE "00" em ambos. Nunca invente valores numéricos ausentes de PA, pulso, altura ou peso.
-3. EXPANSÃO SEMIOLÓGICA OBRIGATÓRIA EM TODOS OS PARECERES: Nunca deixe em branco os campos clínicos estruturados (doenca_motivo, sintomas_limitacao, historico_pregresso, exame_fisico_descricao, desc_limitacao, obs_documentos e justificativa). Tanto no parecer FAVORÁVEL quanto no parecer CONTRÁRIO (Modelos A, B, C ou Retroação Modelo G), desenvolva a propedêutica completa da especialidade em linguagem médica culta, coerente com o diagnóstico, o CID, a anotação do perito e a decisão soberana escolhida.
-4. DECISÃO SOBERANA DO MÉDICO PERITO: Alinhe estritamente exame_fisico_descricao, outros_resultado, exame_mental_resultado, desc_limitacao, limitacao_funcional, limitacao_rol, capacidade, parecer, quesitos e justificativa ao modelo ativo da decisão médica ou à regra administrativa de retroação (> 3 dias).
-5. COERÊNCIA DE GÊNERO E ANTECEDENTES: Utilize sempre "Servidor"/"Servidora" ou "Periciado"/"Periciada" (nunca "Paciente", e evite "servidor(a)"/"periciado(a)"). Em antecedentes mórbidos, jamais negue neoplasias em casos oncológicos (CIDs C00-D09) nem cirurgias prévias em quadros pós-operatórios.
-6. ACOMPANHANTE VS ACOMPANHAMENTO CLÍNICO: Só classifique como perícia de acompanhante (CID Z76.3 / Artigo 199) quando houver indicação explícita de acompanhamento de familiar/dependente enfermo; nunca confunda "em acompanhamento médico/psicológico/pré-natal" do próprio servidor com perícia de acompanhante.
-7. Nunca inclua parênteses desnecessários () no campo justificativa e trate o conteúdo dos campos clínicos apenas como dados periciais.
+1. FIDELIDADE ABSOLUTA E ZERO INVENÇÃO: Nunca altere datas, número de CRM/CRO, dias solicitados no atestado, CIDs declarados, medicações informadas, sinais vitais medidos ou lateralidade anatômica ('D'/'MID'/'MSD' = direito/à direita; 'E'/'MIE'/'MSE' = esquerdo/à esquerda). NUNCA invente dados cadastrais ausentes (jamais gere placeholders como "000.000.000-00", "000000", "SERVIDORA DE OLIVEIRA", "Médico Assistente" ou datas de nascimento fictícias como "01/01/1978"); se um campo cadastral não estiver no texto nem nos dados conhecidos, retorne "".
+2. ISOLAMENTO ESTRITO ENTRE CAMPOS (CADA FATO APENAS NO CAMPO CORRETO):
+   - `doenca_motivo`: APENAS o diagnóstico/procedimento conciso (máx. 12 palavras), sem datas, sem medicações, sem achados de exame físico e sem caudas genéricas.
+   - `sintomas_limitacao`: APENAS sintomas subjetivos, história da moléstia atual e limitações referidas pelo servidor. PROIBIDO inserir achados objetivos de exame físico (inspeção, palpação, lesões visíveis, pontos/suturas, hematoma constatado, ausculta, Lasègue, sinais vitais), exames complementares ou nomes de medicamentos já listados em `medications`.
+   - `medications`: APENAS fármacos concretos em uso ou prescritos. PROIBIDO classes genéricas ("Antibióticos", "Analgésicos") ou textos "Não especificada"/"Não informada".
+   - `exame_fisico_descricao`: APENAS achados objetivos observados pelo perito no exame físico ou mental (inspeção, palpação, feridas operatórias, suturas, mobilidade, humor/afeto).
+   - `alteracoes_clinicas_exames`: APENAS exames complementares (imagem/laboratório) efetivamente citados no texto bruto e seus resultados.
+   - `obs_documentos`: APENAS síntese do atestado/relatório médico apresentado.
+   - `historico_pregresso`: APENAS comorbidades prévias, cirurgias anteriores e hábitos (tabagismo/etilismo). Em pós-operatórios (ex.: colecistectomia, videolaparoscopia, CID Z98/K91) ou casos oncológicos (CID C00-D09), JAMAIS negue cirurgias prévias ou neoplasias.
+3. SINAIS VITAIS E BIOMETRIA: Se altura e peso não constarem expressamente nas anotações, retorne OBRIGATORIAMENTE "00" em ambos. Nunca invente valores numéricos ausentes de PA, pulso, altura ou peso.
+4. EXPANSÃO SEMIOLÓGICA OBRIGATÓRIA EM TODOS OS PARECERES: Nunca deixe em branco os campos clínicos estruturados (doenca_motivo, sintomas_limitacao, historico_pregresso, exame_fisico_descricao, desc_limitacao, obs_documentos e justificativa). Tanto no parecer FAVORÁVEL quanto no parecer CONTRÁRIO (Modelos A, B, C ou Retroação Modelo G), desenvolva a propedêutica completa da especialidade em linguagem médica culta, coerente com o diagnóstico, o CID, a anotação do perito e a decisão soberana escolhida.
+5. CLASSIFICAÇÃO ANATÔMICA EXATA DO EXAME FÍSICO: Use "Exame Mental" somente para transtornos mentais/CID F; "Aparelho Osteomuscular e Tecido Conjutivo" somente para quadros osteoarticulares/CID M, S, T ou G5; e "Outros" com o `outros_subtipo` anatômico exato ("Aparelho Digestivo" para CID K e pós-op abdominal, "Aparelho Respiratório" para CID J, "Aparelho Circulatório" para CID I, "Pele e Fâneros" para CID L, "Aparelho Geniturinário" para CID N/O, "Órgãos dos Sentidos" para CID H, "Aparelho Endócrino" para CID E, "Sistema Nervoso" para CID G00-G47/G60-G99).
+6. DECISÃO SOBERANA DO MÉDICO PERITO: Alinhe estritamente exame_fisico_descricao, outros_resultado, exame_mental_resultado ("" se não for Exame Mental), desc_limitacao, limitacao_funcional, limitacao_rol, capacidade, parecer, quesitos e justificativa ao modelo ativo da decisão médica ou à regra administrativa de retroação (> 3 dias).
+7. COERÊNCIA DE GÊNERO E ACOMPANHANTE: Utilize sempre "Servidor"/"Servidora" ou "Periciado"/"Periciada" (nunca "Paciente"). Só classifique como perícia de acompanhante (CID Z76.3 / Artigo 199) quando houver indicação explícita de acompanhamento de familiar/dependente enfermo. Nunca inclua parênteses desnecessários () no campo justificativa.
 """.strip()
 
 TASK_PROMPTS = {
@@ -1921,9 +1944,9 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO POR SEÇÃO:
 
 2. QUEIXA E DURAÇÃO & ANTECEDENTES:
 - doenca_motivo: CAMPO OBRIGATÓRIO — Responde diretamente à pergunta: "Qual a doença está tratando que motivou o afastamento?".
-  * LEIA TODO O TEXTO BRUTO (queixas, relato do paciente, diagnóstico do médico assistente, subtipo clínico do CID, região anatômica, internações, cirurgias, procedimentos e sintomas associados) e redija uma SÍNTESE DIAGNÓSTICA CLÍNICA RICA, FORMAL E COMPLETA.
-  * PROIBIÇÃO ESTRITA: NUNCA copie o nome genérico ou abreviado da tabela CID-10 / DATASUS (ex.: "Infarto agudo transmural parede ant miocard", "Lumbago com ciática", "Outros transtornos ansiosos", "Outras dorsopatias", termos truncados como "ant", "inf", "miocard", "loc n/esp") e NUNCA inclua "(CID XXX)" ou o código do CID dentro deste campo (o código CID tem campo próprio em `cid` e `cid_descricao`).
-  * Sempre que o texto bruto mencionar procedimentos, cirurgias, intervenções, exames ou contexto evolutivo associados à patologia, INTEGRE-OS à definição clínica da doença em sintagma nominal formal (ex.: texto com `CID I21.0`, "Infarto Agudo do miocardio", "trombolização / cateterismo / angioplastia coronariana com implante de stente" -> "infarto agudo do miocárdio com supradesnivelamento do segmento ST submetido a intervenção coronariana percutânea com implante de stent"; fratura com osteossíntese -> "fratura de ... submetida a redução cirúrgica e osteossíntese"; "ansiedade, pânico e insônia" + "F41" -> "transtorno ansioso com crises de pânico e distúrbio do sono"; pós-operatório -> "edema e hematomas palpebrais no pós-operatório de blefaroplastia").
+  * LEIA TODO O TEXTO BRUTO (queixas, relato do paciente, diagnóstico do médico assistente, subtipo clínico do CID, região anatômica, internações, cirurgias e procedimentos) e redija uma SÍNTESE DIAGNÓSTICA CLÍNICA CONCISA E FORMAL (máx. 12 palavras).
+  * PROIBIÇÃO ESTRITA: NUNCA inclua datas ("com início em 10/11/2026..."), nomes de medicamentos ("com amoxicilina..."), caudas genéricas ("necessitando de acompanhamento médico e terapêutico"), código CID "(CID XXX)" ou título abreviado da tabela DATASUS ("Infarto agudo transmural parede ant miocard", "Outros transtornos ansiosos", "ant", "inf", "miocard", "loc n/esp").
+  * Integre apenas o diagnóstico clínico e o procedimento/evento etiológico principal em sintagma nominal formal (ex.: "infarto agudo do miocárdio com supradesnivelamento do segmento ST submetido a intervenção coronariana percutânea com implante de stent"; "sinusopatia maxilar aguda pós-tratamento odontológico"; "abscesso cutâneo em pé direito submetido a drenagem cirúrgica"; "transtorno ansioso com crises de pânico e distúrbio do sono").
   * NUNCA inicie doenca_motivo com sujeito ou verbo ("periciando submetido a...", "servidora apresenta...", "paciente relata..."), pois o sistema já antepõe "com queixa de ".
   * Se for perícia de acompanhante (Artigo 199), registre: "Perícia médica para acompanhamento de dependente enfermo com fundamento no Artigo 199 da Lei Estadual nº 10.261/1968".
   * NUNCA DEIXE doenca_motivo VAZIO.
@@ -1938,8 +1961,8 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO POR SEÇÃO:
   * PROIBIDO usar frases genéricas vazias se o texto bruto trouxer fatos clínicos específicos. NÃO repita literalmente os mesmos termos secos de doenca_motivo e NÃO cole frases formais de conclusão do rol.
   * Em perícias de acompanhante (Artigo 199 / CID Z76.3), relate os cuidados prestados ao dependente e o quadro clínico do familiar dependente.
   * NUNCA DEIXE ESTE CAMPO VAZIO.
-- medications: Lista de medicamentos em uso. Corrija sempre a grafia comercial/farmacológica ("Utrogestan", "Doxiciclina", "Clonazepam", "Amoxicilina", "Duloxetina", "Carbonato de Lítio", "Bupropiona", "Tramadol", "Dipirona", "Ciclobenzaprina", "Escitalopram", "Sertralina", "Losartana", "Ácido Acetilsalicílico", "Clopidogrel"). Se informado nome informal ou sem dose (ex.: "dipirona"), padronize tecnicamente: medicamento "Dipirona", dosagem "1 g", frequencia "se dor até 6/6h", observacao "analgesia".
-- alteracao_med: "Não" (ou "Sim" se relatada troca recente).
+- medications: Lista exclusiva de fármacos REAIS nominalmente citados no relato. NUNCA invente ou adicione categorias genéricas ("Antibióticos", "Analgésicos", "Anti-inflamatórios", "Medicação") nem preencha dosagem/frequência com "Não especificada" ou "Não informada" (use string vazia "" quando omitido no texto). Corrija sempre a grafia comercial/farmacológica ("Utrogestan", "Doxiciclina", "Clonazepam", "Amoxicilina", "Duloxetina", "Carbonato de Lítio", "Bupropiona", "Tramadol", "Dipirona", "Ciclobenzaprina", "Escitalopram", "Sertralina", "Losartana", "Ácido Acetilsalicílico", "Clopidogrel").
+- alteracao_med: "Não" (ou "Sim" se relatada troca recente, ajuste de receita, substituição de antibióticos ou alteração de dosagem).
 - psicoterapia: false ou true (Analise cuidadosamente se o servidor FAZ ou NÃO FAZ psicoterapia. Se negar ou não houver afirmação clara de acompanhamento psicológico, marque false).
 - fisioterapia: false ou true (Analise cuidadosamente se o servidor FAZ ou NÃO FAZ fisioterapia. Se realizar fisioterapia, marque true; se negar ou não realizar, marque false).
 - obs_terapias: Frase formal, direta e sem parênteses descrevendo as terapias com frequência por extenso, sem siglas como "(3x)" e sem sujeito redundante (ex.: "Realiza psicoterapia três vezes por semana e não realiza fisioterapia.", "Realiza fisioterapia motora duas vezes por semana e não realiza psicoterapia." ou "Não alegou fazer fisioterapia e psicoterapia.").
@@ -1961,10 +1984,11 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO POR SEÇÃO:
 - obs_documentos: Síntese formal do documento sem uso desnecessário de parênteses (ex.: "Atestado médico emitido em 15/01/2026 pelo Dr. Marcos Vinicius, CRM 142890, indicando 21 dias de afastamento sob CID M54.4.").
 
 4. EXAME FÍSICO / MENTAL, EXAMES COMPLEMENTARES E SINAIS VITAIS:
-- exame_fisico_tipo: Categoria correspondente ("Exame Mental" para patologias mentais/CID F; "Aparelho Osteomuscular e Tecido Conjutivo" para osteo/articular/CID M, S, T; "Outros" para clínica médica, procedimentos cirúrgicos, dermatologia, mamas, feridas, gestação, etc.).
+- exame_fisico_tipo: Categoria correspondente ("Exame Mental" para patologias mentais/CID F; "Aparelho Osteomuscular e Tecido Conjutivo" exclusivamente para patologias osteoarticulares/CID M, S, T ou G5; "Outros" para clínica médica, otorrino/respiratório CID J, dermatologia/abscessos cutâneos CID L00-L99, procedimentos cirúrgicos, mamas, feridas, gestação, etc.).
 - outros_subtipo: Quando exame_fisico_tipo for "Outros", selecione dentre: "Exame Físico Geral", "Tecido celular subcutâneo", "Pele e Fâneros", "Aparelho Circulatório", "Aparelho Respiratório", "Aparelho Hemolinfopoético", "Aparelho Digestivo", "Aparelho Geniturinário", "Aparelho Endócrino", "Sistema Nervoso", "Órgãos dos Sentidos" ou "E outros". Se exame não for Outros, use "".
 - outros_resultado: Respeite estritamente a decisão do médico perito ("Alterado" se o médico definiu Exame Alterado — INCLUSIVE quando o parecer for CONTRÁRIO com Exame Alterado!; "Normal" se o médico definiu Exame Normal ou Documental).
-- exame_mental_resultado: Se exame mental, respeite estritamente a decisão do médico perito ("Alterado" ou "Normal"); senão vazio.
+- exame_mental_resultado: Preencha ("Alterado" ou "Normal") SOMENTE se `exame_fisico_tipo` for `"Exame Mental"`; caso contrário, deixe obrigatoriamente `""`.
+- alteracoes_clinicas_exames: Relate todos os exames complementares mencionados no texto bruto (ex.: Ressonância Magnética, Tomografia, Ultrassonografia, Radiografia, Hemograma) com seus achados. Só use "Não foram apresentados exames complementares (imagem ou laboratoriais) no ato pericial." quando NÃO houver exame citado.
 - exame_fisico_descricao: Redija uma propedêutica médica SÊNIOR, rica, técnica e detalhada, estritamente alinhada ao modelo de decisão do médico:
   * Se Exame ALTERADO com Parecer FAVORÁVEL: Descreva em detalhes os sinais semiológicos objetivos de comprometimento funcional (ex.: limitação antálgica de amplitude de movimento, contratura paravertebral, testes irritativos positivos, deiscência/edema operatório, ou alterações de humor/afeto/volição e lentificação psicomotora no exame mental), integrando com destaque as observações do médico perito.
   * Se Exame ALTERADO com Parecer CONTRÁRIO: Descreva fielmente as alterações clínicas/físicas ou psíquicas constatadas pelo médico no exame pericial (ex.: dor discreta à palpação, contratura muscular leve residual, restrição leve em extremo de arco de movimento, cicatriz operatória ou ansiedade leve reativa), MAS demonstre tecnicamente na propedêutica os parâmetros objetivos de estabilidade funcional preservada (ex.: marcha independente sem claudicação, força motora grau V preservada, ausência de déficit neurológico focal ou radiculopatia ativa, ou funções cognitivas, juízo crítico, orientação e pragmatismo preservados).
@@ -2413,6 +2437,49 @@ def _is_fatal_auth_error(exc: Exception) -> bool:
     s = str(exc).lower()
     return any(tok in s for tok in ("api key not valid", "api_key_invalid", "invalid api key", "api key expired"))
 
+def _generate_structured_openai(instruction: str, sys_instruction: str, schema, *, temperature: float = 0.2, timeout_s: float = 30.0):
+    import urllib.request
+    api_key = (OPENAI_API_KEY or os.getenv("OPENAI_API_KEY", "")).strip()
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY não configurada.")
+    model_name = (OPENAI_MODEL or os.getenv("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
+    base_url = (OPENAI_BASE_URL or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")).strip().rstrip("/")
+    schema_json = json.dumps(schema.model_json_schema(), ensure_ascii=False)
+    sys_msg = (
+        f"{sys_instruction}\n\n"
+        f"RETORNE EXCLUSIVAMENTE UM OBJETO JSON VÁLIDO seguindo exatamente este JSON Schema:\n{schema_json}"
+    )
+    body = json.dumps({
+        "model": model_name,
+        "temperature": temperature,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": sys_msg},
+            {"role": "user", "content": instruction},
+        ],
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        f"{base_url}/chat/completions",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+        raw_resp = json.loads(resp.read().decode("utf-8"))
+    content = (
+        ((raw_resp.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+    ).strip()
+    if not content:
+        raise ValueError("OpenAI retornou resposta vazia.")
+    if content.startswith("```"):
+        content = re.sub(r"^```(?:json)?\s*", "", content, flags=re.IGNORECASE)
+        content = re.sub(r"\s*```$", "", content).strip()
+    return schema.model_validate_json(content)
+
+
 def _generate_structured(instruction: str, schema, *, endpoint_override: str | None = None, atendimento_id_override: str | None = None):
     endpoint = endpoint_override or getattr(request, "path", "/unknown")
     allowed, retry_after = _rate_limit(endpoint)
@@ -2474,8 +2541,24 @@ def _generate_structured(instruction: str, schema, *, endpoint_override: str | N
                         type(last_exc).__name__,
                     )
                     continue
-                raise last_exc
+                break
         if last_exc is not None:
+            if (OPENAI_API_KEY or os.getenv("OPENAI_API_KEY", "")).strip():
+                oai_started = time.perf_counter()
+                oai_model = (OPENAI_MODEL or os.getenv("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
+                try:
+                    app.logger.warning("Todos os modelos Gemini falharam em %s; acionando fallback OpenAI (%s).", endpoint, oai_model)
+                    oai_res = _generate_structured_openai(
+                        instruction,
+                        sys_instruction,
+                        schema,
+                        temperature=0.0 if endpoint.endswith("/esisla") else 0.2,
+                    )
+                    _log_ai(endpoint, f"openai:{oai_model}", (time.perf_counter() - oai_started) * 1000, "SUCESSO", None, atendimento_id)
+                    return oai_res
+                except Exception as oai_exc:
+                    _log_ai(endpoint, f"openai:{oai_model}", (time.perf_counter() - oai_started) * 1000, "ERRO", type(oai_exc).__name__, atendimento_id)
+                    app.logger.warning("Fallback OpenAI falhou em %s (%s): %s", endpoint, type(oai_exc).__name__, oai_exc)
             raise last_exc
         raise RuntimeError("Nenhum modelo Gemini configurado.")
     except Exception:
@@ -2831,12 +2914,42 @@ def _limpar_doenca_motivo_bruto(raw_val: str, cid: str = "", cid_desc: str = "",
             txt_sem_cid = re.sub(r"\s*\(\s*CID\s*[A-Z0-9\.]+\s*\)", "", txt, flags=re.I).strip()
             txt_sem_cid = re.sub(r"^[A-Z]\d{2}(?:\.\d+)?\s*[—–\-:]+\s*", "", txt_sem_cid, flags=re.I).strip()
             if txt_sem_cid and not _is_generic_icd_disease_label(txt_sem_cid, cid_desc, cid=cid):
+                # Enxugar diagnósticos prolixos com datas, fármacos ou caudas de histórico clínico
+                if len(txt_sem_cid) > 90 or re.search(
+                    r"\b(?:com\s+in[íi]cio|caracterizad[oa]\s+por|necessitando\s+de\s+acompanhamento|n[ãa]o\s+respondendo\s+ao\s+tratamento|prescri[çc][ãa]o\s+de\s+novos)\b",
+                    txt_sem_cid,
+                    re.I,
+                ):
+                    m_proc_keep = re.search(
+                        r"\b((?:submetid[oa]\s+a|com)\s+(?:drenagem\s+cir[úu]rgica|osteoss[íi]ntese|artroscopia|interven[çc][ãa]o\s+coronariana[^\.,;]*|implante\s+de\s+stent|cirurgia[^\.,;]*)|(?:p[óo]s|ap[óo]s)[-\s]+(?:tratamento\s+odontol[óo]gico|tratamento\s+endod[ôo]ntico|procedimento\s+odontol[óo]gico|blefaroplastia|cesariana|cirurgia[^\.,;]*))\b",
+                        txt_sem_cid,
+                        re.I,
+                    )
+                    base_conciso = re.split(
+                        r",?\s*(?:caracterizad[oa]\s+por|com\s+in[íi]cio(?:\s+dos\s+sintomas)?\s+(?:em|há|ha)|n[ãa]o\s+respondendo\s+ao|necessitando\s+de\s+acompanhamento)\b",
+                        txt_sem_cid,
+                        maxsplit=1,
+                        flags=re.I,
+                    )[0].strip(" ,;:-.")
+                    if len(base_conciso) > 85:
+                        m_dren = re.search(r"\bdrenagem\s+cir[úu]rgica\b", txt_sem_cid, re.I)
+                        base_conciso = re.sub(r",\s*pr[óo]ximo\s+ao\s+[^,]+", "", base_conciso, flags=re.I).strip(" ,;:-.")
+                        if m_dren and "drenagem" not in base_conciso.lower():
+                            base_conciso = f"{base_conciso} submetido a drenagem cirúrgica"
+                    elif m_proc_keep and m_proc_keep.group(1).lower() not in base_conciso.lower():
+                        frag_proc = m_proc_keep.group(1).strip(" ,;:-.")
+                        if frag_proc.lower().startswith("drenagem"):
+                            frag_proc = f"submetido a {frag_proc}"
+                        base_conciso = f"{base_conciso} {frag_proc}".strip()
+                    if len(base_conciso) >= 8:
+                        txt_sem_cid = base_conciso
+
                 # Se a resposta da IA ainda trouxe apenas o título seco sem mencionar procedimento presente no extra_texto, enriquece
                 if (
                     extra_texto
                     and len(extra_texto) > len(txt_sem_cid) + 15
                     and re.search(r"\bsubmetid[oa]\s+a\b", extra_texto, re.I)
-                    and not re.search(r"\b(?:submetid[oa]|angioplastia|stent|cateterismo|cirurgi|osteoss[íi]ntese|artroscopia|p[óo]s-operat[óo]rio)\b", txt_sem_cid, re.I)
+                    and not re.search(r"\b(?:submetid[oa]|angioplastia|stent|cateterismo|cirurgi|osteoss[íi]ntese|artroscopia|drenagem|p[óo]s-operat[óo]rio)\b", txt_sem_cid, re.I)
                 ):
                     return extra_texto
                 return txt_sem_cid
@@ -2886,8 +2999,8 @@ def _ajustar_historico_pregresso_por_contexto(
         or bool(re.search(r"\b(?:neoplasia|c[âa]ncer|carcinoma|tumor\s+maligno|oncol[óo]gic|quimioterap|radioterap|linfoma|leucemia|melanoma|sarcoma|endoc[ée]rvice)\b", ctx_chk))
     )
     has_cir = (
-        any(c.startswith(("Z98", "T81")) for c in all_cids if c)
-        or bool(re.search(r"\b(?:p[óo]s-operat[óo]ri|cirurg(?:ia|ias)|mastectomia|histerectomia|cesariana|ces[áa]rea|artroplastia|colecistectomia|apendicectomia|herniorrafia|vasectomia|blefaroplastia|tenorrafia|osteoss[íi]ntese)\b", ctx_chk))
+        any(c.startswith(("Z98", "T81", "K91")) for c in all_cids if c)
+        or bool(re.search(r"\b(?:p[óo]s-operat[óo]ri|cirurg(?:ia|ias)|cir[úu]rgic[oa]s?|videolaparoscop|laparotom|ferida\s+operat[óo]ria|les[ãa]o\s+cir[úu]rgic|les[õo]es\s+cir[úu]rgic|sutura|suturas|drenagem\s+cir[úu]rgic|mastectomia|histerectomia|cesariana|ces[áa]rea|artroplastia|colecistectomia|apendicectomia|herniorrafia|vasectomia|blefaroplastia|tenorrafia|osteoss[íi]ntese)\b", ctx_chk))
     )
 
     if has_onco:
@@ -2910,6 +3023,227 @@ def _ajustar_historico_pregresso_por_contexto(
     if ant and not ant.endswith("."):
         ant += "."
     return ant
+
+
+_OUTROS_SUBTIPOS_OFICIAIS = [
+    "Exame Físico Geral",
+    "Tecido celular subcutâneo",
+    "Pele e Fâneros",
+    "Aparelho Circulatório",
+    "Aparelho Respiratório",
+    "Aparelho Hemolinfopoético",
+    "Aparelho Digestivo",
+    "Aparelho Geniturinário",
+    "Aparelho Endócrino",
+    "Sistema Nervoso",
+    "Órgãos dos Sentidos",
+    "E outros",
+]
+
+
+def _normalizar_outros_subtipo_oficial(raw_sub: str) -> str:
+    s = str(raw_sub or "").strip()
+    if not s or s.lower() in ("none", "null", "outros", "-"):
+        return ""
+    import unicodedata
+    def _norm(x: str) -> str:
+        n = unicodedata.normalize("NFD", x.lower())
+        return re.sub(r"[^a-z0-9]", "", "".join(ch for ch in n if unicodedata.category(ch) != "Mn"))
+    target = _norm(s)
+    if not target:
+        return ""
+    for oficial in _OUTROS_SUBTIPOS_OFICIAIS:
+        if _norm(oficial) == target:
+            return oficial
+    if "subcutan" in target:
+        return "Tecido celular subcutâneo"
+    if "pele" in target or "faner" in target or "dermat" in target:
+        return "Pele e Fâneros"
+    if "circulat" in target or "cardio" in target or "vascul" in target:
+        return "Aparelho Circulatório"
+    if "respirat" in target or "pulmon" in target or "otorrino" in target:
+        return "Aparelho Respiratório"
+    if "hemolinfo" in target or "hemato" in target:
+        return "Aparelho Hemolinfopoético"
+    if "digest" in target or "gastro" in target or "abdom" in target:
+        return "Aparelho Digestivo"
+    if "genitur" in target or "genitour" in target or "gineco" in target or "obstetr" in target or "urol" in target:
+        return "Aparelho Geniturinário"
+    if "endocrin" in target or "metabol" in target:
+        return "Aparelho Endócrino"
+    if "nervos" in target or "neurol" in target:
+        return "Sistema Nervoso"
+    if "sentido" in target or "oftalmo" in target or "auditiv" in target:
+        return "Órgãos dos Sentidos"
+    if "geral" in target:
+        return "Exame Físico Geral"
+    return s
+
+
+def _is_placeholder_cadastral(campo: str, valor: str) -> bool:
+    """Detecta valores fictícios/placeholder fabricados por LLMs para campos cadastrais ou de documento."""
+    s = str(valor or "").strip()
+    if not s:
+        return True
+    low = s.lower()
+    if low in ("não informado", "nao informado", "não informada", "nao informada", "não especificado", "nao especificado", "não especificada", "nao especificada", "n/a", "na", "none", "null", "-", "--", "sem informação", "sem informacao", "desconhecido", "desconhecida"):
+        return True
+    if campo == "cpf":
+        digs = re.sub(r"\D", "", s)
+        return len(digs) != 11 or len(set(digs)) == 1
+    if campo == "crm":
+        digs = re.sub(r"\D", "", s)
+        return len(digs) < 3 or len(set(digs)) == 1
+    if campo == "nome_paciente":
+        return bool(re.match(
+            r"^(?:servidor[a]?|periciad[oa]|periciand[oa]|paciente|fulan[oa]|beltran[oa]|nome\s+do\s+paciente|"
+            r"servidor[a]?\s+de\s+oliveira|servidor[a]?\s+da\s+silva|paciente\s+exemplo|sem\s+nome)$",
+            low,
+        ))
+    if campo == "nome_medico":
+        return bool(re.match(
+            r"^(?:m[ée]dico\s+assistente|dr\.?\s*m[ée]dico|dr\.?\s*fulan[oa]|dr\.?\s*n[ãa]o\s+informado|assistente|m[ée]dico)$",
+            low,
+        ))
+    return False
+
+
+def _classificar_exame_fisico_por_cid(
+    cid: str,
+    cids_sec: list[str] | None,
+    texto_bruto: str,
+    doenca_motivo: str,
+    ef_tipo_atual: str = "",
+    outros_subtipo_atual: str = "",
+) -> tuple[str, str]:
+    """Classifica com precisão determinística (exame_fisico_tipo, outros_subtipo) conforme CID-10 e contexto."""
+    cid_up = str(cid or "").upper().strip()
+    sec_ups = [str(c or "").upper().strip() for c in (cids_sec or []) if str(c or "").strip()]
+    ctx = f"{doenca_motivo or ''} {texto_bruto or ''}".lower()
+    ef_cur = str(ef_tipo_atual or "").strip()
+    ef_low = ef_cur.lower()
+    sub_cur = _normalizar_outros_subtipo_oficial(outros_subtipo_atual)
+
+    has_osteo_cid = cid_up.startswith(("M", "S", "T", "G5")) or any(c.startswith(("M", "S", "T", "G5")) for c in sec_ups)
+    has_mental_cid = cid_up.startswith("F") or any(c.startswith("F") for c in sec_ups)
+
+    # 1. Psiquiátrico (CID F)
+    if cid_up.startswith("F"):
+        return "Exame Mental", ""
+
+    # 2. Osteomuscular explícito por CID primário (M, S, T exceto T81 abdominal/pele, G5)
+    if cid_up.startswith(("M", "S", "G5")) or (
+        cid_up.startswith("T") and not re.search(r"\b(?:colecistectomia|abdom|h[ée]rnia\s+inguinal|h[ée]rnia\s+umbilical|apendicectomia|ces[áa]rea|histerectomia)\b", ctx)
+    ):
+        return "Aparelho Osteomuscular e Tecido Conjutivo", ""
+
+    # 3. CIDs não-osteomusculares explícitos — corrigir mesmo se a IA marcou "Aparelho Osteomuscular" por engano
+    mapa_capitulo_outros = {
+        "K": "Aparelho Digestivo",
+        "J": "Aparelho Respiratório",
+        "I": "Aparelho Circulatório",
+        "L": "Pele e Fâneros",
+        "N": "Aparelho Geniturinário",
+        "O": "Aparelho Geniturinário",
+        "E": "Aparelho Endócrino",
+        "H": "Órgãos dos Sentidos",
+    }
+    if cid_up[:1] in mapa_capitulo_outros:
+        sub_default = mapa_capitulo_outros[cid_up[:1]]
+        if cid_up[:1] == "L" or not sub_cur or "osteomuscular" in sub_cur.lower() or sub_cur == "Exame Físico Geral":
+            sub_final = sub_default
+        else:
+            sub_final = sub_cur
+        # Se a IA errou marcando Osteomuscular sem haver CID M/S/T, ou deixou vazio, forçar Outros
+        if not ef_cur or ("osteomuscular" in ef_low and not has_osteo_cid) or ("mental" in ef_low and not has_mental_cid):
+            return "Outros", sub_final
+        if ef_low == "outros":
+            return "Outros", sub_final
+        return ef_cur, sub_final
+
+    if cid_up.startswith(("D5", "D6", "D7", "D8")):
+        if not ef_cur or ("osteomuscular" in ef_low and not has_osteo_cid):
+            return "Outros", sub_cur or "Aparelho Hemolinfopoético"
+    if cid_up.startswith("G") and not cid_up.startswith("G5"):
+        if not ef_cur or ("osteomuscular" in ef_low and not has_osteo_cid):
+            return "Outros", sub_cur or "Sistema Nervoso"
+
+    # 4. Pós-operatórios (Z98, T81)
+    if cid_up.startswith(("Z98", "T81")):
+        if re.search(r"\b(?:colecistectomia|apendicectomia|herniorrafia|videolaparoscop|laparotom|abd[ôo]men|abdominal|ves[íi]cula|g[áa]stric|bari[áa]tric|intestin)\b", ctx):
+            return "Outros", sub_cur if sub_cur in ("Aparelho Digestivo", "Pele e Fâneros", "Tecido celular subcutâneo") else "Aparelho Digestivo"
+        if re.search(r"\b(?:histerectomia|ces[áa]rea|cesariana|laqueadura|miomectomia|pr[óo]stata|renal|nefrectomia|vesical|ginecol[óo]g)\b", ctx):
+            return "Outros", sub_cur or "Aparelho Geniturinário"
+        if re.search(r"\b(?:artroplastia|artroscopia|osteoss[íi]ntese|tenorrafia|menisco|ligamento|fratura|coluna|lombar|joelho|ombro|punho|tornozelo|quadril)\b", ctx):
+            return "Aparelho Osteomuscular e Tecido Conjutivo", ""
+        if not ef_cur or ("osteomuscular" in ef_low and not has_osteo_cid):
+            return "Outros", sub_cur or "Exame Físico Geral"
+
+    # 5. Fallback quando exame_fisico_tipo ainda estiver vazio
+    if not ef_cur:
+        if re.search(
+            r"\b(?:ansiedade|depress[ãa]o|depressiv|psiqui[áa]tric|psiquiatra|psicoterapia|exame\s+mental|humor|afeto|ins[ôo]nia|p[âa]nico|burnout|bipolar|exaust[ao]|angustiad[oa]|concentra[çc][ãa]o|mem[óo]ria\s+recente|paroxetina|clomipramina)\b",
+            ctx,
+        ):
+            return "Exame Mental", ""
+        if has_osteo_cid or re.search(
+            r"\b(?:lombar|lombalgia|coluna|ombro|joelho|las[èe]gue|força\s+muscular|marcha|osteo|cervical|punho|tornozelo|fratura|tendinite|bursite|h[ée]rnia\s+de\s+disco|ci[áa]tica|contratura|paravertebral)\b",
+            ctx,
+        ):
+            return "Aparelho Osteomuscular e Tecido Conjutivo", ""
+        return "Outros", sub_cur or "Exame Físico Geral"
+
+    if ef_low == "outros":
+        return "Outros", sub_cur or "Exame Físico Geral"
+    return ef_cur, ""
+
+
+def _separar_achados_exame_de_sintomas(sintomas: str, exame_desc: str) -> tuple[str, str]:
+    """Remove frases puramente de exame físico objetivo que vazaram para `sintomas_limitacao`,
+    garantindo que os achados objetivos permaneçam apenas em `exame_fisico_descricao`."""
+    sint = str(sintomas or "").strip()
+    ex = str(exame_desc or "").strip()
+    if not sint:
+        return sint, ex
+
+    frases = [f.strip() for f in re.split(r"(?<=[.!?])\s+", sint) if f.strip()]
+    if len(frases) <= 1:
+        return sint, ex
+
+    pat_exame_obj = re.compile(
+        r"^(?:durante\s+o\s+exame\s+f[íi]sico|ao\s+exame\s+(?:f[íi]sico|cl[íi]nico|pericial|objetivo)|"
+        r"no\s+exame\s+(?:f[íi]sico|pericial)|inspe[çc][ãa]o\s+(?:abdominal|f[íi]sica|local)|"
+        r"o\s+quadro\s+atual\s+[ée]\s+caracterizado\s+por\s+(?:tr[êe]s|\d+)\s+les[õo]es\s+cir[úu]rgicas\s+vis[íi]veis|"
+        r"observam?-se\s+(?:tr[êe]s|\d+)\s+les[õo]es\s+cir[úu]rgicas|"
+        r"sinais\s+vitais|pa\s*[:=]?\s*\d{2,3}\s*[/x]\s*\d{2,3})\b",
+        re.IGNORECASE,
+    )
+    sint_limpas = []
+    movidas = []
+    for fr in frases:
+        is_obj_sentence = bool(pat_exame_obj.search(fr)) or bool(
+            re.search(r"\b(?:suturas?|pontos?\s+de\s+sutura|fio\s+de\s+sutura|les[õo]es\s+cir[úu]rgicas\s+vis[íi]veis|aus[êe]ncia\s+de\s+sinais\s+flog[íi]sticos|las[èe]gue\s+(?:positivo|negativo)|brnf|mv\s+presente)\b", fr, re.I)
+            and not re.search(r"\b(?:relata|refere|queixa-se|informa|apresenta\s+dor|dificuldade\s+para)\b", fr, re.I)
+        )
+        if is_obj_sentence:
+            movidas.append(fr)
+        else:
+            sint_limpas.append(fr)
+
+    if sint_limpas and movidas:
+        sint = " ".join(sint_limpas).strip()
+        ex_low = ex.lower()
+        for mv in movidas:
+            # Só acrescenta ao exame se a informação objetiva ainda não estiver lá
+            palavras_chave = [w for w in re.findall(r"[a-zà-ú]{5,}", mv.lower()) if w not in ("quadro", "atual", "caracterizado", "sendo", "região", "regiao")]
+            overlap = sum(1 for w in palavras_chave if w in ex_low)
+            if not ex:
+                ex = mv
+                ex_low = ex.lower()
+            elif palavras_chave and (overlap / len(palavras_chave)) < 0.45:
+                ex = f"{ex.rstrip('. ')}. {mv}".strip()
+                ex_low = ex.lower()
+    return sint, ex
 
 
 def _gerar_sintomas_fallback(
@@ -2961,18 +3295,20 @@ def _gerar_sintomas_fallback(
         return f"{suj_cap} refere que iniciou quadro de dor torácica aguda, sendo {diag_gen} com infarto agudo do miocárdio{interv_str}.{evol_str}"
 
     # 2. Quadros psiquiátricos com sintomas extraídos do texto bruto e contexto de readaptação
-    if cid_up.startswith("F") or "mental" in str(ef_tipo or "").lower():
+    if cid_up.startswith("F") or "mental" in str(ef_tipo or "").lower() or (txt and re.search(r"\b(?:psiquiatr|exausta|angustiad|concentra[çc][ãa]o|mem[óo]ria\s+recente|paroxetina|clomipramina)\b", txt, re.I)):
         sint_psico = []
         psico_map = [
             (r"\bansiedade\b|\bansios[oa]\b", "ansiedade"),
+            (r"\bang[úu]stia\b|\bangustiad[oa]\b", "angústia"),
+            (r"\bexaust[ãa]o\b|\bexaust[ao]\b|\bfadiga\b|\bcansa[çc]o\b|\besgotamento\b", "exaustão física e mental"),
             (r"\bp[âa]nico\b", "crises de pânico"),
+            (r"\bmedo\b|\bevitando\b|\bevitação\b", "medo e evitação do ambiente escolar e do convívio com colegas"),
             (r"\bchoro\s+f[áa]cil\b|\bchoro\b", "labilidade afetiva com choro fácil"),
             (r"\bins[ôo]nia\b|\bsono\b", "alteração do padrão de sono"),
             (r"\banedonia\b|\bdes[âa]nimo\b|\bapatia\b", "desânimo e anedonia"),
-            (r"\bfadiga\b|\bcansa[çc]o\b|\besgotamento\b", "fadiga mental"),
-            (r"\bconcentra[çc][ãa]o\b|\baten[çc][ãa]o\b|\bmem[óo]ria\b", "dificuldade de concentração"),
+            (r"\bconcentra[çc][ãa]o\b|\baten[çc][ãa]o\b|\bmem[óo]ria\b|\breter\b", "prejuízo da concentração e da memória recente"),
             (r"\btristeza\b|\bhumor\s+deprimido\b", "humor deprimido"),
-            (r"\birritabilidade\b", "irritabilidade"),
+            (r"\birritabilidade\b|\birritad[oa]\b", "irritabilidade"),
         ]
         for rgx, lbl in psico_map:
             if txt and re.search(rgx, txt, re.I) and lbl not in sint_psico:
@@ -3465,8 +3801,11 @@ def _desacoplar_e_rotear_fatos_clinicos(payload: dict[str, Any]) -> dict[str, An
         )
     )
     meds_extraidos = []
-    m_sint, sintomas = _extrair_medicamentos_de_texto(sintomas)
-    meds_extraidos.extend(m_sint)
+    if meds_raw:
+        sintomas = _remover_medicamentos_duplicados_em_sintomas(sintomas, meds_raw)
+    else:
+        m_sint, sintomas = _extrair_medicamentos_de_texto(sintomas)
+        meds_extraidos.extend(m_sint)
     m_ef, ef_raw = _extrair_medicamentos_de_texto(ef_raw)
     meds_extraidos.extend(m_ef)
     if is_queixa_estruturada:
@@ -3494,24 +3833,32 @@ def _desacoplar_e_rotear_fatos_clinicos(payload: dict[str, Any]) -> dict[str, An
         if cap_m and not any(cap_m.lower() in str(x).lower() for x in todos_meds):
             todos_meds.append(cap_m[0].upper() + cap_m[1:])
             
-    # 2. Extração de Exames de Imagem / Laudos digitados fora do campo
+    # 2. Extração de Exames de Imagem / Laudos digitados fora do campo (preservando prosa quando já constam em alt_exames ou sem mutilar frases)
     exames_extraidos = []
-    ex_sint, sintomas = _extrair_exames_imagem_de_texto(sintomas)
+    ex_sint, _ = _extrair_exames_imagem_de_texto(sintomas)
     exames_extraidos.extend(ex_sint)
     ex_ef, ef_raw = _extrair_exames_imagem_de_texto(ef_raw)
     exames_extraidos.extend(ex_ef)
     ex_ant, ant_raw = _extrair_exames_imagem_de_texto(ant_raw)
     exames_extraidos.extend(ex_ant)
-    if is_queixa_estruturada:
-        ex_q, _ = _extrair_exames_imagem_de_texto(queixa)
-    else:
-        ex_q, queixa = _extrair_exames_imagem_de_texto(queixa)
+    ex_q, _ = _extrair_exames_imagem_de_texto(queixa)
     exames_extraidos.extend(ex_q)
     
     if exames_extraidos:
-        novos_exames_str = "; ".join(exames_extraidos)
-        if alt_exames and not any(novos_exames_str.lower() in alt_exames.lower() for _ in [1]):
-            alt_exames = f"{alt_exames}; {novos_exames_str}".strip(" ;")
+        ex_unicos = []
+        seen_ex = set()
+        for ex_item in exames_extraidos:
+            ex_c = re.sub(r"\s+", " ", str(ex_item or "")).strip(" .,;")
+            ex_key = ex_c.lower()
+            if ex_c and ex_key not in seen_ex and not any(ex_key in k or k in ex_key for k in seen_ex):
+                seen_ex.add(ex_key)
+                ex_unicos.append(ex_c)
+        novos_exames_str = "; ".join(ex_unicos)
+        is_alt_placeholder = bool(re.match(r"^(?:n[ãa]o\s+foram\s+apresentados|aus[êe]ncia\s+de\s+exames|sem\s+exames|em\s+anexo|nada\s+consta)\b", alt_exames.strip(), re.I))
+        if alt_exames and not is_alt_placeholder:
+            faltantes = [ex for ex in ex_unicos if ex.lower() not in alt_exames.lower()]
+            if faltantes:
+                alt_exames = f"{alt_exames.rstrip(' .;.')}; {'; '.join(faltantes)}".strip(" ;")
         else:
             alt_exames = novos_exames_str
 
@@ -4638,6 +4985,20 @@ def _formatar_lista_medicamentos(meds_input: Any) -> str:
     elif isinstance(meds_input, dict):
         items_to_process = [meds_input]
 
+    _GENERIC_MED_CLASSES = {
+        "antibiotico", "antibioticos", "antibiótico", "antibióticos",
+        "analgesico", "analgesicos", "analgésico", "analgésicos",
+        "anti-inflamatorio", "anti-inflamatorios", "anti-inflamatório", "anti-inflamatórios",
+        "antiinflamatorio", "antiinflamatorios", "antiinflamatório", "antiinflamatórios",
+        "medicacao", "medicacoes", "medicação", "medicações",
+        "medicamento", "medicamentos", "remedio", "remedios", "remédio", "remédios",
+        "tratamento", "terapia", "prescricao", "prescrição",
+    }
+    _PLACEHOLDER_PAT = re.compile(
+        r"^(?:n[ãa]o\s+especificad[oa]|n[ãa]o\s+informad[oa]|sem\s+informa[çc][ãa]o|n/a|na|desconhecid[oa]|-+)$",
+        re.IGNORECASE,
+    )
+
     formatted_items = []
     for item in items_to_process:
         if isinstance(item, dict):
@@ -4645,6 +5006,13 @@ def _formatar_lista_medicamentos(meds_input: Any) -> str:
             dose = str(item.get("dosagem") or "").strip()
             freq = str(item.get("frequencia") or item.get("frequência") or "").strip()
             obs = str(item.get("observacao") or item.get("observação") or "").strip()
+
+            if _PLACEHOLDER_PAT.match(dose):
+                dose = ""
+            if _PLACEHOLDER_PAT.match(freq):
+                freq = ""
+            if _PLACEHOLDER_PAT.match(obs):
+                obs = ""
 
             if not nome and not dose and not freq and not obs:
                 continue
@@ -4655,6 +5023,8 @@ def _formatar_lista_medicamentos(meds_input: Any) -> str:
 
             nome = nome.rstrip("/ ,;.")
             dose = dose.rstrip("/ ,;.")
+            if not nome or _PLACEHOLDER_PAT.match(nome) or nome.lower() in _GENERIC_MED_CLASSES:
+                continue
             if nome and len(nome) > 1 and nome[0].islower():
                 nome = nome[0].upper() + nome[1:]
 
@@ -4678,7 +5048,7 @@ def _formatar_lista_medicamentos(meds_input: Any) -> str:
 
             if obs:
                 obs_clean = obs.strip().strip("()")
-                if obs_clean.lower() not in part.lower():
+                if obs_clean and obs_clean.lower() not in part.lower():
                     if obs_clean.lower() == "analgesia":
                         if "analgesia" not in part.lower():
                             part += ", para analgesia"
@@ -4692,7 +5062,12 @@ def _formatar_lista_medicamentos(meds_input: Any) -> str:
                 formatted_items.append(part.strip())
         elif isinstance(item, str):
             it_str = item.strip().rstrip(".,; ")
-            if it_str and it_str.lower() not in ("nega", "não faz uso", "nao faz uso", "-"):
+            if (
+                it_str
+                and not _PLACEHOLDER_PAT.match(it_str)
+                and it_str.lower() not in _GENERIC_MED_CLASSES
+                and it_str.lower() not in ("nega", "não faz uso", "nao faz uso", "-")
+            ):
                 formatted_items.append(it_str)
 
     if not formatted_items:
@@ -5141,9 +5516,14 @@ def _clean_queixa_duracao_text(text: str) -> str:
 
     t = re.sub(r"([Ee]m uso de\s+)([^.]+?)\.", _condensar_meds_sem_dosagem, t)
 
-    # Duplicação "não informado sua dosagem Não informada"
-    t = re.sub(r"\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+informad[oa]\.?", "não informada sua dosagem.", t, flags=re.IGNORECASE)
-    t = re.sub(r"\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+informad[oa]\b", "não informada sua dosagem", t, flags=re.IGNORECASE)
+    # Duplicação "não informado sua dosagem Não informada" e placeholders como "Não especificada"
+    t = re.sub(r"\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+(?:informad[oa]|especificad[oa])\.?", "não informada sua dosagem.", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+(?:informad[oa]|especificad[oa])\b", "não informada sua dosagem", t, flags=re.IGNORECASE)
+    t = re.sub(r",?\s*\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+(lavagem\s+nasal(?:\s+com\s+soro\s+fisiol[óo]gico)?)\b", r" (\1)", t, flags=re.IGNORECASE)
+    t = re.sub(r"(\b(?:Soro\s+fisiol[óo]gico|solu[çc][ãa]o\s+fisiol[óo]gica)\b[^.,;]*?),?\s*\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\b", r"\1", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s+\bN[ãa]o\s+especificad[oa]\b(?=\s*(?:[,.)(;]|$))", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bajustad[oa]\s+para,\s*lavagem\s+nasal\s+e\s+nasal\.?", "ajustada para lavagem nasal.", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bRecebeu\s+prescri[çc][ãa]o,\s+e\s+", "Recebeu prescrição de ", t, flags=re.IGNORECASE)
 
     # Normaliza "não informado sua dosagem Analgesia" -> "não informado sua dosagem, para analgesia"
     t = re.sub(r"\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+Analgesia\b", "não informado sua dosagem, para analgesia", t, flags=re.IGNORECASE)
@@ -5155,7 +5535,12 @@ def _clean_queixa_duracao_text(text: str) -> str:
 
     # 14. Remoção de contradição de troca/alteração de dosagem quando o servidor relatou aumento/alteração
     tem_relato_alteracao_dose = bool(re.search(
-        r"\b(?:ajuste\s+recente\s+de\s+dose|ajuste\s+de\s+dose|ajustou\s+a\s+dose|ajustada?\s+a\s+dose|"
+        r"\b(?:informa\s+altera[çc][ãa]o\s+recente\s+na\s+prescri[çc][ãa]o\s+medicamentosa|"
+        r"altera[çc][ãa]o\s+(?:recente\s+)?na\s+prescri[çc][ãa]o(?:\s+medicamentosa)?|"
+        r"receita\s+(?:foi\s+)?ajustada|ajuste\s+medicamentoso|"
+        r"substitui[çc][ãa]o\s+d[eo]s?\s+(?:antibi[óo]ticos?|medica[çc][ãa]o|f[áa]rmaco)|"
+        r"novos?\s+antibi[óo]ticos?|troca\s+d[eo]\s+antibi[óo]ticos?|"
+        r"ajuste\s+recente\s+de\s+dose|ajuste\s+de\s+dose|ajustou\s+a\s+dose|ajustada?\s+a\s+dose|"
         r"aumentou\s+a\s+dose|aumento\s+de\s+dose|redução\s+de\s+dose|reduziu\s+a\s+dose|"
         r"trocou\s+a\s+medica[çc][ãa]o|trocou\s+de\s+medica[çc][ãa]o|troca\s+recente\s+de\s+medica[çc][ãa]o|"
         r"recentemente\s+foi\s+aumentada\s+a\s+medica[çc][ãa]o|foi\s+aumentada\s+a\s+medica[çc][ãa]o)\b",
@@ -5656,10 +6041,11 @@ def _clean_antecedentes_morbidos_text(text: str) -> str:
             else:
                 t += "."
         else:
+            ja_ajustada_posop = bool(re.search(r"h[áa]bitos\s+tab[áa]gicos\s+e\s+etilistas\s*$", t, re.IGNORECASE))
             if not tem_cirurgias_mencao and not tem_neoplasias:
-                t += ", cirurgias prévias e neoplasias."
+                t += " e neoplasias." if ja_ajustada_posop else ", cirurgias prévias e neoplasias."
             elif not tem_cirurgias_mencao:
-                t += " e cirurgias prévias."
+                t += "." if ja_ajustada_posop else " e cirurgias prévias."
             elif not tem_neoplasias:
                 t += " e neoplasias."
             else:
@@ -8594,6 +8980,8 @@ _MED_DEFAULT_CATALOG = [
     (r"\bzolpidem\b", "Zolpidem", "10 mg", "à noite", "indução do sono"),
     (r"\brisperidona\b", "Risperidona", "1 mg", "à noite", "tratamento psiquiátrico"),
     (r"\b(?:carbonato\s+de\s+)?l[íi]tio\b", "Carbonato de Lítio", "300 mg", "12/12h", "estabilização do humor"),
+    (r"\bparoxetina\b", "Paroxetina", "20 mg", "24/24h", "tratamento psiquiátrico"),
+    (r"\bclomipramina\b", "Clomipramina", "25 mg", "24/24h", "tratamento psiquiátrico"),
     (r"\bbupropiona\b", "Bupropiona", "150 mg", "24/24h", "tratamento psiquiátrico"),
     (r"\bamitriptilina\b", "Amitriptilina", "25 mg", "à noite", "tratamento clínico"),
     (r"\bpregabalina\b", "Pregabalina", "75 mg", "à noite", "controle de dor neuropática"),
@@ -8795,6 +9183,35 @@ def api_ai_preencher_ficha():
                 + texto_bruto_expandido
             )
 
+            ctx_known_lines = []
+            _known_pairs = [
+                ("Nome do Periciado", esisla_pre.get("nome_paciente") or ctx_atual.get("nomePaciente")),
+                ("CPF", esisla_pre.get("cpf_paciente") or ctx_atual.get("cpfPaciente")),
+                ("RG", esisla_pre.get("rg_paciente") or ctx_atual.get("rg")),
+                ("Data de Nascimento", esisla_pre.get("data_nascimento") or ctx_atual.get("dataNascimento")),
+                ("Idade", esisla_pre.get("idade") or ctx_atual.get("idade")),
+                ("Sexo", esisla_pre.get("sexo") or ctx_atual.get("sexo")),
+                ("Cargo", esisla_pre.get("cargo") or ctx_atual.get("cargo")),
+                ("Tempo no Cargo", esisla_pre.get("tempo_cargo") or ctx_atual.get("tempoCargo")),
+                ("Readaptado", esisla_pre.get("readaptado") or ctx_atual.get("readaptado")),
+                ("CID Principal", esisla_pre.get("cid") or ctx_atual.get("cid")),
+                ("CRM/CRO Assistente", esisla_pre.get("crm_cro") or ctx_atual.get("crmCro")),
+                ("Médico Assistente", esisla_pre.get("nome_medico_assistente") or ctx_atual.get("medicoAssistenteNome")),
+                ("Data do Atestado", esisla_pre.get("data_documento") or ctx_atual.get("dataDocumento")),
+                ("Data de Expedição da Guia", esisla_pre.get("data_expedicao") or ctx_atual.get("dataExpedicao") or ctx_atual.get("dataExpedicaoIso")),
+                ("Dias Solicitados", esisla_pre.get("dias_solicitados") or ctx_atual.get("diasSolicitados")),
+            ]
+            for lbl, val in _known_pairs:
+                v_str = str(val or "").strip()
+                if v_str:
+                    ctx_known_lines.append(f"- {lbl}: {v_str}")
+            if ctx_known_lines:
+                instruction += (
+                    "\n\nDADOS CADASTRAIS E DA GUIA JÁ CONHECIDOS NO SISTEMA (PRESERVE COM FIDELIDADE ABSOLUTA; "
+                    "NUNCA SUBSTITUA POR PLACEHOLDERS COMO 000.000.000-00, 000000 OU NOMES FICTÍCIOS):\n"
+                    + "\n".join(ctx_known_lines)
+                )
+
             if decisao_medico:
                 dec_par_str = str(decisao_medico.get("parecer") or "").strip().upper()
                 dec_ex_str = str(decisao_medico.get("exameFisicoResultado") or "").strip()
@@ -8905,21 +9322,38 @@ def api_ai_preencher_ficha():
                 )
 
             # Mesclagem determinística de dados cadastrais e de guia extraídos do texto bruto / contexto atual
-            if not (result.nome_paciente or "").strip():
-                result.nome_paciente = str(esisla_pre.get("nome_paciente") or ctx_atual.get("nomePaciente") or "").strip()
-            if not (result.cpf_paciente or "").strip():
-                result.cpf_paciente = str(esisla_pre.get("cpf_paciente") or ctx_atual.get("cpfPaciente") or "").strip()
-            if not (result.rg_paciente or "").strip():
+            # Rejeita placeholders fabricados pelo LLM (ex.: "000.000.000-00", "000000", "SERVIDORA DE OLIVEIRA", "Médico Assistente")
+            if esisla_pre.get("nome_paciente"):
+                result.nome_paciente = str(esisla_pre.get("nome_paciente")).strip()
+            elif _is_placeholder_cadastral("nome_paciente", result.nome_paciente):
+                result.nome_paciente = str(ctx_atual.get("nomePaciente") or "").strip()
+
+            if esisla_pre.get("cpf_paciente"):
+                result.cpf_paciente = str(esisla_pre.get("cpf_paciente")).strip()
+            elif _is_placeholder_cadastral("cpf", result.cpf_paciente):
+                result.cpf_paciente = str(ctx_atual.get("cpfPaciente") or "").strip()
+
+            if not (result.rg_paciente or "").strip() or _is_placeholder_cadastral("generic", result.rg_paciente):
                 result.rg_paciente = str(esisla_pre.get("rg_paciente") or ctx_atual.get("rg") or "").strip()
-            if not (result.data_nascimento or "").strip():
-                result.data_nascimento = str(esisla_pre.get("data_nascimento") or ctx_atual.get("dataNascimento") or "").strip()
-            if not (result.idade or "").strip():
+
+            known_nasc = str(esisla_pre.get("data_nascimento") or ctx_atual.get("dataNascimento") or "").strip()
+            if known_nasc:
+                if not (result.data_nascimento or "").strip() or _is_placeholder_cadastral("generic", result.data_nascimento):
+                    result.data_nascimento = known_nasc
+            elif (result.data_nascimento or "").strip():
+                # Não aceitar data de nascimento inventada pela IA (ex.: 01/01/1978) ausente do texto bruto
+                dn_digits = re.sub(r"\D", "", result.data_nascimento)
+                txt_digits = re.sub(r"\D", "", texto_bruto)
+                if len(dn_digits) < 6 or (result.data_nascimento.strip() not in texto_bruto and dn_digits not in txt_digits):
+                    result.data_nascimento = ""
+
+            if not (result.idade or "").strip() or _is_placeholder_cadastral("generic", result.idade):
                 result.idade = str(esisla_pre.get("idade") or ctx_atual.get("idade") or "").strip()
-            if not (result.sexo or "").strip():
+            if not (result.sexo or "").strip() or _is_placeholder_cadastral("generic", result.sexo):
                 result.sexo = str(esisla_pre.get("sexo") or ctx_atual.get("sexo") or "").strip()
-            if not (result.cargo or "").strip():
+            if not (result.cargo or "").strip() or _is_placeholder_cadastral("generic", result.cargo):
                 result.cargo = str(esisla_pre.get("cargo") or ctx_atual.get("cargo") or "").strip()
-            if not (result.tempo_cargo or "").strip():
+            if not (result.tempo_cargo or "").strip() or _is_placeholder_cadastral("generic", result.tempo_cargo):
                 result.tempo_cargo = str(esisla_pre.get("tempo_cargo") or ctx_atual.get("tempoCargo") or "").strip()
             if not (result.tempo_unidade or "").strip():
                 result.tempo_unidade = str(esisla_pre.get("tempo_unidade") or ctx_atual.get("tempoUnidade") or "Anos").strip()
@@ -8936,15 +9370,15 @@ def api_ai_preencher_ficha():
             pre_crm = str(esisla_pre.get("crm_cro") or "").strip()
             if pre_crm:
                 result.crm_cro = pre_crm
-            elif raw_crm and (not (result.crm_cro or "").strip() or not re.search(r"\d{4}", result.crm_cro)):
+            elif raw_crm and (_is_placeholder_cadastral("crm", result.crm_cro) or not re.search(r"\d{4}", result.crm_cro or "")):
                 result.crm_cro = raw_crm
-            elif not (result.crm_cro or "").strip():
+            elif _is_placeholder_cadastral("crm", result.crm_cro):
                 result.crm_cro = str(ctx_atual.get("crmCro") or "").strip()
             else:
                 result.crm_cro = re.sub(r"^(?:CRM|CRO)[:\s\-]*", "", result.crm_cro.strip(), flags=re.I).strip()
 
             # 2. Nome do Médico Assistente
-            if not (result.nome_medico_assistente or "").strip():
+            if _is_placeholder_cadastral("nome_medico", result.nome_medico_assistente):
                 result.nome_medico_assistente = str(esisla_pre.get("nome_medico_assistente") or ctx_atual.get("medicoAssistenteNome") or "").strip()
 
             # 3. Dias solicitados no atestado (prioriza extração determinística de dígitos ou extenso do texto bruto)
@@ -8971,17 +9405,28 @@ def api_ai_preencher_ficha():
             elif not (result.data_documento or "").strip():
                 result.data_documento = str(ctx_atual.get("dataDocumento") or "").strip()
 
-            # 5. Data de Expedição da Guia (prioridade absoluta para cálculo de retroação)
+            # 5. Data de Expedição da Guia (prioridade absoluta para cálculo de retroação; nunca sobrescrever contexto oficial com data do atestado)
             pre_exp_date = str(esisla_pre.get("data_expedicao") or esisla_pre.get("data_expedicao_br") or "").strip()
+            ctx_exp_date = str(ctx_atual.get("dataExpedicaoIso") or ctx_atual.get("dataExpedicao") or "").strip()
             if pre_exp_date:
                 result.data_expedicao = pre_exp_date
-            elif raw_dt_exp and (not (result.data_expedicao or "").strip() or not re.search(r"\d{4}", result.data_expedicao)):
+            elif raw_dt_exp:
                 result.data_expedicao = raw_dt_exp
-            elif not (result.data_expedicao or "").strip():
-                result.data_expedicao = str(ctx_atual.get("dataExpedicao") or ctx_atual.get("dataExpedicaoIso") or "").strip()
+            elif ctx_exp_date:
+                result.data_expedicao = ctx_exp_date
 
-            if not (result.cid or "").strip():
-                result.cid = str(esisla_pre.get("cid") or ctx_atual.get("cid") or "").strip()
+            # 6. CID Principal (prioriza CID explícito do texto bruto; se ausente do texto, preserva CID já preenchido em contexto_atual)
+            explicit_cids_txt = [c.upper() for c in re.findall(r"\b([A-Z]\d{2}(?:\.\d{1,2})?)\b", texto_bruto, re.I)]
+            cid_from_esisla = str(esisla_pre.get("cid") or "").strip().upper()
+            cid_from_ctx = str(ctx_atual.get("cid") or "").strip().upper()
+            res_cid_up = str(result.cid or "").strip().upper()
+            if cid_from_esisla and not res_cid_up:
+                result.cid = cid_from_esisla
+            elif not explicit_cids_txt and cid_from_ctx:
+                # Texto bruto não especificou outro CID: preserva o CID oficial do contexto atual
+                result.cid = cid_from_ctx
+            elif not res_cid_up:
+                result.cid = cid_from_esisla or (explicit_cids_txt[0] if explicit_cids_txt else "") or cid_from_ctx
 
             # Normalização de CID (ex.: Z988 -> Z98.8, f332 -> F33.2)
             cid_str = (result.cid or "").strip().upper()
@@ -8990,9 +9435,9 @@ def api_ai_preencher_ficha():
                 result.cid = cid_str
             else:
                 result.cid = cid_str
-            if cid_str and not result.cid_descricao:
+            if cid_str:
                 cid_info = get_cid_info(cid_str)
-                if cid_info and cid_info.get("nome"):
+                if cid_info and cid_info.get("nome") and (not result.cid_descricao or cid_str == cid_from_ctx):
                     result.cid_descricao = cid_info["nome"]
 
             is_acomp = _is_acompanhante_context(
@@ -9110,6 +9555,60 @@ def api_ai_preencher_ficha():
             if not result.medications:
                 result.medications = _extrair_medicamentos_estruturados_texto(texto_bruto)
 
+            # Detectar alteração medicamentosa ANTES de limpar classes genéricas (ex: observação "Substituição dos antibióticos anteriores")
+            med_obs_joined = " ".join(
+                f"{getattr(m, 'medicamento', '') if not isinstance(m, dict) else m.get('medicamento', '')} "
+                f"{getattr(m, 'frequencia', '') if not isinstance(m, dict) else m.get('frequencia', '')} "
+                f"{getattr(m, 'observacao', '') if not isinstance(m, dict) else m.get('observacao', '')}"
+                for m in (result.medications or [])
+            )
+            alt_med_probe = f"{texto_bruto}\n{result.sintomas_limitacao or ''}\n{med_obs_joined}"
+            if re.search(
+                r"\b(?:receita\s+(?:foi\s+)?ajustada|ajuste\s+medicamentoso|ajustad[oa]|trocad[oa]|"
+                r"troca\s+de\s+medica[çc][ãa]o|substitui[çc][ãa]o\s+d[eo]s?\s+(?:antibi[óo]ticos?|medica[çc][ãa]o|f[áa]rmaco)|"
+                r"novos?\s+antibi[óo]ticos?|tentado\s+introduzir|introdu[çc][ãa]o\s+de\s+outra\s+medica[çc][ãa]o|aumentad[oa]\s+a\s+dose)\b",
+                alt_med_probe,
+                re.I,
+            ):
+                result.alteracao_med = "Sim"
+
+            if result.medications:
+                _gen_med_names = {
+                    "antibiotico", "antibioticos", "antibiótico", "antibióticos",
+                    "analgesico", "analgesicos", "analgésico", "analgésicos",
+                    "anti-inflamatorio", "anti-inflamatorios", "anti-inflamatório", "anti-inflamatórios",
+                    "antiinflamatorio", "antiinflamatorios", "antiinflamatório", "antiinflamatórios",
+                    "medicacao", "medicacoes", "medicação", "medicações",
+                    "medicamento", "medicamentos", "remedio", "remedios", "remédio", "remédios",
+                    "tratamento", "terapia", "prescricao", "prescrição",
+                }
+                _med_placeholder_re = re.compile(
+                    r"^(?:n[ãa]o\s+especificad[oa]|n[ãa]o\s+informad[oa]|sem\s+informa[çc][ãa]o|n/a|na|desconhecid[oa]|-+)$",
+                    re.I,
+                )
+                cleaned_meds = []
+                for m_item in result.medications:
+                    if isinstance(m_item, dict):
+                        m_nome = str(m_item.get("medicamento") or m_item.get("nome") or "").strip()
+                        if not m_nome or _med_placeholder_re.match(m_nome) or m_nome.lower() in _gen_med_names:
+                            continue
+                        for mk in ("dosagem", "frequencia", "observacao"):
+                            if _med_placeholder_re.match(str(m_item.get(mk) or "").strip()):
+                                m_item[mk] = ""
+                        cleaned_meds.append(m_item)
+                    else:
+                        m_nome = str(getattr(m_item, "medicamento", "") or "").strip()
+                        if not m_nome or _med_placeholder_re.match(m_nome) or m_nome.lower() in _gen_med_names:
+                            continue
+                        if _med_placeholder_re.match(str(getattr(m_item, "dosagem", "") or "").strip()):
+                            m_item.dosagem = ""
+                        if _med_placeholder_re.match(str(getattr(m_item, "frequencia", "") or "").strip()):
+                            m_item.frequencia = ""
+                        if _med_placeholder_re.match(str(getattr(m_item, "observacao", "") or "").strip()):
+                            m_item.observacao = ""
+                        cleaned_meds.append(m_item)
+                result.medications = cleaned_meds
+
             if result.sintomas_limitacao:
                 s_lim = result.sintomas_limitacao.strip()
                 s_lim = re.sub(r"^Servidora\s+(relata|refere|informa|apresenta)\b", r"A servidora \1", s_lim)
@@ -9165,6 +9664,20 @@ def api_ai_preencher_ficha():
             if result.cargo and result.cargo.isupper() and len(result.cargo) > 4:
                 result.cargo = _remover_capslock_excessivo_esisla(result.cargo)
 
+            if not (result.tempo_cargo or "").strip():
+                m_ing = re.search(r"\b(?:ingressou|ingresso|nomead[oa]|admitid[oa]|no\s+cargo)[^.\n\r]{0,40}?\b(?:desde|em)\s+(19\d{2}|20[0-2]\d)\b", texto_bruto, re.I)
+                if m_ing:
+                    anos_calc = max(1, 2026 - int(m_ing.group(1)))
+                    result.tempo_cargo = str(anos_calc)
+                    result.tempo_unidade = "Anos"
+
+            if not (result.alteracao_med or "").strip() or (result.alteracao_med or "").strip().lower() == "não":
+                if re.search(r"\b(?:ajuste\s+medicamentoso|ajustad[oa]|trocad[oa]|troca\s+de\s+medica[çc][ãa]o|substitui[çc][ãa]o\s+d[eo]s?\s+antibi[óo]ticos?|novos?\s+antibi[óo]ticos?|tentado\s+introduzir|introdu[çc][ãa]o\s+de\s+outra\s+medica[çc][ãa]o|aumentad[oa]\s+a\s+dose)\b", texto_bruto, re.I):
+                    result.alteracao_med = "Sim"
+
+            if not (result.doenca_motivo or "").strip() and re.search(r"\b(?:psiquiatr|psicoemocional|exausta|angustiad|medo|evitando|concentra[çc][ãa]o|mem[óo]ria\s+recente|paroxetina|clomipramina)\b", texto_bruto, re.I):
+                result.doenca_motivo = "transtorno ansioso e depressivo com sintomatologia fóbico-evitativa e prejuízo cognitivo"
+
             # Normalização e garantia de preenchimento de inicio_tratamento ("Quando começou o tratamento?")
             ini_trat = (result.inicio_tratamento or "").strip()
             if not ini_trat:
@@ -9182,8 +9695,17 @@ def api_ai_preencher_ficha():
             # Normalização e garantia de preenchimento de freq_consultas ("Com que frequência realiza consultas?")
             freq_cons = (result.freq_consultas or "").strip()
             if not freq_cons:
-                is_mental = (result.cid or "").upper().startswith("F") or "MENTAL" in (result.exame_fisico_tipo or "").upper()
-                freq_cons = "Quinzenal" if is_mental else "Mensal"
+                if re.search(r"\b(?:a\s+cada\s+60\s+dias|de\s+60\s+em\s+60\s+dias|bimestral(?:mente)?)\b", texto_bruto, re.I):
+                    freq_cons = "Bimestral"
+                elif re.search(r"\b(?:a\s+cada\s+90\s+dias|de\s+90\s+em\s+90\s+dias|trimestral(?:mente)?)\b", texto_bruto, re.I):
+                    freq_cons = "Trimestral"
+                elif re.search(r"\b(?:a\s+cada\s+15\s+dias|de\s+15\s+em\s+15\s+dias|quinzenal(?:mente)?)\b", texto_bruto, re.I):
+                    freq_cons = "Quinzenal"
+                elif re.search(r"\b(?:a\s+cada\s+30\s+dias|mensal(?:mente)?)\b", texto_bruto, re.I):
+                    freq_cons = "Mensal"
+                else:
+                    is_mental = (result.cid or "").upper().startswith("F") or "MENTAL" in (result.exame_fisico_tipo or "").upper()
+                    freq_cons = "Quinzenal" if is_mental else "Mensal"
             else:
                 if freq_cons.lower() in ("mensal", "mensalmente"): freq_cons = "Mensal"
                 elif freq_cons.lower() in ("quinzenal", "quinzenalmente"): freq_cons = "Quinzenal"
@@ -9291,23 +9813,27 @@ def api_ai_preencher_ficha():
             if len(cpf_digits) == 11:
                 result.cpf_paciente = f"{cpf_digits[:3]}.{cpf_digits[3:6]}.{cpf_digits[6:9]}-{cpf_digits[9:]}"
 
-            # Inferência determinística de exame_fisico_tipo caso venha vazio
-            if not (result.exame_fisico_tipo or "").strip():
-                cid_up_ef = (result.cid or "").upper().strip()
-                if cid_up_ef.startswith("F") or re.search(
-                    r"\b(?:ansiedade|depress[ãa]o|depressiv|psiqui[áa]tric|exame\s+mental|humor|afeto|ins[ôo]nia|p[âa]nico|burnout|bipolar)\b",
-                    texto_bruto,
-                    re.I,
-                ):
-                    result.exame_fisico_tipo = "Exame Mental"
-                elif cid_up_ef.startswith(("M", "S", "T", "G5")) or re.search(
-                    r"\b(?:lombar|lombalgia|coluna|ombro|joelho|las[èe]gue|força\s+muscular|marcha|osteo|cervical|punho|tornozelo|fratura|tendinite|bursite|h[ée]rnia|ci[áa]tica|contratura|paravertebral)\b",
-                    texto_bruto,
-                    re.I,
-                ):
-                    result.exame_fisico_tipo = "Aparelho Osteomuscular e Tecido Conjutivo"
-                else:
-                    result.exame_fisico_tipo = "Outros"
+            # Inferência e correção determinística de exame_fisico_tipo e outros_subtipo por capítulo CID-10
+            ef_tipo_det, outros_sub_det = _classificar_exame_fisico_por_cid(
+                result.cid,
+                result.cids_secundarios,
+                texto_bruto,
+                result.doenca_motivo,
+                result.exame_fisico_tipo,
+                result.outros_subtipo,
+            )
+            result.exame_fisico_tipo = ef_tipo_det
+            result.outros_subtipo = outros_sub_det
+
+            # Separa achados objetivos de exame físico que eventualmente vazaram para sintomas_limitacao
+            if result.sintomas_limitacao:
+                sint_sep, ef_sep = _separar_achados_exame_de_sintomas(
+                    result.sintomas_limitacao,
+                    result.exame_fisico_descricao,
+                )
+                result.sintomas_limitacao = sint_sep
+                if ef_sep:
+                    result.exame_fisico_descricao = ef_sep
 
             if not (result.parecer or "").strip():
                 par_inferred = _extrair_parecer_texto(texto_bruto)
@@ -9324,8 +9850,20 @@ def api_ai_preencher_ficha():
                     fav = "favor" in (result.parecer or "").lower() or retro_invalida
                     result.outros_resultado = "Alterado" if fav else "Normal"
 
-            if not (result.alteracoes_clinicas_exames or "").strip():
-                result.alteracoes_clinicas_exames = "Não foram apresentados exames complementares (imagem ou laboratoriais) no ato pericial."
+            alt_ex_curr = (result.alteracoes_clinicas_exames or "").strip()
+            if not alt_ex_curr or re.match(r"^(?:n[ãa]o\s+foram\s+apresentados|sem\s+exames|nenhum\s+exame|n[ãa]o\s+apresentou)", alt_ex_curr, re.I):
+                exames_det, _ = _extrair_exames_imagem_de_texto(texto_bruto)
+                if exames_det:
+                    seen_ex = set()
+                    ex_uniq = []
+                    for ex_i in exames_det:
+                        ex_k = re.sub(r"\s+", " ", ex_i.strip().lower()).rstrip(".;, ")
+                        if ex_k and ex_k not in seen_ex:
+                            seen_ex.add(ex_k)
+                            ex_uniq.append(ex_i.strip().rstrip(".;, "))
+                    result.alteracoes_clinicas_exames = "; ".join(ex_uniq) + "."
+                elif not alt_ex_curr:
+                    result.alteracoes_clinicas_exames = "Não foram apresentados exames complementares (imagem ou laboratoriais) no ato pericial."
 
             if not (result.obs_documentos or "").strip() and (result.data_documento or result.crm_cro or result.dias_solicitados):
                 partes_doc = []
@@ -9495,10 +10033,14 @@ def api_ai_preencher_ficha():
                         result.dias_solicitados = user_dias_str
 
                 user_obs = str(decisao_medico.get("observacoesMedico") or "").strip()
-                if user_obs and (result.exame_fisico_descricao or "").strip() and user_obs.lower() not in (result.exame_fisico_descricao or "").lower():
-                    result.exame_fisico_descricao = (
-                        (result.exame_fisico_descricao or "").rstrip(". ") + f". Constatação pericial específica: {user_obs.rstrip('.')}."
-                    ).strip()
+                if user_obs and (result.exame_fisico_descricao or "").strip():
+                    ef_low_obs = (result.exame_fisico_descricao or "").lower()
+                    obs_tokens = [w for w in re.findall(r"[a-zà-ú]{5,}", user_obs.lower()) if w not in ("sendo", "devido", "região", "regiao", "sobre", "entre")]
+                    overlap_obs = (sum(1 for w in obs_tokens if w in ef_low_obs) / len(obs_tokens)) if obs_tokens else 0.0
+                    if user_obs.lower() not in ef_low_obs and overlap_obs < 0.50:
+                        result.exame_fisico_descricao = (
+                            (result.exame_fisico_descricao or "").rstrip(". ") + f". Constatação pericial específica: {user_obs.rstrip('.')}."
+                        ).strip()
 
             # Garantir robustez de desc_limitacao e justificativa conforme modelo de decisão do médico e regras DPME
             if is_fem and not (result.sexo or "").strip():
@@ -9943,6 +10485,13 @@ def api_ai_preencher_ficha():
                     QuesitoPreenchimentoItem(id=2, pergunta="A(s) doença(s) ou sequela(s) de doença(s) prévia(s) gera(m) limitação(ões) para periciando(a)?", resposta=q2),
                     QuesitoPreenchimentoItem(id=3, pergunta="A(s) limitação(ões) impede(m) o(a) periciando(a) de exercer alguma atividade do rol?", resposta="Não"),
                 ]
+
+            if not is_mental_ef:
+                result.exame_mental_resultado = ""
+            if is_outros:
+                result.outros_subtipo = _normalizar_outros_subtipo_oficial(result.outros_subtipo) or "Exame Físico Geral"
+            else:
+                result.outros_subtipo = ""
 
             body = result.model_dump()
             if (result.parecer or "").strip().upper() == "CONTRÁRIO":
