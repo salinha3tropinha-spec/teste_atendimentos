@@ -11767,8 +11767,54 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
     sClean = sClean.replace(/^[Qq]ueixa-se\s+de\s+[Rr]efere(?:\s+que)?\s+/i, "Refere que ");
     sClean = sClean.replace(/^[Qq]ueixa-se\s+de\s+[Ii]nforma(?:\s+que)?\s+/i, "Informa que ");
     sClean = sClean.replace(/^[Qq]ueixa-se\s+de\s+[Qq]ueixa-se\s+de\s+/i, "Queixa-se de ");
+    sClean = sClean.replace(/^Servidora\s+(relata|refere|informa|apresenta|descreve|menciona)\b/i, "A servidora $1");
+    sClean = sClean.replace(/^Servidor\s+(relata|refere|informa|apresenta|descreve|menciona)\b/i, "O servidor $1");
+    sClean = sClean.replace(/^Periciada\s+(relata|refere|informa|apresenta|descreve|menciona)\b/i, "A periciada $1");
+    sClean = sClean.replace(/^Periciado\s+(relata|refere|informa|apresenta|descreve|menciona)\b/i, "O periciado $1");
 
-    const startsWithVerb = /^(?:(?:a\s+periciada|o\s+periciado|a\s+servidora|o\s+servidor)\s+)?(?:relata\b|refere\b|informa\b|apresenta\b|descreve\b|menciona\b|acompanha\b)/i.test(sClean);
+    // Evitar duplicação nominal de medicamentos já presentes em medsStr ('Em uso de ...')
+    if (medsStr) {
+      const normM = (v) => String(v || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+      const medTerms = [];
+      medsStr.split(/,|\be\b/i).forEach((seg) => {
+        const cleanSeg = seg.replace(/\([^)]*\)/g, "").trim();
+        const mN = cleanSeg.match(/^([A-ZÀ-Ýa-zà-ý]+(?:\s+[A-ZÀ-Ýa-zà-ý]+)?)/);
+        if (mN) {
+          const full = normM(mN[1]);
+          if (full.length >= 4 && !medTerms.includes(full)) medTerms.push(full);
+          const first = full.split(" ")[0];
+          if (first.length >= 5 && !["acido", "cloridrato", "sulfato", "maleato", "sodio", "calcio"].includes(first) && !medTerms.includes(first)) {
+            medTerms.push(first);
+          }
+        }
+      });
+      const hasMed = (frag) => {
+        const fn = normM(frag);
+        return medTerms.some((mt) => new RegExp(`\\b${mt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(fn));
+      };
+      if (medTerms.length && hasMed(sClean)) {
+        const frasesSint = sClean.split(/(?<=[.!?])\s+/).map((f) => f.trim()).filter(Boolean);
+        const frasesFiltradas = [];
+        for (const fr of frasesSint) {
+          if (!hasMed(fr)) {
+            frasesFiltradas.push(fr);
+            continue;
+          }
+          if (/^(?:Em\s+uso\s+de|Faz(?:endo)?\s+uso\s+de|Utiliza(?:ndo)?\s+|Medica[çc][õo]es\s*:)/i.test(fr)) continue;
+          let fc = fr.replace(/,\s*(?:sendo(?:-lhe)?\s+prescrit[oa]s?|com\s+prescri[çc][ãa]o\s+de|prescrit[oa]s?)\s+[^.;]+/gi, (seg) => {
+            if (!hasMed(seg)) return seg;
+            return /\bdomiciliar\b/i.test(seg) ? ", com prescrição medicamentosa para uso domiciliar" : ", com prescrição medicamentosa complementar";
+          });
+          fc = fc.replace(/\s+(?:com|à\s+base\s+de|a\s+base\s+de|utilizando|usando)\s+(?:uso\s+de\s+)?[^.,;]+(?:,(?!\s*com\s+prescri[çc][ãa]o)\s*[^.,;]+)*(?:\s+e\s+[^.,;]+)?/gi, (seg) => hasMed(seg) ? "" : seg);
+          fc = fc.replace(/\s{2,}/g, " ").replace(/\s+([.,;])/g, "$1").replace(/,\s*,+/g, ",").replace(/,\s*\./g, ".").trim();
+          if (fc && !/[.!?]$/.test(fc)) fc += ".";
+          if (fc.replace(/[^\w]/g, "").length >= 12) frasesFiltradas.push(fc);
+        }
+        if (frasesFiltradas.length) sClean = frasesFiltradas.join(" ");
+      }
+    }
+
+    const startsWithVerb = /^(?:(?:a\s+|o\s+)?(?:periciad[oa]|servidor[a]?|paciente)\s+)?(?:relata\b|refere\b|informa\b|apresenta\b|descreve\b|menciona\b|acompanha\b)/i.test(sClean);
     const startsWithQueixa = /^queixa-se\s+de\b/i.test(sClean);
 
     if (startsWithVerb) {
@@ -15736,7 +15782,49 @@ function cleanQueixaDuracao(text, atdDate) {
   t = t.replace(/,\s*para\s+analgesia\s+e\s+/gi, ", para analgesia, e ");
 
   // Deduplicação de frases repetidas de medicação e terapias
+  t = t.replace(/\bRefere\s+(?:[Aa]\s+)?Servidora\s+(?:relata|refere|informa)\b/gi, "A servidora relata");
+  t = t.replace(/\bRefere\s+(?:[Oo]\s+)?Servidor\s+(?:relata|refere|informa)\b/gi, "O servidor relata");
+  t = t.replace(/\bRefere\s+(?:[Aa]\s+)?Periciada\s+(?:relata|refere|informa)\b/gi, "A periciada relata");
+  t = t.replace(/\bRefere\s+(?:[Oo]\s+)?Periciado\s+(?:relata|refere|informa)\b/gi, "O periciado relata");
   t = t.replace(/(\bEm uso de [^.]+?\.)(?:\s*Em uso de [^.]+?\.)+/gi, "$1");
+  const mEmUsoDup = t.match(/\bEm\s+uso\s+de\s+([^.]+)\./i);
+  if (mEmUsoDup && typeof mEmUsoDup.index === "number" && mEmUsoDup.index > 0) {
+    const normM = (v) => String(v || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+    const medTerms = [];
+    mEmUsoDup[1].split(/,|\be\b/i).forEach((seg) => {
+      const cleanSeg = seg.replace(/\([^)]*\)/g, "").trim();
+      const mN = cleanSeg.match(/^([A-ZÀ-Ýa-zà-ý]+(?:\s+[A-ZÀ-Ýa-zà-ý]+)?)/);
+      if (mN) {
+        const full = normM(mN[1]);
+        if (full.length >= 4 && !medTerms.includes(full)) medTerms.push(full);
+        const first = full.split(" ")[0];
+        if (first.length >= 5 && !["acido", "cloridrato", "sulfato", "maleato", "sodio", "calcio"].includes(first) && !medTerms.includes(first)) medTerms.push(first);
+      }
+    });
+    const hasMed = (frag) => {
+      const fn = normM(frag);
+      return medTerms.some((mt) => new RegExp(`\\b${mt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(fn));
+    };
+    const pref = t.slice(0, mEmUsoDup.index);
+    const suf = t.slice(mEmUsoDup.index);
+    if (medTerms.length && hasMed(pref)) {
+      const frs = pref.split(/(?<=[.!?])\s+/).map((f) => f.trim()).filter(Boolean);
+      const outFrs = [];
+      for (const fr of frs) {
+        if (!hasMed(fr)) { outFrs.push(fr); continue; }
+        if (/^(?:Em\s+uso\s+de|Faz(?:endo)?\s+uso\s+de|Utiliza(?:ndo)?\s+|Medica[çc][õo]es\s*:)/i.test(fr)) continue;
+        let fc = fr.replace(/,\s*(?:sendo(?:-lhe)?\s+prescrit[oa]s?|com\s+prescri[çc][ãa]o\s+de|prescrit[oa]s?)\s+[^.;]+/gi, (seg) => {
+          if (!hasMed(seg)) return seg;
+          return /\bdomiciliar\b/i.test(seg) ? ", com prescrição medicamentosa para uso domiciliar" : ", com prescrição medicamentosa complementar";
+        });
+        fc = fc.replace(/\s+(?:com|à\s+base\s+de|a\s+base\s+de|utilizando|usando)\s+(?:uso\s+de\s+)?[^.,;]+(?:,(?!\s*com\s+prescri[çc][ãa]o)\s*[^.,;]+)*(?:\s+e\s+[^.,;]+)?/gi, (seg) => hasMed(seg) ? "" : seg);
+        fc = fc.replace(/\s{2,}/g, " ").replace(/\s+([.,;])/g, "$1").replace(/,\s*,+/g, ",").replace(/,\s*\./g, ".").trim();
+        if (fc && !/[.!?]$/.test(fc)) fc += ".";
+        if (fc.replace(/[^\w]/g, "").length >= 12) outFrs.push(fc);
+      }
+      if (outFrs.length) t = (outFrs.join(" ") + " " + suf.trim()).trim();
+    }
+  }
   t = t.replace(/(Não relatou troca de medicação ou alteração de dosagem\.?)(?:\s*\1)+/gi, "$1");
   t = t.replace(/(Não alegou fazer fisioterapia e psicoterapia\.?)(?:\s*\1)+/gi, "$1");
   t = t.replace(/\bRealiza\s+(psicoterapia|fisioterapia),\s*([^.]+?),\s*e\s+n[ãa]o\s+realiza\s+(psicoterapia|fisioterapia)\./gi, function(_, terAtiva, miolo, terNeg) {

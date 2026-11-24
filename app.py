@@ -1266,6 +1266,9 @@ class PreenchimentoCompletoResult(BaseModel):
             "Narrativa clínica rica, específica e fiel aos fatos do texto bruto descrevendo o início e evolução da "
             "sintomatologia, atendimento hospitalar/cirúrgico/terapêutico realizado, estado clínico atual na perícia e "
             "repercussões funcionais específicas (incluindo contexto de readaptação, se aplicável). "
+            "PROIBIDO listar nomes ou doses de medicamentos dentro deste campo (os fármacos pertencem exclusivamente ao "
+            "campo medications; mencione apenas a conduta terapêutica genérica, como 'medicação analgésica parenteral e "
+            "prescrição domiciliar', para evitar duplicação com 'Em uso de...'). "
             "PROIBIDO usar frases genéricas prontas como 'Refere sintomatologia psicoemocional compatível com...' quando o "
             "texto bruto trouxer queixas ou eventos reais."
         )
@@ -1930,6 +1933,8 @@ DIRETRIZES DE EXTRAÇÃO E REDAÇÃO POR SEÇÃO:
   * Identifique a frequência ("Mensal", "Quinzenal", "Semanal", "Bimestral"). Se não vier explícito, utilize "Quinzenal" para quadros psiquiátricos/agudos ou "Mensal" para os demais. NUNCA DEIXE VAZIO.
 - sintomas_limitacao: CAMPO OBRIGATÓRIO — Responde à pergunta: "Quais sintomas / limitações são referidos?".
   * Reconstrua em prosa médica culta, rica e específica TODA a história da moléstia atual contida no texto bruto: como o quadro iniciou (ex.: dor torácica aguda, crise depressiva, trauma/fratura), o atendimento/intervenção realizado (ex.: internação hospitalar, trombólise, cateterismo cardíaco, angioplastia coronariana com implante de stent, cirurgia), o estado evolutivo no momento da perícia (ex.: melhora sintomática em convalescença pós-procedimento, manutenção de sintomas) e as limitações específicas referidas (incluindo menção à readaptação vigente, quando aplicável).
+  * PROIBIÇÃO DE DUPLICAÇÃO DE MEDICAMENTOS: NUNCA liste nomes ou doses de medicamentos dentro de `sintomas_limitacao` (os medicamentos devem ir EXCLUSIVAMENTE em `medications`, pois o sistema já concatena "Em uso de ..." automaticamente na Queixa e Duração). Se houve atendimento de urgência com medicação, cite apenas a conduta sem nomear os fármacos (ex.: "recebeu esquema analgésico e antiespasmódico parenteral em pronto atendimento e prescrição para uso domiciliar").
+  * Inicie com sujeito formal completo ou verbo ("A periciada relata...", "O periciado refere...", "Relata quadro de..."), nunca sem artigo ("Servidora relata...").
   * PROIBIDO usar frases genéricas vazias se o texto bruto trouxer fatos clínicos específicos. NÃO repita literalmente os mesmos termos secos de doenca_motivo e NÃO cole frases formais de conclusão do rol.
   * Em perícias de acompanhante (Artigo 199 / CID Z76.3), relate os cuidados prestados ao dependente e o quadro clínico do familiar dependente.
   * NUNCA DEIXE ESTE CAMPO VAZIO.
@@ -2366,24 +2371,42 @@ def _log_audit_access(atendimento_id: str, usuario_id: str, usuario_nome: str, u
         app.logger.warning("Falha ao registrar auditoria de leitura LGPD: %s", type(exc).__name__)
 
 _MODEL_COOLDOWN_UNTIL: dict[str, float] = {}
+_MODEL_HARD_SKIP_UNTIL: dict[str, float] = {}
+_INVALID_MODEL_NAMES = {"gemini-flash-lite-latest"}
 
 def _get_ordered_models() -> list[str]:
-    base = [GEMINI_MODEL] + GEMINI_FALLBACK_MODELS
+    configured = [GEMINI_MODEL] + list(GEMINI_FALLBACK_MODELS)
+    if any(str(m or "").strip().startswith("gemini-") for m in configured):
+        raw_base = configured + ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]
+    else:
+        raw_base = configured
+    base: list[str] = []
+    for m in raw_base:
+        m_clean = str(m or "").strip()
+        if m_clean and m_clean not in _INVALID_MODEL_NAMES and m_clean not in base:
+            base.append(m_clean)
     now = time.time()
-    active = [m for m in base if _MODEL_COOLDOWN_UNTIL.get(m, 0.0) <= now]
-    cooled = [m for m in base if _MODEL_COOLDOWN_UNTIL.get(m, 0.0) > now]
+    usable = [m for m in base if _MODEL_HARD_SKIP_UNTIL.get(m, 0.0) <= now]
+    pool = usable if usable else base
+    active = [m for m in pool if _MODEL_COOLDOWN_UNTIL.get(m, 0.0) <= now]
+    cooled = [m for m in pool if _MODEL_COOLDOWN_UNTIL.get(m, 0.0) > now]
     return active + cooled
 
 def _mark_model_quota_error(model: str, exc: Exception) -> bool:
     s = str(exc).lower()
     if "429" in s or "quota" in s or "resource_exhausted" in s or "resource exhausted" in s:
-        cooldown = 1800.0 if ("perday" in s or "per_day" in s or "day limit" in s) else 45.0
+        is_daily = any(k in s for k in ("perday", "per_day", "day limit", "perprojectpermodel-freetier"))
+        cooldown = 3600.0 if is_daily else 45.0
         _MODEL_COOLDOWN_UNTIL[model] = time.time() + cooldown
+        if is_daily:
+            _MODEL_HARD_SKIP_UNTIL[model] = time.time() + cooldown
         return True
-    if any(tok in s for tok in ("404", "not found", "is not supported", "not_found")):
-        _MODEL_COOLDOWN_UNTIL[model] = time.time() + 300.0
+    if any(tok in s for tok in ("404", "not found", "is not supported", "not_found", "no longer available")):
+        _MODEL_COOLDOWN_UNTIL[model] = time.time() + 3600.0
+        _MODEL_HARD_SKIP_UNTIL[model] = time.time() + 3600.0
+        return True
     elif any(tok in s for tok in ("503", "unavailable", "high demand", "overloaded")):
-        _MODEL_COOLDOWN_UNTIL[model] = time.time() + 30.0
+        _MODEL_COOLDOWN_UNTIL[model] = time.time() + 15.0
     return False
 
 def _is_fatal_auth_error(exc: Exception) -> bool:
@@ -2422,7 +2445,8 @@ def _generate_structured(instruction: str, schema, *, endpoint_override: str | N
             if http_opts is not None:
                 cfg_kwargs["http_options"] = http_opts
             config = types.GenerateContentConfig(**cfg_kwargs)
-            for attempt in range(GEMINI_RETRIES):
+            max_attempts = max(1, GEMINI_RETRIES)
+            for attempt in range(max_attempts):
                 try:
                     response = client.models.generate_content(model=model, contents=instruction, config=config)
                     result = _parse_ai_response(response, schema)
@@ -2430,16 +2454,14 @@ def _generate_structured(instruction: str, schema, *, endpoint_override: str | N
                     return result
                 except Exception as exc:
                     last_exc = exc
-                    is_quota = _mark_model_quota_error(model, exc)
-                    if is_quota and len(models) > 1:
+                    is_quota_or_404 = _mark_model_quota_error(model, exc)
+                    if is_quota_or_404 and len(models) > 1:
                         break
                     if _is_fatal_auth_error(exc):
                         break
-                    if not _is_retryable_provider_error(exc) or attempt == GEMINI_RETRIES - 1:
+                    if not _is_retryable_provider_error(exc) or attempt == max_attempts - 1:
                         break
-                    backoff = GEMINI_BACKOFF_SECONDS * (2 ** attempt)
-                    if is_quota:
-                        backoff = min(backoff, 2.0)
+                    backoff = min(0.8 * (attempt + 1), 1.6)
                     time.sleep(backoff)
             if last_exc is not None:
                 _log_ai(endpoint, model, (time.perf_counter() - model_started) * 1000, "ERRO", type(last_exc).__name__, atendimento_id)
@@ -3098,6 +3120,20 @@ def _construir_exame_fisico_fallback(
             f"Aparelhos cardiovascular, respiratório e abdome sem achados agudos de descompensação clínica no ato pericial, mantendo estabilidade funcional em acompanhamento especializado de {mot}."
         )
 
+    is_cardio = cid_up.startswith("I") or bool(re.search(r"\b(?:infarto|mioc[aá]rdio|angioplastia|stent[e]?|cateterismo|brnf|bulhas)\b", str(texto_bruto or ""), re.I))
+    if is_cardio:
+        if tratar_como_fav and (exame_modo == "normal" or re.search(r"\b(?:melhora|bom\s+estado\s+geral|beg|brnf|sem\s+sopro|normalidade)\b", str(texto_bruto or ""), re.I)):
+            return (
+                f"Ao exame clínico e cardiológico pericial atual, {suj} apresenta-se em bom estado geral, {luc}, {cor}{obs_pos}. "
+                f"Ausculta cardíaca com ritmo regular e bulhas normofonéticas em dois tempos, sem sopros audíveis; aparelho respiratório com murmúrio vesicular fisiológico bilateralmente sem ruídos adventícios; "
+                f"extremidades bem perfundidas e sem edemas, mantendo-se hemodinamicamente estável em fase de convalescença pós-evento e intervenção cardiológica por {mot}."
+            )
+        if tratar_como_fav:
+            return (
+                f"Ao exame clínico e cardiológico pericial atual, {suj} apresenta-se {luc}, {cor}, em acompanhamento cardiovascular pós-evento agudo por {mot}{obs_pos}. "
+                f"Ausculta cardíaca com bulhas rítmicas em dois tempos, mantendo necessidade de restrição física e vigilância hemodinâmica rigorosa durante o período de reabilitação clínica."
+            )
+
     if tratar_como_fav and exame_modo == "alterado":
         return (
             f"Ao exame clínico pericial atual, {suj} encontra-se {luc}, apresentando achados objetivos e repercussão clínica compatíveis com {mot}{obs_pos}. "
@@ -3138,6 +3174,10 @@ def _resolve_favorable_limitation(payload: dict[str, Any], cargo: str = "servido
             flags=re.IGNORECASE,
         ).strip()
         raw_lim = _sanitize_semiologia_ptbr(raw_lim)
+    # Se raw_lim veio apenas de sintomas_limitacao (iniciando com "O periciado refere..." / "A periciada refere..."), não usar como texto de limitação funcional do rol se o CID permitir síntese técnica específica
+    cid_check = str(payload.get("cid") or a.get("cid") or "").upper().strip()
+    if raw_lim and re.match(r"^(?:[Oo]\s+periciado|[Aa]\s+periciada|[Oo]\s+servidor|[Aa]\s+servidora)\s+refere\b", raw_lim) and cid_check.startswith(("I", "F", "M", "S", "T", "Z98", "C", "D0")):
+        raw_lim = ""
     if raw_lim and not _is_contrary_limitation_text(raw_lim):
         if "rol de atividades" in raw_lim.lower():
             return raw_lim
@@ -3176,6 +3216,23 @@ def _resolve_favorable_limitation(payload: dict[str, Any], cargo: str = "servido
 
     if "mental" in ef_tipo or cid.startswith("F"):
         return f"{LIMITACAO_MENTAL} Atividades estas constantes no Rol de Atividades do cargo de {cargo}."
+
+    if cid.startswith("I"):
+        return (
+            f"Apresenta limitações físicas e cardiovasculares temporárias em fase de convalescença e reabilitação pós-evento cardiológico, "
+            f"com restrição a esforços físicos moderados a intensos, sobrecarga hemodinâmica, situações de estresse ocupacional agudo e demandas operacionais de risco, "
+            f"atividades estas constantes no Rol de Atividades do cargo de {cargo}."
+        )
+    if cid.startswith(("Z98", "K80", "K40", "N8")):
+        return (
+            f"Apresenta limitações físicas funcionais temporárias inerentes ao período de convalescença e cicatrização pós-operatória, "
+            f"com restrição a esforços físicos, deslocamentos repetitivos e sobrecarga ergonômica, atividades estas constantes no Rol de Atividades do cargo de {cargo}."
+        )
+    if cid.startswith(("C", "D0")):
+        return (
+            f"Apresenta limitações físicas e funcionais temporárias decorrentes da patologia oncológica e dos efeitos sistêmicos do tratamento especializado em curso, "
+            f"comprometendo a resistência física e a tolerância à jornada habitual, atividades estas constantes no Rol de Atividades do cargo de {cargo}."
+        )
 
     if any(cid.startswith(p) for p in ("M22", "M23", "M24", "M25")):
         return f"{LIMITACOES_OSTEOMUSCULAR['joelho_direito']}, atividades estas constantes no Rol de Atividades do cargo de {cargo}."
@@ -4657,6 +4714,116 @@ def _formatar_lista_medicamentos(meds_input: Any) -> str:
         return ", ".join(dedup_items[:-1]) + f" e {dedup_items[-1]}"
 
 
+def _remover_medicamentos_duplicados_em_sintomas(texto: str, medications) -> str:
+    """Remove menções nominais duplicadas de medicamentos na narrativa de sintomas quando
+    os mesmos fármacos já constam na lista estruturada `medications` (ou no bloco 'Em uso de ...'),
+    preservando o contexto clínico de pronto atendimento e prescrição domiciliar."""
+    raw = str(texto or "").strip()
+    if not raw or not medications:
+        return raw
+
+    def _norm_med(s: str) -> str:
+        import unicodedata
+        s_n = unicodedata.normalize("NFKD", str(s or "").lower())
+        s_n = "".join(ch for ch in s_n if not unicodedata.combining(ch))
+        return re.sub(r"\s+", " ", s_n).strip()
+
+    med_terms: list[str] = []
+    seen_terms: set[str] = set()
+    for item in medications:
+        if isinstance(item, str):
+            nome = item
+        elif isinstance(item, dict):
+            nome = item.get("medicamento") or item.get("nome") or ""
+        else:
+            nome = getattr(item, "medicamento", "") or getattr(item, "nome", "") or ""
+        n_full = _norm_med(nome)
+        if not n_full or len(n_full) < 3:
+            continue
+        for cand in (n_full, n_full.split()[0] if len(n_full.split()) > 1 and len(n_full.split()[0]) >= 5 else ""):
+            if cand and len(cand) >= 3 and cand not in ("acido", "cloridrato", "sulfato", "maleato", "sodio", "calcio", "dipropionato", "monoidratado", "uso", "dose") and cand not in seen_terms:
+                seen_terms.add(cand)
+                med_terms.append(cand)
+
+    if not med_terms:
+        return raw
+
+    def _has_med_mention(fragment: str) -> bool:
+        fn = _norm_med(fragment)
+        return any(re.search(rf"\b{re.escape(mt)}\b", fn) for mt in med_terms)
+
+    if not _has_med_mention(raw):
+        return raw
+
+    frases = [f.strip() for f in re.split(r"(?<=[.!?])\s+", raw) if f.strip()]
+    novas_frases: list[str] = []
+    for frase in frases:
+        if not _has_med_mention(frase):
+            novas_frases.append(frase)
+            continue
+
+        # Se a frase inteira já for uma lista de uso medicamentoso (ex.: "Em uso de ...", "Faz uso de ..."), remove
+        if re.match(r"^(?:Em\s+uso\s+de|Faz(?:endo)?\s+uso\s+de|Utiliza(?:ndo)?\s+|Medica[çc][õo]es\s*:|Prescri[çc][ãa]o\s*:)", frase, re.I):
+            continue
+
+        f_clean = frase
+        # 1. Cláusula de prescrição domiciliar/complementar com nome de fármaco
+        def _repl_prescrito(m):
+            seg = m.group(0)
+            if not _has_med_mention(seg):
+                return seg
+            if re.search(r"\bdomiciliar\b", seg, re.I):
+                return ", com prescrição medicamentosa para uso domiciliar"
+            return ", com prescrição medicamentosa complementar"
+
+        f_clean = re.sub(
+            r",\s*(?:sendo(?:-lhe)?\s+prescrit[oa]s?|com\s+prescri[çc][ãa]o\s+de|prescrit[oa]s?)\s+[^.;]+",
+            _repl_prescrito,
+            f_clean,
+            flags=re.I,
+        )
+
+        # 2. Cláusula "com <lista de fármacos>" (ex.: "esquema analgésico e antiespasmódico parenteral com Tramadol, Dexametasona...")
+        def _repl_com_meds(m):
+            seg = m.group(0)
+            if not _has_med_mention(seg):
+                return seg
+            return ""
+
+        f_clean = re.sub(
+            r"\s+(?:com|à\s+base\s+de|a\s+base\s+de|utilizando|usando)\s+(?:uso\s+de\s+)?[^.,;]+(?:,(?!\s*com\s+prescri[çc][ãa]o)\s*[^.,;]+)*(?:\s+e\s+[^.,;]+)?",
+            _repl_com_meds,
+            f_clean,
+            flags=re.I,
+        )
+
+        # 3. Se ainda restar menção nominal de medicamento em frase de administração/prescrição pura
+        if _has_med_mention(f_clean):
+            if re.search(r"\b(?:prescrit[oa]|administrad[oa]|recebeu|medicad[oa]|uso\s+de|iniciou)\b", f_clean, re.I):
+                # Remove nomes de fármacos seguidos de posologia opcional
+                for mt in sorted(med_terms, key=len, reverse=True):
+                    f_clean = re.sub(
+                        rf"\b{re.escape(mt)}[a-zà-ú]*(?:\s+\d+(?:[.,]\d+)?\s*(?:mg|g|mcg|ml|ui|cp|comp(?:rimido)?s?)(?:\s+(?:de\s+)?\d+(?:/\d+h|\s+em\s+\d+\s+horas?|\s*x/dia|a\s+cada\s+\d+\s+horas?))?)?",
+                        "",
+                        f_clean,
+                        flags=re.I,
+                    )
+                f_clean = re.sub(r"\s*,\s*(?:,\s*)+", ", ", f_clean)
+                f_clean = re.sub(r"\s+\be\b\s*(?=[.,;]|$)", "", f_clean)
+                f_clean = re.sub(r"\s+(?:com|de)\s*(?=[.,;]|$)", "", f_clean)
+
+        f_clean = re.sub(r"\s{2,}", " ", f_clean).strip()
+        f_clean = re.sub(r"\s+([.,;])", r"\1", f_clean)
+        f_clean = re.sub(r",\s*,+", ",", f_clean)
+        f_clean = re.sub(r",\s*\.", ".", f_clean)
+        if f_clean and not f_clean.endswith((".", "!", "?")):
+            f_clean += "."
+        if len(re.sub(r"[^\w]", "", f_clean)) >= 12:
+            novas_frases.append(f_clean)
+
+    return " ".join(novas_frases).strip() if novas_frases else raw
+
+
 def _clean_queixa_duracao_text(text: str) -> str:
     if not text:
         return text
@@ -5048,11 +5215,15 @@ def _clean_queixa_duracao_text(text: str) -> str:
     if re.search(r"\bcom\s+queixa\b", t, re.IGNORECASE):
         t = re.sub(r"([\.\;]\s*)[Qq]ueixa-se\s+de\s+(?!des[âa]nimo\b)", r"\1Refere ", t)
 
-    # Artigo definido antes de menções a periciado(a) ou servidor(a)
-    t = re.sub(r"([\.\;]\s*)Periciado\s+refere\b", r"\1O periciado refere", t)
-    t = re.sub(r"([\.\;]\s*)Periciada\s+refere\b", r"\1A periciada refere", t)
-    t = re.sub(r"([\.\;]\s*)Servidor\s+refere\b", r"\1O servidor refere", t)
-    t = re.sub(r"([\.\;]\s*)Servidora\s+refere\b", r"\1A servidora refere", t)
+    # Artigo definido antes de menções a periciado(a) ou servidor(a) e correção de duplo sujeito ("Refere Servidora relata")
+    t = re.sub(r"\bRefere\s+(?:[Aa]\s+)?Servidora\s+(?:relata|refere|informa)\b", "A servidora relata", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bRefere\s+(?:[Oo]\s+)?Servidor\s+(?:relata|refere|informa)\b", "O servidor relata", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bRefere\s+(?:[Aa]\s+)?Periciada\s+(?:relata|refere|informa)\b", "A periciada relata", t, flags=re.IGNORECASE)
+    t = re.sub(r"\bRefere\s+(?:[Oo]\s+)?Periciado\s+(?:relata|refere|informa)\b", "O periciado relata", t, flags=re.IGNORECASE)
+    t = re.sub(r"([\.\;]\s*)Periciado\s+(refere|relata)\b", r"\1O periciado \2", t)
+    t = re.sub(r"([\.\;]\s*)Periciada\s+(refere|relata)\b", r"\1A periciada \2", t)
+    t = re.sub(r"([\.\;]\s*)Servidor\s+(refere|relata)\b", r"\1O servidor \2", t)
+    t = re.sub(r"([\.\;]\s*)Servidora\s+(refere|relata)\b", r"\1A servidora \2", t)
 
     # 16. Jargões, grafia de medicamentos, parênteses e crase
     t = re.sub(r"\bsensibilidade\s+a\s+luz\b", "sensibilidade à luz", t, flags=re.IGNORECASE)
@@ -5105,6 +5276,26 @@ def _clean_queixa_duracao_text(text: str) -> str:
     t = re.sub(r"(\bEm uso de [^.]+?\.)(?:\s*Em uso de [^.]+?\.)+", r"\1", t, flags=re.IGNORECASE)
     t = re.sub(r"(Não relatou troca de medicação ou alteração de dosagem\.?)(?:\s*\1)+", r"\1", t, flags=re.IGNORECASE)
     t = re.sub(r"(Não alegou fazer fisioterapia e psicoterapia\.?)(?:\s*\1)+", r"\1", t, flags=re.IGNORECASE)
+
+    # Deduplicação de medicamentos listados nominalmente na narrativa de sintomas quando já existe bloco 'Em uso de ...'
+    m_em_uso = re.search(r"\bEm\s+uso\s+de\s+([^.]+)\.", t, flags=re.IGNORECASE)
+    if m_em_uso:
+        bloco_em_uso_txt = m_em_uso.group(1)
+        med_candidates = []
+        for seg in re.split(r",|\be\b", bloco_em_uso_txt):
+            seg_clean = re.sub(r"\([^)]*\)", "", seg).strip()
+            m_nome = re.match(r"^([A-ZÀ-Ýa-zà-ý]+(?:\s+[A-ZÀ-Ýa-zà-ý]+)?)", seg_clean)
+            if m_nome:
+                cand = m_nome.group(1).strip()
+                cand_first = cand.split()[0]
+                if len(cand) >= 4 and cand_first.lower() not in ("para", "uso", "dose", "cada", "dias", "horas", "vezes"):
+                    med_candidates.append(cand)
+        if med_candidates:
+            prefixo_antes = t[:m_em_uso.start()]
+            sufixo_a_partir = t[m_em_uso.start():]
+            prefixo_limpo = _remover_medicamentos_duplicados_em_sintomas(prefixo_antes, med_candidates)
+            if prefixo_limpo and prefixo_limpo != prefixo_antes:
+                t = (prefixo_limpo.rstrip() + " " + sufixo_a_partir.lstrip()).strip()
 
     # Normaliza colagem de obs_terapias dentro de "Realiza psicoterapia/fisioterapia, O periciado relata..."
     def _clean_spliced_terapias(m):
@@ -8324,8 +8515,8 @@ def _extrair_dias_solicitados_texto(text: str) -> str:
     for pat in (
         r'(?:N[ºo°\ufffd]?\s*)?Dias:\s*(\d{1,3})\b',
         r'\b(\d{1,3})\s*Dias:',
-        r'\b(?:atestado(?:\s+m[ée]dico)?(?:\s+emitido[^\.\n\r]{0,90}?)?\s*(?:de|por|com|solicitando|indicando|pedindo|concedendo|sugerindo)|afastamento\s+de|repouso\s+de|licen[çc]a\s+de|solicita(?:ndo)?|indica(?:ndo)?|pede|pedindo|concede(?:ndo)?|sugere|sugerindo)\s+(\d{1,3})\s*(?:\([^)]+\)\s*)?dias\b',
-        r'\b(\d{1,3})\s*(?:\([^)]+\)\s*)?dias\s+(?:de\s+(?:afastamento|repouso|atestado|licen[çc]a)|a\s+partir)\b',
+        r'\b(?:atestado(?:\s+m[ée]dico)?(?:\s+emitido[^\.\n\r]{0,90}?)?\s*(?:de|por|com|solicitando|indicando|pedindo|concedendo|sugerindo)|afastamento\s+de|repouso\s+de|licen[çc]a\s+de|solicita(?:ndo)?|indica(?:ndo)?|pede|pedindo|concede(?:ndo)?|cedid[oa]s?|concedid[oa]s?|sugere|sugerindo)\s+(\d{1,3})\s*(?:\([^)]+\)\s*)?dias\b',
+        r'\b(\d{1,3})\s*(?:\([^)]+\)\s*)?dias\s+(?:de\s+(?:afastamento|repouso|atestado|licen[çc]a)|a\s+partir|concedid[oa]s?|cedid[oa]s?)\b',
     ):
         m = re.search(pat, text, re.I)
         if m:
@@ -8339,8 +8530,8 @@ def _extrair_dias_solicitados_texto(text: str) -> str:
     )
     ext_group = rf"({num_words}(?:\s+e\s+{num_words}){{0,2}})"
     for pat_ext in (
-        rf'\b(?:atestado(?:\s+m[ée]dico)?(?:\s+emitido[^\.\n\r]{{0,90}}?)?\s*(?:de|por|com|solicitando|indicando|pedindo|concedendo|sugerindo)|afastamento\s+de|repouso\s+de|licen[çc]a\s+de|solicita(?:ndo)?|indica(?:ndo)?|pede|pedindo|concede(?:ndo)?|sugere|sugerindo)\s+{ext_group}\s+dias\b',
-        rf'\b{ext_group}\s+dias\s+(?:de\s+(?:afastamento|repouso|atestado|licen[çc]a)|a\s+partir)\b',
+        rf'\b(?:atestado(?:\s+m[ée]dico)?(?:\s+emitido[^\.\n\r]{{0,90}}?)?\s*(?:de|por|com|solicitando|indicando|pedindo|concedendo|sugerindo)|afastamento\s+de|repouso\s+de|licen[çc]a\s+de|solicita(?:ndo)?|indica(?:ndo)?|pede|pedindo|concede(?:ndo)?|cedid[oa]s?|concedid[oa]s?|sugere|sugerindo)\s+{ext_group}\s+dias\b',
+        rf'\b{ext_group}\s+dias\s+(?:de\s+(?:afastamento|repouso|atestado|licen[çc]a)|a\s+partir|concedid[oa]s?|cedid[oa]s?)\b',
     ):
         m_ext = re.search(pat_ext, text, re.I)
         if m_ext:
@@ -8371,13 +8562,81 @@ def _extrair_parecer_texto(text: str) -> str:
         if any(k in val for k in ("CONTR", "INDEF", "RECUS")):
             return "CONTRÁRIO"
 
-    # 3. Expressões livres no texto
-    if re.search(r'\b(?:parecer\s+(?:[ée]\s+)?favor[áa]vel|conced(?:o|e|er)\s+favor[áa]vel|deferid[oa]|favor[áa]vel\s+ao\s+afastamento)\b', text, re.I):
-        return "FAVORÁVEL"
-    if re.search(r'\b(?:parecer\s+(?:[ée]\s+)?contr[áa]rio|indeferid[oa]|indeferimento|contr[áa]rio\s+ao\s+afastamento)\b', text, re.I):
+    # 3. Expressões livres no texto (incluindo "Cedido 15 dias", "Concedido 15 dias", "0 dias")
+    if re.search(r'\b(?:parecer\s+(?:[ée]\s+)?contr[áa]rio|indeferid[oa]|indeferimento|contr[áa]rio\s+ao\s+afastamento|0\s+dias?\s+concedid|sem\s+incapacidade\s+laborativa)\b', text, re.I):
         return "CONTRÁRIO"
+    if re.search(r'\b(?:parecer\s+(?:[ée]\s+)?favor[áa]vel|conced(?:o|e|er)\s+favor[áa]vel|deferid[oa]|favor[áa]vel\s+ao\s+afastamento|(?:cedid[oa]s?|concedid[oa]s?|concedo|liber[oa]d[oa]s?)\s+[1-9]\d*\s*dias?|[1-9]\d*\s*dias?\s+(?:concedid[oa]s?|cedid[oa]s?))\b', text, re.I):
+        return "FAVORÁVEL"
 
     return ""
+
+
+_MED_DEFAULT_CATALOG = [
+    (r"\b(?:losartana|losartan)\b", "Losartana", "50 mg", "12/12h", "controle pressórico"),
+    (r"\b(?:aas|[áa]cido\s+acetilsalic[íi]lico)\b", "Ácido Acetilsalicílico", "100 mg", "24/24h", "antiadesivo plaquetário"),
+    (r"\b(?:clopridogrel|clopidogrel)\b", "Clopidogrel", "75 mg", "24/24h", "antiadesivo plaquetário"),
+    (r"\benalapril\b", "Enalapril", "10 mg", "12/12h", "controle pressórico"),
+    (r"\banlodipino\b", "Anlodipino", "5 mg", "24/24h", "controle pressórico"),
+    (r"\bhidroclorotiazida\b", "Hidroclorotiazida", "25 mg", "24/24h", "controle pressórico"),
+    (r"\batenolol\b", "Atenolol", "50 mg", "24/24h", "controle cardiovascular"),
+    (r"\bpropranolol\b", "Propranolol", "40 mg", "12/12h", "controle cardiovascular"),
+    (r"\bcarvedilol\b", "Carvedilol", "12,5 mg", "12/12h", "controle cardiovascular"),
+    (r"\b(?:sinvastatina|rosuvastatina|atorvastatina)\b", "Sinvastatina", "20 mg", "24/24h", "controle lipídico"),
+    (r"\bescitalopram\b", "Escitalopram", "10 mg", "24/24h", "tratamento psiquiátrico"),
+    (r"\bsertralina\b", "Sertralina", "50 mg", "24/24h", "tratamento psiquiátrico"),
+    (r"\bfluoxetina\b", "Fluoxetina", "20 mg", "24/24h", "tratamento psiquiátrico"),
+    (r"\bvenlafaxina\b", "Venlafaxina", "75 mg", "24/24h", "tratamento psiquiátrico"),
+    (r"\bdesvenlafaxina\b", "Desvenlafaxina", "50 mg", "24/24h", "tratamento psiquiátrico"),
+    (r"\bduloxetina\b", "Duloxetina", "60 mg", "24/24h", "tratamento psiquiátrico"),
+    (r"\bquetiapina\b", "Quetiapina", "50 mg", "à noite", "estabilização do humor e sono"),
+    (r"\b(?:clonazepam|clonazepan|rivotril)\b", "Clonazepam", "0,5 mg", "à noite", "controle ansiolítico"),
+    (r"\balprazolam\b", "Alprazolam", "0,5 mg", "12/12h", "controle ansiolítico"),
+    (r"\bzolpidem\b", "Zolpidem", "10 mg", "à noite", "indução do sono"),
+    (r"\brisperidona\b", "Risperidona", "1 mg", "à noite", "tratamento psiquiátrico"),
+    (r"\b(?:carbonato\s+de\s+)?l[íi]tio\b", "Carbonato de Lítio", "300 mg", "12/12h", "estabilização do humor"),
+    (r"\bbupropiona\b", "Bupropiona", "150 mg", "24/24h", "tratamento psiquiátrico"),
+    (r"\bamitriptilina\b", "Amitriptilina", "25 mg", "à noite", "tratamento clínico"),
+    (r"\bpregabalina\b", "Pregabalina", "75 mg", "à noite", "controle de dor neuropática"),
+    (r"\bgabapentina\b", "Gabapentina", "300 mg", "12/12h", "controle de dor neuropática"),
+    (r"\bdipirona\b", "Dipirona", "1 g", "se dor até 6/6h", "analgesia"),
+    (r"\bparacetamol\b", "Paracetamol", "750 mg", "se dor até 6/6h", "analgesia"),
+    (r"\b(?:tramadol|tramal)\b", "Tramadol", "50 mg", "8/8h se dor", "analgesia"),
+    (r"\bciclobenzaprina\b", "Ciclobenzaprina", "10 mg", "à noite", "relaxamento muscular"),
+    (r"\bcetoprofeno\b", "Cetoprofeno", "100 mg", "12/12h", "ação anti-inflamatória"),
+    (r"\bibuprofeno\b", "Ibuprofeno", "600 mg", "8/8h", "ação anti-inflamatória"),
+    (r"\bnimesulida\b", "Nimesulida", "100 mg", "12/12h", "ação anti-inflamatória"),
+    (r"\bmeloxicam\b", "Meloxicam", "15 mg", "24/24h", "ação anti-inflamatória"),
+    (r"\bprednisona\b", "Prednisona", "20 mg", "24/24h", "ação anti-inflamatória"),
+    (r"\bomeprazol\b", "Omeprazol", "20 mg", "em jejum", "proteção gástrica"),
+    (r"\bpantoprazol\b", "Pantoprazol", "40 mg", "em jejum", "proteção gástrica"),
+    (r"\bmetformina\b", "Metformina", "850 mg", "12/12h", "controle glicêmico"),
+    (r"\blevotiroxina\b", "Levotiroxina", "50 mcg", "em jejum", "reposição hormonal"),
+    (r"\b(?:utrogestan|ultragestan)\b", "Utrogestan", "200 mg", "12/12h", "suporte gestacional"),
+    (r"\b(?:doxiciclina|doxaciclina)\b", "Doxiciclina", "100 mg", "12/12h", "antibioticoterapia"),
+    (r"\b(?:amoxicilina|amoxacilina)\b", "Amoxicilina", "500 mg", "8/8h", "antibioticoterapia"),
+]
+
+
+def _extrair_medicamentos_estruturados_texto(text: str) -> list[MedicamentoItem]:
+    if not text:
+        return []
+    txt = str(text)
+    if re.search(r"\b(?:nega|negou|sem)\s+uso\s+de\s+medica[çc][õo]es\b", txt, re.I):
+        return []
+    items: list[MedicamentoItem] = []
+    seen: set[str] = set()
+    for rgx, nome_padrao, dose_padrao, freq_padrao, obs_padrao in _MED_DEFAULT_CATALOG:
+        m = re.search(rgx + r"(?:\s+(\d+(?:[.,]\d+)?\s*(?:mg|g|mcg|ml)(?:/dia)?))?(?:\s*(12/12h|8/8h|6/6h|24/24h|pela\s+manh[ãa]|à\s+noite|se\s+dor))?", txt, re.I)
+        if m and nome_padrao.lower() not in seen:
+            seen.add(nome_padrao.lower())
+            d_val = (m.group(1) or dose_padrao).strip()
+            f_val = (m.group(2) or freq_padrao).strip()
+            if "/dia" in d_val.lower():
+                d_val = re.sub(r"/dia\b", "", d_val, flags=re.I).strip()
+                if not m.group(2):
+                    f_val = "24/24h"
+            items.append(MedicamentoItem(medicamento=nome_padrao, dosagem=d_val, frequencia=f_val, observacao=obs_padrao))
+    return items
 
 
 def _extrair_datas_documento_texto(text: str) -> tuple[str, str, str]:
@@ -8848,6 +9107,19 @@ def api_ai_preencher_ficha():
             )
             result.historico_pregresso = ant_val.strip()
 
+            if not result.medications:
+                result.medications = _extrair_medicamentos_estruturados_texto(texto_bruto)
+
+            if result.sintomas_limitacao:
+                s_lim = result.sintomas_limitacao.strip()
+                s_lim = re.sub(r"^Servidora\s+(relata|refere|informa|apresenta)\b", r"A servidora \1", s_lim)
+                s_lim = re.sub(r"^Servidor\s+(relata|refere|informa|apresenta)\b", r"O servidor \1", s_lim)
+                s_lim = re.sub(r"^Periciada\s+(relata|refere|informa|apresenta)\b", r"A periciada \1", s_lim)
+                s_lim = re.sub(r"^Periciado\s+(relata|refere|informa|apresenta)\b", r"O periciado \1", s_lim)
+                if result.medications:
+                    s_lim = _remover_medicamentos_duplicados_em_sintomas(s_lim, result.medications)
+                result.sintomas_limitacao = s_lim
+
             # Detecção determinística e abrangente de Fisioterapia e Psicoterapia (incluindo termos informais como fisio e psico)
             det_fisio, det_psico = _detectar_terapias_texto(
                 texto_bruto,
@@ -8858,7 +9130,17 @@ def api_ai_preencher_ficha():
             result.fisioterapia = det_fisio
             result.psicoterapia = det_psico
 
-            termo_p = "A periciada" if is_fem else "O periciado"
+            def _freq_terapia_por_extenso(raw_f: str) -> str:
+                s = str(raw_f or "").strip().lower()
+                if not s:
+                    return ""
+                m_nx = re.match(r"^([1-5])\s*x", s)
+                if m_nx:
+                    mapa = {"1": "uma vez por semana", "2": "duas vezes por semana", "3": "três vezes por semana", "4": "quatro vezes por semana", "5": "cinco vezes por semana"}
+                    return mapa.get(m_nx.group(1), "")
+                if s in ("semanal", "quinzenal", "mensal"):
+                    return s + "mente"
+                return s
 
             if det_fisio and not det_psico:
                 m_freq = re.search(
@@ -8867,15 +9149,16 @@ def api_ai_preencher_ficha():
                     texto_bruto,
                     re.I
                 )
-                freq_str = (m_freq.group(1) or m_freq.group(2) or "").strip() if m_freq else ""
-                f_info = f" ({freq_str})" if freq_str else ""
-                result.obs_terapias = f"{termo_p} relata realização de fisioterapia motora{f_info} e nega acompanhamento em psicoterapia."
+                freq_str = _freq_terapia_por_extenso((m_freq.group(1) or m_freq.group(2) or "").strip() if m_freq else "")
+                f_info = f" {freq_str}" if freq_str else ""
+                result.obs_terapias = f"Realiza fisioterapia motora{f_info} e não realiza psicoterapia."
             elif det_psico and not det_fisio:
-                m_freq = re.search(r'\b(\d+x\s*(?:/\s*sem(?:ana)?)?|semanal|quinzenal|mensal|uma\s+vez\s+por\s+(?:semana|m[êe]s)|duas\s+vezes\s+por\s+(?:semana|m[êe]s))\b', texto_bruto, re.I)
-                f_info = f" ({m_freq.group(1).strip()})" if m_freq else ""
-                result.obs_terapias = f"{termo_p} relata acompanhamento em psicoterapia{f_info} e nega fisioterapia."
+                m_freq = re.search(r'\b(\d+x\s*(?:/\s*sem(?:ana)?)?|semanal|quinzenal|mensal|uma\s+vez\s+por\s+(?:semana|m[êe]s)|duas\s+vezes\s+por\s+(?:semana|m[êe]s)|tr[êe]s\s+vezes\s+por\s+(?:semana|m[êe]s))\b', texto_bruto, re.I)
+                freq_str = _freq_terapia_por_extenso(m_freq.group(1).strip() if m_freq else "")
+                f_info = f" {freq_str}" if freq_str else ""
+                result.obs_terapias = f"Realiza psicoterapia{f_info} e não realiza fisioterapia."
             elif det_fisio and det_psico:
-                result.obs_terapias = f"{termo_p} relata acompanhamento em fisioterapia e psicoterapia."
+                result.obs_terapias = "Realiza acompanhamento em fisioterapia e psicoterapia."
             else:
                 result.obs_terapias = "Não alegou fazer fisioterapia e psicoterapia."
 
@@ -9025,6 +9308,10 @@ def api_ai_preencher_ficha():
                     result.exame_fisico_tipo = "Aparelho Osteomuscular e Tecido Conjutivo"
                 else:
                     result.exame_fisico_tipo = "Outros"
+
+            if not (result.parecer or "").strip():
+                par_inferred = _extrair_parecer_texto(texto_bruto)
+                result.parecer = par_inferred if par_inferred else ("CONTRÁRIO" if retro_invalida else "FAVORÁVEL")
 
             # Normalização de Exame "Outros" e Exame Mental
             ef_tipo_low = (result.exame_fisico_tipo or "").strip().lower()
@@ -9310,6 +9597,8 @@ def api_ai_preencher_ficha():
                     par_upper = "FAVORÁVEL"
                 elif override_parecer_manual == "CONTRÁRIO" or par_bruto == "CONTRÁRIO" or (decisao_medico and "CONT" in str(decisao_medico.get("parecer") or "").upper()):
                     par_upper = "CONTRÁRIO"
+                elif not par_upper:
+                    par_upper = "FAVORÁVEL"
                 is_fav = "FAV" in par_upper or par_upper == "FAVORÁVEL"
 
                 if is_fav:
@@ -9742,8 +10031,10 @@ def parse_esisla_text(text: str) -> dict:
     if m: data['protocolo'] = m.group(1).strip()
 
     # 2. CPF, RG e Nome Completo
-    # Formato padrão e-SISLA
+    # Formato padrão e-SISLA ou texto livre (ex.: "CPF 270. 631.398-60")
     m = re.search(r'CPF:\s*([0-9\.\s\-]+?)(?:RG:|Nome Completo|Nasc|Data|\n|$)', text, re.I)
+    if not m:
+        m = re.search(r'\bCPF[:\s\-]*([0-9]{3}[\.\s]*[0-9]{3}[\.\s]*[0-9]{3}[\-\s\/]*[0-9]{2}|\d{11})\b', text, re.I)
     if m:
         raw_cpf = re.sub(r'\D', '', m.group(1))
         if len(raw_cpf) == 11:
@@ -9761,7 +10052,7 @@ def parse_esisla_text(text: str) -> dict:
     if m:
         val_nome = m.group(1).strip()
         if not re.match(r'^(?:CPF|RG)\b', val_nome, re.I):
-            val_nome = re.split(r'\s+CPF:\s*', val_nome, flags=re.I)[0].strip()
+            val_nome = re.split(r'\s+CPF[:\s]', val_nome, flags=re.I)[0].strip()
             data['nome_paciente'] = re.sub(r'\s+', ' ', val_nome).strip()
 
     # Formato GPM (onde Nome, CPF e RG vêm juntos na linha: NOME_COMPLETO 11DIGITOS_CPF RG)
@@ -9772,6 +10063,18 @@ def parse_esisla_text(text: str) -> dict:
             data['nome_paciente'] = re.sub(r'\s+', ' ', nome).strip()
             data['cpf_paciente'] = f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}"
             data['rg_paciente'] = rg.strip()
+
+    # Formato de texto livre do médico (ex.: "Gilberto leonardo Del Tedesco reis  CPF 270. 631.398-60")
+    if not data.get('nome_paciente'):
+        m_free_nome = re.search(
+            r'^\s*(?:Paciente|Servidor[a]?|Periciad[oa])?[:\s\-]*([A-ZÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ]+(?:\s+(?:de|da|do|das|dos|del|e|[A-Za-zÀ-ÖØ-öø-ÿ]{2,})){1,6}?)\s+CPF\b',
+            text,
+            re.I,
+        )
+        if m_free_nome:
+            cand_nm = re.sub(r'\s+', ' ', m_free_nome.group(1)).strip(" ,.;:-")
+            if not re.search(r'\b(?:governo|estado|diretoria|secretaria|per[íi]cia|atestado)\b', cand_nm, re.I):
+                data['nome_paciente'] = cand_nm.upper()
 
     # 3. Data de Nascimento e Idade
     m = re.search(r'(?:Data de Nascimento|Nasc\.?):\s*(\d{2}/\d{2}/\d{4})', text, re.I)
@@ -9878,6 +10181,50 @@ def parse_esisla_text(text: str) -> dict:
             elif not data.get('municipio') and re.match(r'^[A-ZÀ-Ú][A-ZÀ-Ú\s\'\-]{2,35}$', vl) and not re.search(r'\b(?:PROFESSOR|AGENTE|OFICIAL|DIRETOR|SECRETARIA|AUXILIAR|TECNICO|ANALISTA|MEDICO|ENFERMEIRO)\b', vl):
                 data['municipio'] = vl.strip()
 
+    # Cargo em texto livre (ex.: "Policial penal", "Professor de Educação Básica II", "PEB II", "Agente de Organização Escolar")
+    if not data.get('cargo'):
+        m_free_cargo = re.search(
+            r'\b('
+            r'Policial\s+Penal(?:\s+[IVXLCDM]+)?|'
+            r'Professor[a]?\s+(?:de\s+)?Educa[çc][ãa]o\s+B[áa]sica(?:\s+[IVXLCDM]+)?|'
+            r'PEB\s*[I]{1,3}|'
+            r'Professor[a]?\s+de\s+Ensino\s+Fundamental(?:\s+e\s+M[ée]dio)?|'
+            r'Agente\s+de\s+Organiza[çc][ãa]o\s+Escolar|'
+            r'Agente\s+de\s+Seguran[çc]a\s+Penitenci[áa]ria|'
+            r'Agente\s+de\s+Escolta\s+e\s+Vigil[âa]ncia\s+Penitenci[áa]ria|'
+            r'Investigador[a]?\s+de\s+Pol[íi]cia|'
+            r'Escriv[ãa]o?\s+de\s+Pol[íi]cia|'
+            r'Delegad[oa]\s+de\s+Pol[íi]cia|'
+            r'Policial\s+(?:Militar|Civil)|'
+            r'Oficial\s+Administrativ[oa]|'
+            r'Diretor[a]?\s+de\s+Escola|'
+            r'Coordenador[a]?\s+Pedag[óo]gic[oa]|'
+            r'Supervisor[a]?\s+de\s+Ensino|'
+            r'Auxiliar\s+de\s+Servi[çc]os\s+Gerais|'
+            r'T[ée]cnic[oa]\s+de\s+Enfermagem|'
+            r'Analista\s+(?:Administrativo|Sociocultural|de\s+Tecnologia)'
+            r')\b',
+            text,
+            re.I,
+        )
+        if m_free_cargo:
+            c_raw = re.sub(r'\s+', ' ', m_free_cargo.group(1)).strip()
+            if re.match(r'^PEB\s*([I]{1,3})$', c_raw, re.I):
+                rom = re.sub(r'^PEB\s*', '', c_raw, flags=re.I).upper()
+                data['cargo'] = f"Professor de Educação Básica {rom}"
+            else:
+                minusc = {"de", "da", "do", "das", "dos", "e"}
+                romanos = {"I", "II", "III", "IV", "V", "VI", "VII"}
+                palavras = []
+                for w in c_raw.split():
+                    if w.upper() in romanos:
+                        palavras.append(w.upper())
+                    elif w.lower() in minusc:
+                        palavras.append(w.lower())
+                    else:
+                        palavras.append(w.capitalize())
+                data['cargo'] = " ".join(palavras)
+
     # Ingresso e cálculo de tempo no cargo
     m_ing = re.search(r'Ingresso:?\s*(\d{2}/\d{2}/\d{4})', text, re.I)
     if not m_ing:
@@ -9935,10 +10282,10 @@ def parse_esisla_text(text: str) -> dict:
             raw_nm = " ".join(w.capitalize() if len(w) > 2 else w for w in raw_nm.split())
         data['nome_medico_assistente'] = raw_nm
 
-    # 11. CID 10
-    m = re.search(r'CID(?:[\s\-]*10)?[:\s]+([A-Za-z][0-9]{2,3}(?:\.[0-9]+)?)', text, re.I)
+    # 11. CID 10 (suporta "CID I21.0" e "CID I 21.0")
+    m = re.search(r'CID(?:[\s\-]*10)?[:\s\-]+([A-Za-z])\s*([0-9]{2,3}(?:\.[0-9]+)?)', text, re.I)
     if m:
-        cid_code = m.group(1).strip().upper()
+        cid_code = (m.group(1) + m.group(2)).strip().upper()
         if len(cid_code) == 4 and '.' not in cid_code:
             cid_code = f"{cid_code[:3]}.{cid_code[3:]}"
         data['cid'] = cid_code
