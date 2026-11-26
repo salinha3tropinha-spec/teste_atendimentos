@@ -1618,9 +1618,19 @@ async function generateEsisla(enc, forceRefresh = false){
         target.value = data.ficha_esisla;
         renderEsislaBlocos(data.ficha_esisla);
         setEsislaViewMode(getGestaoPrefs().defaultEsislaMode === 'txt' ? 'txt' : 'blocos');
-        const wasReused = Boolean(data?.reused_from_atendimento || data?.meta?.reused);
-        sub.textContent = 'Atendimento ' + id + ' · ' + (wasReused ? '✓ Ficha salva reutilizada (sem recriação)' : (forceRefresh ? '↻ Ficha refeita agora' : (data?.meta?.cached ? 'resultado em cache' : 'gerado agora')));
-        updateEsislaStats(data.ficha_esisla);
+        const wasReused = Boolean(data?.reused_from_atendimento || data?.meta?.reused || data?.meta?.reused_from_atendimento);
+        const wasSinglePass = Boolean(data?.meta?.single_pass_direct);
+        const wasFallback = Boolean(data?.meta?.fallback_mode);
+        const statusLabel = wasReused
+            ? '✓ Ficha salva reutilizada (sem recriação)'
+            : (wasSinglePass
+                ? '⚡ Gerada em modo direto (IA 2.0 auditada)'
+                : (wasFallback
+                    ? '🛡️ Gerada em modo determinístico auditado (sem IA)'
+                    : (forceRefresh ? '↻ Ficha refeita agora' : (data?.meta?.cached ? 'resultado em cache' : 'gerado agora'))));
+        sub.textContent = 'Atendimento ' + id + ' · ' + statusLabel;
+        window._esislaUltimaQualidade = data?.qualidade || null;
+        updateEsislaStats(data.ficha_esisla, data?.qualidade || null);
         if (window.currentDetailFull) {
             window.currentDetailFull.ficha_esisla = data.ficha_esisla;
             if (window.currentDetailFull.aux) window.currentDetailFull.aux.fichaEsisla = data.ficha_esisla;
@@ -1995,10 +2005,15 @@ function cleanQueixaDuracao(text) {
     t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+(?:informad[oa]|especificad[oa])\.?/gi, "não informada sua dosagem.");
     t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+(?:informad[oa]|especificad[oa])\b/gi, "não informada sua dosagem");
     t = t.replace(/,?\s*\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+(lavagem\s+nasal(?:\s+com\s+soro\s+fisiol[óo]gico)?)\b/gi, " ($1)");
-    t = t.replace(/(\b(?:Soro\s+fisiol[óo]gico|solu[çc][ãa]o\s+fisiol[óo]gica)\b[^.,;]*?),?\s*\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\b/gi, "$1");
+    t = t.replace(/(\b(?:Soro\s+fisiol[óo]gico|solu[çc][ãa]o\s+fisiol[óo]gica|Nebacetin|pomada|creme|col[íi]rio|spray\s+nasal)\b[^.,;]*?),?\s*\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\b/gi, "$1");
+    t = t.replace(/\b(conforme\s+(?:prescri[çc][ãa]o|orienta[çc][ãa]o|necessidade)),?\s*n[ãa]o\s+informad[oa]\s+sua\s+dosagem\b/gi, "$1");
     t = t.replace(/\s+\bN[ãa]o\s+especificad[oa]\b(?=\s*(?:[,.)(;]|$))/gi, "");
     t = t.replace(/\bajustad[oa]\s+para,\s*lavagem\s+nasal\s+e\s+nasal\.?/gi, "ajustada para lavagem nasal.");
     t = t.replace(/\bRecebeu\s+prescri[çc][ãa]o,\s+e\s+/gi, "Recebeu prescrição de ");
+    t = t.replace(/\s+h[áa]\s+0\s+(?:anos?|meses?|m[êe]s|dias?)\b/gi, "");
+    t = t.replace(/\bexercendo\s+atualmente\s+(?:as\s+)?atividades\s+de\s+Atividades\b/gi, "exercendo atualmente atividades");
+    t = t.replace(/\b(\d+)\.(\d+)(?=\s*(?:mg|g|mcg|ml|ui)\b)/gi, "$1,$2");
+    t = t.replace(/\btroca\s+de\s+altera[çc][ãa]o\s+de\s+dosagem\s+da\s+medica[çc][ãa]o\b/gi, "troca de medicação ou alteração de dosagem");
 
     // Normaliza "não informado sua dosagem Analgesia" -> "não informado sua dosagem, para analgesia"
     t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+Analgesia\b/gi, "não informado sua dosagem, para analgesia");
@@ -3303,14 +3318,14 @@ function onEsislaTextInput() {
     updateEsislaStats(el.value);
 }
 
-function updateEsislaStats(text){
+function updateEsislaStats(text, qualidadeBackend = undefined){
     const chip=document.getElementById('esislaStatsChip');
     const str=String(text||'').replace(/\r\n/g, '\n').replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
     const chars=str.length;
     const lines=str?str.split('\n').length:0;
     if(chip) chip.textContent=`${chars.toLocaleString('pt-BR')} caracteres · ${lines} linhas`;
 
-    // Validação de Segurança Jurídica e Conformidade e-SISLA (Regras de Ouro)
+    // Validação de Segurança Jurídica e Conformidade e-SISLA (Regras de Ouro + Auditoria DPME)
     const banner = document.getElementById('esislaRegrasDeOuroBanner');
     if (!banner) return;
 
@@ -3322,8 +3337,10 @@ function updateEsislaStats(text){
     const dataObj = typeof gerarJsonEsisla === 'function' ? gerarJsonEsisla(str, window.currentEsislaEnc) : null;
     if (!dataObj) return;
 
+    const qual = qualidadeBackend !== undefined ? qualidadeBackend : (window._esislaUltimaQualidade || null);
     const msgs = [];
     let hasCritical = false;
+    let hasWarning = false;
 
     // 1. Incoerências jurídicas dos quesitos x parecer
     if (dataObj.inconsistencias_juridicas && dataObj.inconsistencias_juridicas.length > 0) {
@@ -3343,10 +3360,25 @@ function updateEsislaStats(text){
         msgs.push(`🏛️ <strong>Regra de Afastamento:</strong> ${dataObj.alerta_junta}`);
     }
 
+    // 4. Auditoria anti-glosa DPME (score e alertas estruturais/clínicos do backend)
+    const escHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    if (qual && typeof qual.score === 'number') {
+        const critList = Array.isArray(qual.criticos) ? qual.criticos : [];
+        const avisList = Array.isArray(qual.avisos) ? qual.avisos : [];
+        if (critList.length > 0) {
+            hasCritical = true;
+            msgs.push(`🛡️ <strong>Auditoria DPME (${qual.score}/100 · ${escHtml(qual.status || 'CRÍTICO')}):</strong> ${critList.map(escHtml).join(' · ')}`);
+        }
+        if (avisList.length > 0) {
+            hasWarning = true;
+            msgs.push(`⚠️ <strong>Pontos de atenção DPME (${qual.score}/100):</strong> ${avisList.map(escHtml).join(' · ')}`);
+        }
+    }
+
     if (msgs.length > 0) {
         banner.innerHTML = `
             <div style="display:flex;align-items:flex-start;gap:8px;font-size:11px">
-                <span style="font-size:15px">${hasCritical ? '🛡️' : 'ℹ️'}</span>
+                <span style="font-size:15px">${hasCritical ? '🛡️' : (hasWarning ? '⚠️' : 'ℹ️')}</span>
                 <div style="flex:1;line-height:1.45">
                     ${msgs.join('<br><div style="margin-top:2px"></div>')}
                 </div>
@@ -3361,17 +3393,24 @@ function updateEsislaStats(text){
             banner.style.background = '#FEF2F2';
             banner.style.border = '1.5px solid #F87171';
             banner.style.color = '#991B1B';
+        } else if (hasWarning) {
+            banner.style.background = '#FFFBEB';
+            banner.style.border = '1.5px solid #FCD34D';
+            banner.style.color = '#92400E';
         } else {
             banner.style.background = '#EFF6FF';
             banner.style.border = '1.5px solid #93C5FD';
             banner.style.color = '#1E3A8A';
         }
     } else {
+        const scoreSuffix = (qual && typeof qual.score === 'number')
+            ? ` · Score ${qual.score}/100 (${escHtml(qual.status || 'APROVADO')})`
+            : '';
         banner.innerHTML = `
             <div style="display:flex;align-items:center;gap:6px;font-size:11px">
                 <span style="font-size:13px">🛡️</span>
-                <span style="font-weight:750;color:#15803D">Conformidade e-SISLA / DPME verificada:</span>
-                <span style="color:#166534">Campos dentro do limite de 2.000 caracteres e coerência entre Quesitos e Parecer respeitada.</span>
+                <span style="font-weight:750;color:#15803D">Auditoria DPME / e-SISLA aprovada${scoreSuffix}:</span>
+                <span style="color:#166534">Campos dentro do limite de 2.000 caracteres e conformidade pericial verificada.</span>
             </div>
         `;
         banner.style.display = 'inline-flex';
@@ -3595,9 +3634,10 @@ function gerarJsonEsisla(textoFicha, enc) {
         hda = hdaContent;
     }
 
-    // No e-SISLA o campo voMedico.parRlExApres (idExameApres) deve conter exclusivamente os achados do Exame Físico Geral direto
+    // No e-SISLA o campo voMedico.parRlExApres (idExameApres) deve conter exclusivamente os achados do Exame Físico Geral direto.
+    // Prioriza o texto exibido/editado/refinado na ficha e-SISLA antes do valor original salvo no prontuário.
     const docExame = (st.exameFisicoDescricao || aux.exameFisicoDescricao || st.agilExameFisicoDescricao || aux.agilExameFisicoDescricao || '').trim();
-    let exApres = (docExame || exameFisicoTexto).trim();
+    let exApres = (exameFisicoTexto || docExame).trim();
     if (!exApres) {
         exApres = aux.exameFisico || st.exameFisico || '';
     }
@@ -6211,7 +6251,9 @@ async function refinarFichaEsislaIA() {
     textoOtimizado = String(textoOtimizado).replace(/\r\n/g, '\n').replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
 
     el.value = textoOtimizado;
-    updateEsislaStats(textoOtimizado);
+    const qualRef = resData?.data?.qualidade || resData?.qualidade || null;
+    window._esislaUltimaQualidade = qualRef;
+    updateEsislaStats(textoOtimizado, qualRef);
     renderEsislaBlocos(textoOtimizado);
     if (window.currentDetailFull) {
       window.currentDetailFull.ficha_esisla = textoOtimizado;

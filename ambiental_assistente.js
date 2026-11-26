@@ -11558,18 +11558,30 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
     "analgesico", "analgesicos", "analgésico", "analgésicos",
     "anti-inflamatorio", "anti-inflamatorios", "anti-inflamatório", "anti-inflamatórios",
     "antiinflamatorio", "antiinflamatorios", "antiinflamatório", "antiinflamatórios",
+    "sintomatico", "sintomaticos", "sintomático", "sintomáticos",
+    "suporte sintomatico", "suporte sintomático", "medicacao sintomatica", "medicação sintomática",
     "medicacao", "medicacoes", "medicação", "medicações",
     "medicamento", "medicamentos", "remedio", "remedios", "remédio", "remédios",
     "tratamento", "terapia", "prescricao", "prescrição"
   ]);
   const _placeholderRe = /^(?:n[ãa]o\s+especificad[oa]|n[ãa]o\s+informad[oa]|sem\s+informa[çc][ãa]o|n\/a|na|desconhecid[oa]|-+)$/i;
+  const _vagueDoseRe = /^(?:conforme\s+(?:prescri[çc][ãa]o|orienta[çc][ãa]o|necessidade|orienta[çc][ãa]o\s+m[ée]dica)|uso\s+t[óo]pico|t[óo]pico|aplicar\s+no\s+local)$/i;
+  const _isTopicalOrSaline = (nome, freq, obs) => {
+    const combo = `${nome} ${freq} ${obs}`;
+    return /\b(?:soro\s+fisiol|solu[çc][ãa]o\s+fisiol|lavagem\s+nasal|nebacetin|pomada|creme|gel\b|col[íi]rio|spray\s+nasal|gotas?\s+nasais|t[óo]pic[oa]|uso\s+t[óo]pico|dermatol[óo]gic|bepantol|kollagenase|dersani|mupirocina|neomicina)\b/i.test(combo);
+  };
+  const _fmtDosePtBr = (d) => String(d || "").replace(/(\d+)\.(\d+)(?=\s*(?:mg|g|mcg|ml|ui|gotas?)\b)/gi, "$1,$2");
   const cleanMeds = meds
     .map(m => {
       let nome = (m.medicamento || m.nome || "").replace(/\/\s*$/, "").trim();
-      let dose = (m.dosagem || "").replace(/\/\s*$/, "").trim();
+      let dose = _fmtDosePtBr((m.dosagem || "").replace(/\/\s*$/, "").trim());
       let freq = (m.frequencia || "").trim();
       let obs = (m.observacao || "").trim();
       if (_placeholderRe.test(dose)) dose = "";
+      if (_vagueDoseRe.test(dose)) {
+        if (!freq) freq = dose;
+        dose = "";
+      }
       if (_placeholderRe.test(freq)) freq = "";
       if (_placeholderRe.test(obs)) obs = "";
       return { medicamento: nome, dosagem: dose, frequencia: freq, observacao: obs };
@@ -11580,8 +11592,8 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
     const medsWithoutDose = cleanMeds.filter(m => {
       const dose = m.dosagem;
       const nome = m.medicamento;
-      const isSalineWash = /\bsoro\s+fisiol|\bsolu[çc][ãa]o\s+fisiol/i.test(nome) && /\blavagem\b/i.test(`${m.frequencia} ${m.observacao}`);
-      return !dose && !isSalineWash && !/\b\d+\s*(?:g|mg|mcg|ml|gotas?|comprimidos?)\b/i.test(nome);
+      const isTopical = _isTopicalOrSaline(nome, m.frequencia, m.observacao);
+      return !dose && !isTopical && !/\b\d+(?:[.,]\d+)?\s*(?:g|mg|mcg|ml|gotas?|comprimidos?)\b/i.test(nome);
     });
 
     if (cleanMeds.length >= 2 && medsWithoutDose.length === cleanMeds.length && cleanMeds.every(m => !m.frequencia && !m.observacao)) {
@@ -11596,7 +11608,7 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
         const dose = m.dosagem;
         const freq = m.frequencia;
         const obs = m.observacao;
-        const isSalineWash = /\bsoro\s+fisiol|\bsolu[çc][ãa]o\s+fisiol/i.test(nome) && /\blavagem\b/i.test(`${freq} ${obs}`);
+        const isTopical = _isTopicalOrSaline(nome, freq, obs);
 
         let item = nome;
         if (dose) {
@@ -11605,10 +11617,10 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
           } else {
             item += dose;
           }
-        } else if (!isSalineWash) {
-          const hasDoseInNome = /\b\d+\s*(?:g|mg|mcg|ml|gotas?|comprimidos?)\b/i.test(nome);
+        } else if (!isTopical && !_vagueDoseRe.test(freq)) {
+          const hasDoseInNome = /\b\d+(?:[.,]\d+)?\s*(?:g|mg|mcg|ml|gotas?|comprimidos?)\b/i.test(nome);
           if (!hasDoseInNome) {
-            item += `, não informado sua dosagem`;
+            item += `, não informada sua dosagem`;
           }
         }
         if (freq) {
@@ -11616,7 +11628,7 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
             item += `, para analgesia`;
           } else if (/^se\s+dor$/i.test(freq)) {
             item += ` se dor`;
-          } else if (isSalineWash) {
+          } else if (isTopical) {
             item += ` (${freq})`;
           } else {
             item += ` ${freq}`;
@@ -11741,17 +11753,29 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
   
   // 2. Readaptação: logo após a idade: "relatou não ser readaptado" / "relatou ser readaptado"
   if (readap) {
-    ident += `, relatou ser ${isFem ? 'readaptada' : 'readaptado'}${ativReadap ? `, exercendo atualmente as atividades de ${ativReadap}` : ""}`;
+    let ativClean = String(ativReadap || "").trim();
+    ativClean = ativClean.replace(/^atividades\s+(?:de\s+)?/i, "").trim();
+    if (ativClean && !/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}\b/.test(ativClean)) {
+      ativClean = ativClean.charAt(0).toLowerCase() + ativClean.slice(1);
+    }
+    ident += `, relatou ser ${isFem ? 'readaptada' : 'readaptado'}${ativClean ? `, exercendo atualmente atividades de ${ativClean}` : ""}`;
   } else {
     ident += `, relatou não ser ${isFem ? 'readaptada' : 'readaptado'}`;
   }
 
-  // 3. Cargo: "é {cargo} há {tempoCargo} {unidadeTempo}"
+  // 3. Cargo: "é {cargo} há {tempoCargo} {unidadeTempo}" (omite quando tempoCargo for 0)
   if (cargo) {
     let cargoFormatado = cargo.trim().replace(/^é\s+/i, '');
     cargoFormatado = flexibilizarCargoFem(cargoFormatado, isFem);
-    if (tempoCargo) {
-      ident += `, é ${cargoFormatado} há ${tempoCargo} ${unidadeTempo.toLowerCase()}`;
+    const tempoNum = parseInt(String(tempoCargo || "").replace(/\D/g, ""), 10);
+    if (tempoCargo && !isNaN(tempoNum) && tempoNum > 0) {
+      let unidFmt = unidadeTempo.toLowerCase();
+      if (tempoNum === 1) {
+        if (unidFmt.startsWith("ano")) unidFmt = "ano";
+        else if (unidFmt.startsWith("mes") || unidFmt.startsWith("mês")) unidFmt = "mês";
+        else if (unidFmt.startsWith("dia")) unidFmt = "dia";
+      }
+      ident += `, é ${cargoFormatado} há ${tempoNum} ${unidFmt}`;
     } else {
       ident += `, é ${cargoFormatado}`;
     }
@@ -15771,10 +15795,15 @@ function cleanQueixaDuracao(text, atdDate) {
   t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+(?:informad[oa]|especificad[oa])\.?/gi, "não informada sua dosagem.");
   t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+[Nn][ãa]o\s+(?:informad[oa]|especificad[oa])\b/gi, "não informada sua dosagem");
   t = t.replace(/,?\s*\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+(lavagem\s+nasal(?:\s+com\s+soro\s+fisiol[óo]gico)?)\b/gi, " ($1)");
-  t = t.replace(/(\b(?:Soro\s+fisiol[óo]gico|solu[çc][ãa]o\s+fisiol[óo]gica)\b[^.,;]*?),?\s*\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\b/gi, "$1");
+  t = t.replace(/(\b(?:Soro\s+fisiol[óo]gico|solu[çc][ãa]o\s+fisiol[óo]gica|Nebacetin|pomada|creme|col[íi]rio|spray\s+nasal)\b[^.,;]*?),?\s*\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\b/gi, "$1");
+  t = t.replace(/\b(conforme\s+(?:prescri[çc][ãa]o|orienta[çc][ãa]o|necessidade)),?\s*n[ãa]o\s+informad[oa]\s+sua\s+dosagem\b/gi, "$1");
   t = t.replace(/\s+\bN[ãa]o\s+especificad[oa]\b(?=\s*(?:[,.)(;]|$))/gi, "");
   t = t.replace(/\bajustad[oa]\s+para,\s*lavagem\s+nasal\s+e\s+nasal\.?/gi, "ajustada para lavagem nasal.");
   t = t.replace(/\bRecebeu\s+prescri[çc][ãa]o,\s+e\s+/gi, "Recebeu prescrição de ");
+  t = t.replace(/\s+h[áa]\s+0\s+(?:anos?|meses?|m[êe]s|dias?)\b/gi, "");
+  t = t.replace(/\bexercendo\s+atualmente\s+(?:as\s+)?atividades\s+de\s+Atividades\b/gi, "exercendo atualmente atividades");
+  t = t.replace(/\b(\d+)\.(\d+)(?=\s*(?:mg|g|mcg|ml|ui)\b)/gi, "$1,$2");
+  t = t.replace(/\btroca\s+de\s+altera[çc][ãa]o\s+de\s+dosagem\s+da\s+medica[çc][ãa]o\b/gi, "troca de medicação ou alteração de dosagem");
 
   // Normaliza "não informado sua dosagem Analgesia" -> "não informado sua dosagem, para analgesia"
   t = t.replace(/\bn[ãa]o\s+informad[oa]\s+sua\s+dosagem\s+Analgesia\b/gi, "não informado sua dosagem, para analgesia");
