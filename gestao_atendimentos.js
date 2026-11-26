@@ -98,7 +98,7 @@ let tab='all',serverItems=[],localItems=[];
 const stateLabel={RASCUNHO:'RASCUNHO',EM_REVISÃO:'EM REVISÃO',REABERTO:'REABERTO',FINALIZADO:'FINALIZADO',ARQUIVADO:'ARQUIVADO'};
 function date(v){if(!v)return'—';const p=String(v).slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:'—'}
 function dt(v){try{return new Date(v).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}catch{return'—'}}
-function values(r){const a=r.aux||{};return{atd:r.atendimento||'—',date:a.dataAtd||'',time:a.horaAtd||'',doctor:r.medico||'—',crm:a.crmResponsavel||'',patient:a.nomePaciente||r.nomePaciente||r.paciente_nome||'',cpf:a.cpfPaciente||r.cpfPaciente||r.paciente_cpf||'',cargo:a.cargo||'—',idade:a.idade||'',cid:a.cid||'',unidade:a.unidade||'',dias:a.diasSolicitados||'',q:r.queixaDuracao||a.queixaDuracao||'',doenca:a.doencaMotivo||'',hist:a.historicoPregresso||'',sint:a.sintomasLimitacao||'',examType:r.exameFisicoTipo||'',exam:r.alteracoesClinicasExames||'',lim:r.descLimitacao||a.descLimitacao||'',ativ:r.atividadesComprometidas||'',cap:r.capacidade||'—',parecer:r.parecer||'—',just:a.justificativa||'',docs:arr(r.documentosComplementares),meds:arr(r.medications),conds:arr(r.conditions),ques:arr(r.quesitos),esislaLancado:Boolean(r.esisla_lancado||a.esislaLancado),esislaLancadoEm:r.esisla_lancado_em||a.esislaLancadoEm||'',esislaLancadoPor:r.esisla_lancado_por||a.esislaLancadoPor||'',updated:r.__registryAt||r.atualizado_em||''}}
+function values(r){const a=r.aux||{};const pAux=(r.payload&&r.payload.aux)?r.payload.aux:{};const ia2Txt=r.ia2EscritaTexto||a.ia2EscritaTexto||pAux.ia2EscritaTexto||a.ia2TextoBruto||pAux.ia2TextoBruto||r.payload?.ia2EscritaTexto||'';const ia2Grav=a.ia2GravacaoTranscricao||pAux.ia2GravacaoTranscricao||'';const ia2Upd=r.ia2EscritaAtualizadoEm||a.ia2EscritaAtualizadoEm||pAux.ia2EscritaAtualizadoEm||'';return{atd:r.atendimento||'—',date:a.dataAtd||'',time:a.horaAtd||'',doctor:r.medico||'—',crm:a.crmResponsavel||'',patient:a.nomePaciente||r.nomePaciente||r.paciente_nome||'',cpf:a.cpfPaciente||r.cpfPaciente||r.paciente_cpf||'',cargo:a.cargo||'—',idade:a.idade||'',cid:a.cid||'',unidade:a.unidade||'',dias:a.diasSolicitados||'',q:r.queixaDuracao||a.queixaDuracao||'',doenca:a.doencaMotivo||'',hist:a.historicoPregresso||'',sint:a.sintomasLimitacao||'',examType:r.exameFisicoTipo||'',exam:r.alteracoesClinicasExames||'',lim:r.descLimitacao||a.descLimitacao||'',ativ:r.atividadesComprometidas||'',cap:r.capacidade||'—',parecer:r.parecer||'—',just:a.justificativa||'',docs:arr(r.documentosComplementares),meds:arr(r.medications),conds:arr(r.conditions),ques:arr(r.quesitos),esislaLancado:Boolean(r.esisla_lancado||a.esislaLancado),esislaLancadoEm:r.esisla_lancado_em||a.esislaLancadoEm||'',esislaLancadoPor:r.esisla_lancado_por||a.esislaLancadoPor||'',ia2TextoBruto:ia2Txt,ia2GravacaoTranscricao:ia2Grav,ia2TextoAtualizadoEm:ia2Upd,updated:r.__registryAt||r.atualizado_em||''}}
 function statusOf(r){return String(r?.status||r?.workflowStatus||'RASCUNHO').toUpperCase().replace('REVISÃO','EM_REVISÃO').replace('EM_PREENCHIMENTO','RASCUNHO')}
 function hay(r,q){if(!q)return true;const v=values(r);const blob=JSON.stringify(v).toLowerCase();const qn=q.toLowerCase();const qcpf=qn.replace(/\D/g,'');return blob.includes(qn)|| (qcpf.length>=3 && String(v.cpf||'').replace(/\D/g,'').includes(qcpf))}
 function lerLocalStorage(){try{const raw=localStorage.getItem(REGISTRY_KEY);const reg=raw?JSON.parse(raw):{};if(!reg||typeof reg!=="object")return [];return Object.values(reg).filter(r=>r&&typeof r==="object"&&r.atendimento).map(r=>({...r,__source:"local"}));}catch(e){console.warn("Falha ao ler LocalStorage",e);return [];}}
@@ -1497,11 +1497,27 @@ function detail(r){
     const patient=v.patient||'Paciente não informado';
     let cleanDoc=String(v.doctor||'Médico não informado').replace(/\s*-\s*CRM.*$/i,'').replace(/\s*CRM[:\s]*\d+.*$/i,'').trim();
     let cleanUnit=String(v.unidade||'').replace(/^0+\d*\s*-\s*/,'').trim();
+    const rawIa2Text = String(v.ia2TextoBruto || v.ia2GravacaoTranscricao || '').trim();
+    const ia2BlocoHtml = rawIa2Text ? `
+    <section class="section" style="border:1.5px solid #C7D2FE;background:linear-gradient(180deg,#F5F7FF 0%,#FFFFFF 100%);border-radius:14px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <div>
+          <h3 style="margin:0;color:#3730A3;display:flex;align-items:center;gap:6px">✍️ Texto Bruto IA 2.0 (Anotações da Médica)</h3>
+          <span class="section-sub" style="margin-top:2px;display:block">${v.ia2TextoAtualizadoEm ? 'Salvo automaticamente em ' + esc(dt(v.ia2TextoAtualizadoEm)) : 'Rascunho preservado para conferência ou finalização administrativa'}</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-outline btn-sm" onclick="copiarTextoBrutoIA2Admin()" style="border-color:#818CF8;color:#3730A3;background:#fff;font-weight:700">📋 Copiar texto</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openEval(window.currentDetailEnc, true)" style="background:linear-gradient(135deg,#4F46E5,#6366F1);color:#fff;border:none;font-weight:700">🚀 Abrir no Modo IA 2.0</button>
+        </div>
+      </div>
+      <div id="adminIa2TextoBrutoBox" style="background:#FFFFFF;border:1px solid #E0E7FF;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55;color:#1E293B;white-space:pre-wrap;max-height:260px;overflow-y:auto">${esc(rawIa2Text)}</div>
+    </section>` : '';
     return `<div class="detail-context">
       <div class="context-card"><span class="label">Paciente</span><span class="value">${esc(patient)}</span><span class="muted">CPF: ${esc(v.cpf||'Não informado')}</span></div>
       <div class="context-card"><span class="label">Data do atendimento</span><span class="value">${esc(date(v.date))}</span><span class="muted">Identificação interna preservada pelo sistema</span></div>
       <div class="context-card"><span class="label">Situação</span><span class="value">${esc(stateLabel[statusOf(r)]||statusOf(r))}</span><span class="muted">Atualizado ${esc(dt(r.atualizado_em||v.updated))}</span></div>
     </div>
+    ${ia2BlocoHtml}
     <section class="section"><h3>Identificação profissional</h3><span class="section-sub">Dados de quem realizou o atendimento e contexto ocupacional</span><div class="grid">${field('Médico responsável',cleanDoc)}${field('CRM/CRO',v.crm)}${field('Cargo',v.cargo)}${field('Idade',v.idade?String(v.idade)+' anos':'Não informado')}${field('Unidade',cleanUnit)}${field('Dias solicitados',v.dias)}</div></section>
     <section class="section"><h3>Queixa e contexto clínico</h3><span class="section-sub">Informações registradas durante a avaliação</span><div class="grid">${field('Doença / motivo',v.doenca)}${field('Queixa e duração',v.q,true)}${field('Antecedentes mórbidos',v.hist,true)}${field('Sintomas / limitações',v.sint,true)}</div></section>
     <section class="section"><h3>Documentos, atestados e exames</h3><span class="section-sub">Registros complementares vinculados ao atendimento</span><div class="grid">${docs||field('Registro','Nenhum documento complementar registrado.',true)}</div></section>
@@ -1513,6 +1529,23 @@ function field(label,value,full=false){
     const empty=value===undefined||value===null||String(value).trim()==='';
     return `<div class="field ${full?'full':''}"><label>${esc(label)}</label><div class="${empty?'field-value-empty':''}">${empty?'Não informado':esc(String(value))}</div></div>`;
 }
+async function copiarTextoBrutoIA2Admin(){
+    const el=document.getElementById('adminIa2TextoBrutoBox');
+    const txt=(el?.textContent||'').trim();
+    if(!txt)return;
+    try{
+        await navigator.clipboard.writeText(txt);
+        if(typeof toast==='function')toast('📋 Texto bruto da médica copiado!');
+        else alert('Texto bruto copiado para a área de transferência!');
+    }catch(_){
+        const ta=document.createElement('textarea');
+        ta.value=txt;document.body.appendChild(ta);ta.select();
+        try{document.execCommand('copy');}catch(__){}
+        ta.remove();
+        if(typeof toast==='function')toast('📋 Texto bruto da médica copiado!');
+    }
+}
+window.copiarTextoBrutoIA2Admin=copiarTextoBrutoIA2Admin;
 function setModal(id,open=true){const el=document.getElementById(id);if(!el)return;el.classList.toggle('open',open);const anyOpen=[...document.querySelectorAll('.modal.open')].length>0;document.documentElement.classList.toggle('modal-lock',anyOpen);document.body.classList.toggle('modal-lock',anyOpen);if(open){requestAnimationFrame(()=>el.querySelector('button,textarea,[tabindex]:not([tabindex="-1"])')?.focus?.());}}
 function closeModal(id){setModal(id,false)}
 function openEval(enc, modoIa2 = true){
@@ -1529,6 +1562,7 @@ function openEval(enc, modoIa2 = true){
       if (v.idade && v.idade !== '-') p.set('idade', v.idade);
       if (v.unidade) p.set('unidade', v.unidade);
       if (modoIa2) p.set('modo_ia2', '1');
+      if (modoIa2 && String(v.ia2TextoBruto || '').trim()) p.set('subview', 'escrita');
       location.href = '/app?' + p.toString();
       return;
     }

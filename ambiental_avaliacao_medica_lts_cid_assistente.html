@@ -9,7 +9,7 @@
 
 <title>Ambiental — Avaliação Médica Pericial LTS</title>
 <!-- v15: validação determinística dos quesitos baseada diretamente nos radio buttons + sincronização de estado -->
-<link rel="stylesheet" href="/ambiental_assistente.css?v=2.2.3">
+<link rel="stylesheet" href="/ambiental_assistente.css?v=2.3.1">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="/auth.js?v=2.2.3"></script><script src="/api.js?v=2.2.3"></script></head>
 <body><div id="authLoading" style="position:fixed;inset:0;background:#F2F6FA;z-index:999999;display:grid;place-items:center;font-family:Inter,system-ui,sans-serif;color:#073F87"><div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #DDE6EF;border-radius:14px;padding:13px 16px;box-shadow:0 12px 35px rgba(10,30,55,.1);font-size:12px;font-weight:800"><img src="/logo.png" alt="" style="width:28px;height:28px;object-fit:contain"><span>Verificando sessão...</span></div></div>
 <script>
@@ -593,6 +593,7 @@
             <div class="ia2-editor-statusbar">
               <div class="ia2-editor-counts">
                 <span id="ia2EscritaContador" class="ia2-count-badge">0 palavra(s) preenchida(s) • 0 caractere(s)</span>
+                <span id="ia2EscritaSavePill" class="ia2-save-pill" title="O texto digitado é salvo automaticamente para evitar perdas e permitir acesso administrativo">✏️ Auto-salvamento ativo</span>
               </div>
               <div class="ia2-editor-guide-pill">
                 <span>⚡ Pronto para o e-SISLA</span>
@@ -2730,7 +2731,27 @@ Atestado de 15 dias do dia 29/09 por Z98.8 favorável."></textarea>
   </div>
 </div>
 
-<script src="/ambiental_assistente.js?v=2.3.0"></script>
+<!-- BARRA INFERIOR FIXA EXCLUSIVA PARA CELULAR (OCULTA NO COMPUTADOR/NOTEBOOK) -->
+<nav id="mobileBottomBar" class="mobile-bottom-bar" aria-label="Ações rápidas no celular">
+  <button type="button" class="mbb-btn" onclick="openManagement()">
+    <span class="mbb-ico">📋</span>
+    <span class="mbb-lbl">Agenda</span>
+  </button>
+  <button type="button" class="mbb-btn" onclick="saveNow()">
+    <span class="mbb-ico">💾</span>
+    <span class="mbb-lbl">Salvar</span>
+  </button>
+  <button type="button" class="mbb-btn mbb-ia2" id="mobileBtnModoIA2" onclick="abrirModoIA2('selecao')">
+    <span class="mbb-ico">✨</span>
+    <span class="mbb-lbl">IA 2.0</span>
+  </button>
+  <button type="button" class="mbb-btn mbb-finish" onclick="finalizeFromHeader()">
+    <span class="mbb-ico">✅</span>
+    <span class="mbb-lbl">Finalizar</span>
+  </button>
+</nav>
+
+<script src="/ambiental_assistente.js?v=2.3.1"></script>
 </div> <!-- Fecha a div .app -->
 
 <script>window.addEventListener("pageshow",()=>{AmbientalAuth.me().then(p=>{if(!p) location.replace("/login.html?reason=expired");}).catch(()=>{});});</script></body>

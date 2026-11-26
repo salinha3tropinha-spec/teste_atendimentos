@@ -4252,3 +4252,499 @@ body:not(.mode-agil-active) #containerModoAgil {
   animation: ia2ColinhaLiveHit 0.85s cubic-bezier(0.16, 1, 0.3, 1);
   border-color: #059669 !important;
 }
+
+/* Indicador discreto de auto-salvamento do Modo Escrita IA 2.0 */
+.ia2-save-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #F1F5F9;
+  color: #475569;
+  border: 1px solid #E2E8F0;
+  margin-left: 8px;
+  transition: all 0.2s ease;
+}
+.ia2-save-pill.saving {
+  background: #FEF3C7;
+  color: #92400E;
+  border-color: #FCD34D;
+}
+.ia2-save-pill.saved {
+  background: #ECFDF5;
+  color: #047857;
+  border-color: #A7F3D0;
+}
+.ia2-save-pill.local {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border-color: #BFDBFE;
+}
+
+/* Barra inferior mobile — estritamente oculta em computador/notebook */
+.mobile-bottom-bar {
+  display: none;
+}
+
+/* =========================================================
+   MODO CELULAR EXCLUSIVO (TOUCH-FIRST MEDICAL APP UI)
+   Isolado estritamente em <= 768px — 0% de impacto no Desktop
+   ========================================================= */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    background: #F4F7FB;
+  }
+
+  .app {
+    padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Evita zoom automático do iOS Safari ao tocar em campos */
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  input[type="email"],
+  input[type="search"],
+  select,
+  textarea,
+  .input,
+  .select,
+  .textarea {
+    font-size: 16px !important;
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
+  /* 1. Cabeçalho Mobile Limpo e Compacto */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 45;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .header-inner {
+    padding: 10px 14px !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between;
+  }
+  .brand {
+    min-width: 0 !important;
+    gap: 10px !important;
+    flex: 1;
+  }
+  .brand img {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+    padding: 2px !important;
+  }
+  .brand-title {
+    font-size: 13px !important;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+  .brand-sub {
+    font-size: 10.5px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header-center {
+    display: flex !important;
+    order: 0 !important;
+    width: auto !important;
+    flex: 0 0 auto !important;
+  }
+  .save-status {
+    padding: 5px 9px !important;
+    font-size: 10.5px !important;
+    gap: 6px !important;
+    max-width: 132px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Ações principais ficam na barra inferior fixa ergonômica */
+  .header-actions {
+    display: none !important;
+  }
+  .sticky-hud {
+    display: none !important;
+  }
+
+  .container {
+    padding: 12px 12px 24px !important;
+  }
+  .layout {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* 2. Cartão do Paciente IA 2.0 — Layout Mobile em Grid Limpo */
+  .ia2-patient-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 14px !important;
+    border-radius: 18px !important;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06) !important;
+    border: 1px solid #E2E8F0 !important;
+  }
+  .ia2-patient-info-group {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px 12px !important;
+    align-items: start !important;
+  }
+  .ia2-patient-avatar,
+  .ia2-chip-sep {
+    display: none !important;
+  }
+  .ia2-patient-chip {
+    min-width: 0;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 11px;
+    padding: 8px 10px !important;
+  }
+  .ia2-patient-chip.primary {
+    grid-column: 1 / -1 !important;
+    background: linear-gradient(135deg, #EFF6FF 0%, #F5F3FF 100%);
+    border-color: #BFDBFE;
+    padding: 10px 12px !important;
+  }
+  .ia2-patient-chip.primary .ia2-chip-value {
+    font-size: 15px !important;
+    color: #0F172A !important;
+  }
+  .ia2-chip-tag {
+    font-size: 9.5px !important;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .ia2-chip-value {
+    font-size: 12.5px !important;
+    word-break: break-word;
+  }
+  .ia2-patient-actions {
+    width: 100%;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .ia2-top-mode-switcher {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    width: 100% !important;
+    padding: 4px !important;
+    border-radius: 14px !important;
+    gap: 4px;
+  }
+  .ia2-mode-tab-btn {
+    min-height: 42px !important;
+    font-size: 13.5px !important;
+    font-weight: 800 !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+  }
+
+  /* 3. Seleção de Modo IA 2.0 */
+  #ia2ViewSelecao h2 {
+    font-size: 20px !important;
+    line-height: 1.25;
+  }
+  .ia2-selection-card-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .ia2-mode-card {
+    padding: 18px !important;
+    border-radius: 18px !important;
+  }
+  .ia2-mode-card button {
+    min-height: 48px !important;
+    font-size: 15px !important;
+  }
+
+  /* 4. Modo Escrita IA 2.0 — Otimizado para Digitação e Ditado no Celular */
+  .ia2-escrita-panel {
+    padding: 14px !important;
+    border-radius: 18px !important;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06) !important;
+  }
+  .ia2-escrita-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .ia2-escrita-icon-badge {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 19px !important;
+    border-radius: 12px !important;
+    flex-shrink: 0;
+  }
+  .ia2-escrita-toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  .ia2-escrita-toolbar .btn {
+    min-height: 44px !important;
+    padding: 8px 10px !important;
+    font-size: 12.5px !important;
+    justify-content: center !important;
+    border-radius: 12px !important;
+    white-space: nowrap;
+  }
+  .ia2-escrita-toolbar .btn-switch {
+    grid-column: 1 / -1;
+  }
+  .ia2-editor-container {
+    border-radius: 16px !important;
+    overflow: hidden;
+  }
+  .ia2-editor-topbar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+    padding: 10px 12px !important;
+  }
+  .ia2-hint-badge {
+    font-size: 11px !important;
+    line-height: 1.35;
+  }
+  #ia2EscritaText,
+  .ia2-escrita-textarea,
+  .ia2-escrita-textarea-v2 {
+    min-height: 250px !important;
+    padding: 14px !important;
+    font-size: 16px !important;
+    line-height: 1.55 !important;
+  }
+  .ia2-editor-statusbar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+    padding: 10px 12px !important;
+  }
+  .ia2-editor-counts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .ia2-save-pill {
+    margin-left: 0;
+  }
+  .ia2-escrita-footer {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    margin-top: 14px !important;
+  }
+  .ia2-btn-finalizar {
+    width: 100% !important;
+    min-height: 52px !important;
+    font-size: 15.5px !important;
+    border-radius: 14px !important;
+    justify-content: center !important;
+  }
+
+  /* 5. Modo Gravação + Colinha Pericial no Celular */
+  .ia2-hero-card {
+    padding: 20px 16px !important;
+    border-radius: 18px !important;
+  }
+  .ia2-hero-title {
+    font-size: 20px !important;
+  }
+  .ia2-hero-flow-preview {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .ia2-colinha-panel,
+  .ia2-transcript-panel {
+    padding: 14px !important;
+    border-radius: 16px !important;
+  }
+  .ia2-colinha-items-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .ia2-colinha-item {
+    min-height: 48px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+  .ia2-colinha-focused-footer,
+  .ia2-transcript-footer-cta {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .ia2-btn-generate-qa,
+  .ia2-btn-proceed-decision {
+    width: 100% !important;
+    min-height: 48px !important;
+    justify-content: center !important;
+    font-size: 14px !important;
+  }
+
+  /* 6. Prontuário Padrão (Modo Ágil / Estendido) & Barra de Trava */
+  .hero {
+    padding: 16px !important;
+    border-radius: 16px !important;
+    margin-bottom: 12px !important;
+  }
+  .hero h1 {
+    font-size: 19px !important;
+  }
+  .section {
+    border-radius: 16px !important;
+  }
+  .section-head,
+  .section-body {
+    padding: 16px 14px !important;
+  }
+  .choice {
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+  }
+  .vinculo-lock-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+  }
+  .vinculo-lock-btn {
+    min-height: 40px !important;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* 7. Modais em estilo Bottom-Sheet / Tela Cheia suave no Celular */
+  .modal-backdrop,
+  .overlay {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+  .modal,
+  .dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh !important;
+    border-radius: 22px 22px 0 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-head,
+  .dialog-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #fff;
+    padding: 15px 16px !important;
+  }
+  .modal-body {
+    padding: 16px !important;
+  }
+  .dialog-actions {
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .dialog-actions .btn {
+    width: 100% !important;
+    min-height: 46px !important;
+  }
+
+  /* 8. Barra Inferior Fixa Ergonômica (Bottom Action Bar) */
+  .mobile-bottom-bar {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 65;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid #DCE5F0;
+    box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.10);
+  }
+  .mbb-btn {
+    appearance: none;
+    border: 1px solid #E2E8F0;
+    background: #F8FAFC;
+    color: #1E293B;
+    border-radius: 13px;
+    padding: 7px 4px;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-weight: 800;
+    transition: transform 0.12s ease, background 0.15s ease;
+  }
+  .mbb-btn:active {
+    transform: scale(0.95);
+  }
+  .mbb-ico {
+    font-size: 17px;
+    line-height: 1;
+  }
+  .mbb-lbl {
+    font-size: 10.5px;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+  }
+  .mbb-btn.mbb-ia2 {
+    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+    color: #FFFFFF;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.28);
+  }
+  .mbb-btn.mbb-finish {
+    background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+    color: #FFFFFF;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
+  }
+
+  /* Toast acima da barra inferior mobile */
+  .toast {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+    text-align: center;
+    border-radius: 14px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .ia2-patient-info-group {
+    grid-template-columns: 1fr !important;
+  }
+  .ia2-escrita-toolbar {
+    grid-template-columns: 1fr !important;
+  }
+}

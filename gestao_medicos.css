@@ -2498,3 +2498,118 @@ main { min-width: 0; }
   background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
   box-shadow: 0 5px 14px rgba(16, 185, 129, 0.42) !important;
 }
+
+/* =========================================================
+   MODO CELULAR EXCLUSIVO — PORTAL MÉDICO (AGENDA & ATENDIMENTOS)
+   Isolado estritamente em <= 768px — 0% de impacto no Desktop
+   ========================================================= */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input, select, textarea {
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+
+  .sidebar {
+    inset: auto 10px calc(10px + env(safe-area-inset-bottom, 0px)) 10px !important;
+    height: 66px !important;
+    background: rgba(11, 37, 69, 0.96) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+  .sidebar-edge-toggle {
+    display: none !important;
+  }
+  .nav button {
+    min-height: 48px !important;
+    width: auto !important;
+    flex: 1;
+    flex-direction: column !important;
+    gap: 2px !important;
+    padding: 6px 4px !important;
+  }
+  .nav button span:last-child {
+    display: block !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 68px;
+  }
+
+  .content {
+    padding: 14px 12px calc(98px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .topbar {
+    padding: 10px 14px !important;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Cartões da Agenda do Dia — Toque Fácil com 1 Clique */
+  .agenda-item-card {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    padding: 14px !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+  }
+  .agenda-time-box {
+    flex-direction: row !important;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: #F1F5F9;
+  }
+  .agenda-patient-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    width: 100%;
+  }
+  .agenda-patient-actions button {
+    min-height: 46px !important;
+    font-size: 14px !important;
+    border-radius: 12px !important;
+    justify-content: center !important;
+  }
+
+  /* KPIs e Cards */
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .kpi {
+    padding: 14px !important;
+    border-radius: 14px !important;
+  }
+
+  /* Modais em Bottom-Sheet */
+  .modal-backdrop,
+  .modal-overlay {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+  .modal-card,
+  .modal-box,
+  .modal-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh !important;
+    border-radius: 22px 22px 0 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}

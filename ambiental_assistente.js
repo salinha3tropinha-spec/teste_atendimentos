@@ -1292,8 +1292,20 @@ function syncState(){
       exameMentalResultado:state.exameMentalResultado || prevAux.exameMentalResultado || "",
       osteomuscularResultado:state.osteomuscularResultado || prevAux.osteomuscularResultado || "",
       osteomuscularRegioes:state.osteomuscularRegioes || prevAux.osteomuscularRegioes || {},
-      justificativa:getVal("justificativa", prevAux.justificativa || state.justificativa || $("agilJustificativa")?.value || "")
+      justificativa:getVal("justificativa", prevAux.justificativa || state.justificativa || $("agilJustificativa")?.value || ""),
+      ia2EscritaTexto: ($("ia2EscritaText") && typeof $("ia2EscritaText").value === "string" && ($("ia2EscritaText").value.trim() !== "" || window._ia2EscritaLimpouManualmente))
+        ? $("ia2EscritaText").value
+        : (prevAux.ia2EscritaTexto ?? state.ia2EscritaTexto ?? ""),
+      ia2EscritaAtualizadoEm: prevAux.ia2EscritaAtualizadoEm || state.ia2EscritaAtualizadoEm || "",
+      ia2TextoBruto: ($("ia2EscritaText") && $("ia2EscritaText").value && $("ia2EscritaText").value.trim())
+        ? $("ia2EscritaText").value
+        : (prevAux.ia2TextoBruto || prevAux.ia2EscritaTexto || state.ia2EscritaTexto || ""),
+      ia2GravacaoTranscricao: ($("ia2GravacaoTranscricao") && $("ia2GravacaoTranscricao").value && $("ia2GravacaoTranscricao").value.trim())
+        ? $("ia2GravacaoTranscricao").value
+        : (prevAux.ia2GravacaoTranscricao || "")
     };
+    state.ia2EscritaTexto = state.aux.ia2EscritaTexto || "";
+    state.ia2EscritaAtualizadoEm = state.aux.ia2EscritaAtualizadoEm || "";
     if (typeof hasFichaVinculada === "function" && hasFichaVinculada() && typeof preservarDadosFichaVinculada === "function") {
       preservarDadosFichaVinculada();
     }
@@ -1327,6 +1339,7 @@ function applyState(){
   if ($("psicoterapia")) $("psicoterapia").checked = !!(state.psicoterapia || state.aux?.psicoterapia);
   if ($("agilPsicoterapia")) $("agilPsicoterapia").checked = !!(state.psicoterapia || state.aux?.psicoterapia);
   syncExtendedToAgil(); if(typeof atualizarBannerAcompanhante==="function")atualizarBannerAcompanhante();
+  if (typeof restaurarRascunhoEscritaIA2 === "function") restaurarRascunhoEscritaIA2();
   if (currentAttendanceMode === "agil") {
     document.body.classList.add("mode-agil-active");
   } else {
@@ -2382,7 +2395,17 @@ function abrirModoIA2(view = "selecao") {
   const container = $("containerModoIA2");
   if (container) container.style.display = "block";
 
-  trocarSubViewIA2(view);
+  let targetView = view;
+  if (targetView === "selecao") {
+    const urlSub = new URLSearchParams(location.search).get("subview");
+    const hasSavedEscrita = Boolean(
+      (state?.aux?.ia2EscritaTexto || state?.ia2EscritaTexto || $("ia2EscritaText")?.value || "").trim()
+    );
+    if (urlSub === "escrita" || hasSavedEscrita) {
+      targetView = "escrita";
+    }
+  }
+  trocarSubViewIA2(targetView);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -2468,6 +2491,7 @@ function trocarSubViewIA2(view) {
       atualizarGuiaPassosIA2(2);
     }
   } else if (view === "escrita") {
+    if (typeof restaurarRascunhoEscritaIA2 === "function") restaurarRascunhoEscritaIA2();
     const tEsc = $("ia2EscritaText");
     if (tEsc) {
       window._ia2BaseTextEscrita = (tEsc.value || "").trim();
@@ -3476,6 +3500,7 @@ function inserirPerguntasAuxiliaresEscritaIA2(silencioso = false) {
   window._ia2EscritaApenasCadastroInicial = true;
   window._ia2EscritaLimpouManualmente = false;
   atualizarContadorEscritaIA2();
+  if (typeof salvarRascunhoEscritaIA2 === "function") salvarRascunhoEscritaIA2();
 
   if (!silencioso) {
     toast("📝 Roteiro de 11 perguntas inserido! Basta completar as respostas na frente de cada item.");
@@ -3518,6 +3543,7 @@ function inserirFraseRapidaEscritaIA2(frase) {
       ta.value = val;
       window._ia2BaseTextEscrita = ta.value.trim();
       atualizarContadorEscritaIA2();
+      if (typeof salvarRascunhoEscritaIA2 === "function") salvarRascunhoEscritaIA2();
       toast(`✅ Resposta preenchida automaticamente no Item ${targetNum}!`);
       return;
     }
@@ -3528,7 +3554,171 @@ function inserirFraseRapidaEscritaIA2(frase) {
   ta.value = val + sep + frase;
   window._ia2BaseTextEscrita = ta.value.trim();
   atualizarContadorEscritaIA2();
+  if (typeof salvarRascunhoEscritaIA2 === "function") salvarRascunhoEscritaIA2();
   toast("➕ Frase adicionada às anotações!");
+}
+
+function _ia2EscritaStorageKey() {
+  const id = String(
+    state?.atendimento ||
+    state?.__serverId ||
+    state?.protocolo ||
+    state?.aux?.protocolo ||
+    state?.aux?.agenda_protocolo ||
+    $("atd")?.value ||
+    "rascunho_atual"
+  ).trim();
+  return `ambiental.ia2.escrita.${id || "rascunho_atual"}`;
+}
+
+function _atualizarBadgeSaveEscritaIA2(status) {
+  const pill = $("ia2EscritaSavePill");
+  if (!pill) return;
+  pill.classList.remove("saving", "saved", "local");
+  if (status === "saving") {
+    pill.classList.add("saving");
+    pill.textContent = "⏳ Salvando rascunho...";
+  } else if (status === "local") {
+    pill.classList.add("local");
+    pill.textContent = "💾 Salvo no aparelho";
+  } else if (status === "empty") {
+    pill.textContent = "✏️ Auto-salvamento ativo";
+  } else {
+    pill.classList.add("saved");
+    pill.textContent = "✓ Rascunho salvo";
+  }
+}
+
+let _ia2EscritaAutoSaveTimer = null;
+function salvarRascunhoEscritaIA2(opts = {}) {
+  const ta = $("ia2EscritaText");
+  const gravTa = $("ia2GravacaoTranscricao");
+  const texto = opts.clear ? "" : (ta ? String(ta.value || "") : String(state?.aux?.ia2EscritaTexto || ""));
+  const gravacao = gravTa ? String(gravTa.value || "") : String(state?.aux?.ia2GravacaoTranscricao || "");
+  const nowIso = new Date().toISOString();
+
+  if (!state.aux || typeof state.aux !== "object") state.aux = {};
+  state.aux.ia2EscritaTexto = texto;
+  state.ia2EscritaTexto = texto;
+  state.aux.ia2EscritaAtualizadoEm = texto.trim() ? nowIso : "";
+  state.ia2EscritaAtualizadoEm = state.aux.ia2EscritaAtualizadoEm;
+  if (texto.trim() || opts.clear) {
+    state.aux.ia2TextoBruto = texto;
+  }
+  if (gravacao.trim()) {
+    state.aux.ia2GravacaoTranscricao = gravacao;
+  }
+
+  // Camada 1: Backup instantâneo em localStorage por atendimento
+  try {
+    const key = _ia2EscritaStorageKey();
+    if (opts.clear || (!texto.trim() && !gravacao.trim())) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, JSON.stringify({
+        texto,
+        gravacao,
+        updatedAt: nowIso,
+        atendimento: state?.atendimento || state?.__serverId || ""
+      }));
+    }
+  } catch (e) {
+    console.warn("Falha ao gravar backup local do Modo Escrita IA 2.0:", e);
+  }
+
+  if (!texto.trim() && !gravacao.trim()) {
+    _atualizarBadgeSaveEscritaIA2("empty");
+  } else {
+    _atualizarBadgeSaveEscritaIA2("saving");
+  }
+
+  // Camada 2: Sincronização com registro local e servidor (visível também ao administrativo)
+  clearTimeout(_ia2EscritaAutoSaveTimer);
+  const dispararPersist = () => {
+    try {
+      if (typeof autoSave === "function") {
+        autoSave();
+      }
+      if (opts.immediate && typeof persistNow === "function" && state?.atendimento) {
+        persistNow(false).catch(() => {});
+      }
+      _atualizarBadgeSaveEscritaIA2(state?.atendimento ? "saved" : "local");
+    } catch (_) {
+      _atualizarBadgeSaveEscritaIA2("local");
+    }
+  };
+
+  if (opts.immediate) {
+    dispararPersist();
+  } else {
+    _ia2EscritaAutoSaveTimer = setTimeout(dispararPersist, 550);
+  }
+}
+window.salvarRascunhoEscritaIA2 = salvarRascunhoEscritaIA2;
+
+function restaurarRascunhoEscritaIA2() {
+  const ta = $("ia2EscritaText");
+  if (!ta || window._ia2EscritaLimpouManualmente) return false;
+
+  const atualTela = String(ta.value || "").trim();
+  const stateTxt = String(state?.aux?.ia2EscritaTexto || state?.ia2EscritaTexto || state?.aux?.ia2TextoBruto || "").trim();
+  const stateTs = Date.parse(state?.aux?.ia2EscritaAtualizadoEm || state?.ia2EscritaAtualizadoEm || "") || 0;
+
+  let localTxt = "";
+  let localTs = 0;
+  try {
+    const raw = localStorage.getItem(_ia2EscritaStorageKey());
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      localTxt = String(parsed?.texto || "").trim();
+      localTs = Date.parse(parsed?.updatedAt || "") || 0;
+    }
+  } catch (_) {}
+
+  let escolhido = "";
+  if (localTxt && stateTxt) {
+    escolhido = localTs >= stateTs ? localTxt : stateTxt;
+  } else {
+    escolhido = stateTxt || localTxt;
+  }
+
+  if (escolhido && (!atualTela || window._ia2EscritaApenasCadastroInicial)) {
+    ta.value = escolhido;
+    window._ia2BaseTextEscrita = escolhido;
+    window._ia2EscritaApenasCadastroInicial = false;
+    if (!state.aux || typeof state.aux !== "object") state.aux = {};
+    state.aux.ia2EscritaTexto = escolhido;
+    state.ia2EscritaTexto = escolhido;
+    if (typeof atualizarContadorEscritaIA2 === "function") atualizarContadorEscritaIA2();
+    _atualizarBadgeSaveEscritaIA2("saved");
+    return true;
+  }
+  if (atualTela) {
+    _atualizarBadgeSaveEscritaIA2("saved");
+  } else {
+    _atualizarBadgeSaveEscritaIA2("empty");
+  }
+  return false;
+}
+window.restaurarRascunhoEscritaIA2 = restaurarRascunhoEscritaIA2;
+
+// Salvamento de emergência ao minimizar app no celular, trocar de aba ou fechar página
+if (typeof document !== "undefined" && !window.__ia2EscritaUnloadHooked) {
+  window.__ia2EscritaUnloadHooked = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      const ta = $("ia2EscritaText");
+      if (ta && ta.value && ta.value.trim()) {
+        salvarRascunhoEscritaIA2({ immediate: true });
+      }
+    }
+  });
+  window.addEventListener("pagehide", () => {
+    const ta = $("ia2EscritaText");
+    if (ta && ta.value && ta.value.trim()) {
+      salvarRascunhoEscritaIA2({ immediate: true });
+    }
+  });
 }
 
 function limparTextoEscritaIA2() {
@@ -3546,6 +3736,7 @@ function limparTextoEscritaIA2() {
     }
   });
   atualizarContadorEscritaIA2();
+  salvarRascunhoEscritaIA2({ clear: true, immediate: true });
   ta.focus();
   toast("🗑️ Campo limpo! Você pode digitar livremente ou clicar em '+ Perguntas auxiliares'.");
 }
@@ -3565,6 +3756,7 @@ $("ia2GravacaoTranscricao")?.addEventListener("input", function() {
   analisarColinhaEmTempoReal(this.value);
   atualizarContadorGravacaoIA2();
   atualizarVisualTranscricaoIA2(false);
+  salvarRascunhoEscritaIA2();
   if (ia2Gravando && ia2SpeechRecognition) {
     try { ia2SpeechRecognition.abort(); } catch (_) {}
   }
@@ -3573,7 +3765,9 @@ $("ia2GravacaoTranscricao")?.addEventListener("input", function() {
 $("ia2EscritaText")?.addEventListener("input", function() {
   window._ia2BaseTextEscrita = this.value.trim();
   window._ia2EscritaApenasCadastroInicial = false;
+  window._ia2EscritaLimpouManualmente = false;
   atualizarContadorEscritaIA2();
+  salvarRascunhoEscritaIA2();
   if (ia2DitadoEscritaAtivo && ia2DitadoEscritaRecognition) {
     try { ia2DitadoEscritaRecognition.abort(); } catch (_) {}
   }
@@ -3591,9 +3785,11 @@ async function colarTextoClipboardIA2() {
           t.value = (t.value ? t.value.trim() + "\n\n" : "") + text.trim();
         }
         window._ia2EscritaApenasCadastroInicial = false;
+        window._ia2EscritaLimpouManualmente = false;
         window._ia2BaseTextEscrita = t.value.trim();
         atualizarContadorEscritaIA2();
-        toast("📋 Texto colado com sucesso!");
+        salvarRascunhoEscritaIA2();
+        toast("📋 Texto colado e salvo no rascunho!");
       }
     }
   } catch (e) {
@@ -3636,7 +3832,8 @@ async function alternarDitadoVozEscritaIA2() {
     }
     if (bubble) bubble.style.display = "none";
     atualizarContadorEscritaIA2();
-    toast("✅ Ditado por voz pausado.");
+    if (typeof salvarRascunhoEscritaIA2 === "function") salvarRascunhoEscritaIA2({ immediate: true });
+    toast("✅ Ditado por voz pausado e salvo.");
   } else {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
@@ -3697,6 +3894,9 @@ async function alternarDitadoVozEscritaIA2() {
             }
             t.value = fullComposed;
             atualizarContadorEscritaIA2();
+            if (sessionFinal.trim() && typeof salvarRascunhoEscritaIA2 === "function") {
+              salvarRascunhoEscritaIA2();
+            }
           }
 
           if (bubble && bubbleTxt) {
@@ -4860,6 +5060,13 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
 
     atualizarOverlayIA2Passo(4, "⚡ Preenchendo ficha e-SISLA com parecer e regras oficiais...", 88);
     window.__ia2UltimoTextoProcessado = texto;
+    if (!state.aux || typeof state.aux !== "object") state.aux = {};
+    if (texto && String(texto).trim()) {
+      state.aux.ia2TextoBruto = String(texto).trim();
+      if (!state.aux.ia2EscritaTexto) state.aux.ia2EscritaTexto = String(texto).trim();
+      state.ia2EscritaTexto = state.aux.ia2EscritaTexto;
+      state.aux.ia2EscritaAtualizadoEm = new Date().toISOString();
+    }
 
     const reqBody = {
       texto_bruto: texto,
