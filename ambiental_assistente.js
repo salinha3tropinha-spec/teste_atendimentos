@@ -4868,28 +4868,32 @@ async function executarPreenchimentoIA2(texto, origem, decisaoMedico = {}) {
       origem_modo_ia2: origem,
       decisao_medico: decisaoMedico,
       impersonate_medico_id: (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('ambiental.impersonate_medico_id') : null),
-      contexto_atual: {
-        nomePaciente: state.nomePaciente || state.aux?.nomePaciente || "",
-        cpfPaciente: state.cpfPaciente || state.aux?.cpfPaciente || "",
-        rg: state.aux?.rgPaciente || state.aux?.rg || "",
-        dataNascimento: state.aux?.dataNascimento || "",
-        idade: state.idade || state.aux?.idade || "",
-        sexo: state.sexo || state.aux?.sexo || "",
-        cargo: state.cargo || state.aux?.cargo || "",
-        tempoCargo: state.tempoCargo || state.aux?.tempoCargo || "",
-        tempoUnidade: state.tempoUnidade || state.aux?.tempoUnidade || "Anos",
-        readaptado: state.readaptado || state.aux?.readaptado || "Não",
-        cid: state.cid || state.aux?.cid || "",
-        crmCro: state.crmCro || state.aux?.crmCro || "",
-        medicoAssistenteNome: state.aux?.nomeMedicoAssistente || state.aux?.medicoAssistenteNome || "",
-        dataDocumento: state.dataDocumento || state.aux?.dataDocumento || "",
-        dataExpedicao: state.aux?.dataExpedicao || state.dataExpedicao || "",
-        dataExpedicaoIso: state.aux?.dataExpedicaoIso || state.dataExpedicao || "",
-        diasSolicitados: state.diasSolicitados || state.aux?.diasSolicitados || "",
-        retroacaoInvalida: Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida),
-        retroacaoDias: state.aux?.retroacaoDias || state.retroacaoDias || null,
-        parecerManualOverride: state.parecerManualOverride || ""
-      }
+      ...(typeof montarContextoIA2ComFichaVinculada === "function"
+        ? montarContextoIA2ComFichaVinculada()
+        : {
+            contexto_atual: {
+              nomePaciente: state.nomePaciente || state.aux?.nomePaciente || "",
+              cpfPaciente: state.cpfPaciente || state.aux?.cpfPaciente || "",
+              rg: state.aux?.rgPaciente || state.aux?.rg || "",
+              dataNascimento: state.aux?.dataNascimento || "",
+              idade: state.idade || state.aux?.idade || "",
+              sexo: state.sexo || state.aux?.sexo || "",
+              cargo: state.cargo || state.aux?.cargo || "",
+              tempoCargo: state.tempoCargo || state.aux?.tempoCargo || "",
+              tempoUnidade: state.tempoUnidade || state.aux?.tempoUnidade || "Anos",
+              readaptado: state.readaptado || state.aux?.readaptado || "Não",
+              cid: state.cid || state.aux?.cid || "",
+              crmCro: state.crmCro || state.aux?.crmCro || "",
+              medicoAssistenteNome: state.aux?.nomeMedicoAssistente || state.aux?.medicoAssistenteNome || "",
+              dataDocumento: state.dataDocumento || state.aux?.dataDocumento || "",
+              dataExpedicao: state.aux?.dataExpedicao || state.dataExpedicao || "",
+              dataExpedicaoIso: state.aux?.dataExpedicaoIso || state.dataExpedicao || "",
+              diasSolicitados: state.diasSolicitados || state.aux?.diasSolicitados || "",
+              retroacaoInvalida: Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida),
+              retroacaoDias: state.aux?.retroacaoDias || state.retroacaoDias || null,
+              parecerManualOverride: state.parecerManualOverride || ""
+            }
+          })
     };
 
     let res;
@@ -5312,10 +5316,245 @@ function hasFichaVinculada() {
 }
 window.hasFichaVinculada = hasFichaVinculada;
 
+function coletarCamposTravadosDaFicha(v) {
+  if (!v || typeof v !== "object") return [];
+  const chaves = [
+    "nomePaciente", "cpfPaciente", "rg", "dataNascimento", "idade", "sexo",
+    "cargo", "tempoCargo", "tempoUnidade", "readaptado", "cid",
+    "dataDocumento", "dataExpedicao", "diasSolicitados", "crmCro", "medicoAssistenteNome"
+  ];
+  return chaves.filter(k => {
+    const val = v[k];
+    if (val === undefined || val === null) return false;
+    const s = String(val).trim();
+    return Boolean(s && s !== "-" && s !== "—");
+  });
+}
+
+function garantirEstiloTravaVinculo() {
+  if (typeof document === "undefined" || document.getElementById("vinculoTravaStyle")) return;
+  const stEl = document.createElement("style");
+  stEl.id = "vinculoTravaStyle";
+  stEl.textContent = `
+    .vinculo-locked {
+      background-color: #F1F5F9 !important;
+      border-color: #94A3B8 !important;
+      color: #334155 !important;
+      cursor: not-allowed !important;
+    }
+    .vinculo-lock-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 8px 14px;
+      margin: 8px 0 12px 0;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1.5px solid #93C5FD;
+      background: #EFF6FF;
+      color: #1E3A8A;
+    }
+    .vinculo-lock-bar.unlocked {
+      border-color: #FCD34D;
+      background: #FFFBEB;
+      color: #92400E;
+    }
+    .vinculo-lock-btn {
+      padding: 4px 10px;
+      border-radius: 7px;
+      border: 1px solid currentColor;
+      background: #FFFFFF;
+      color: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  `;
+  document.head.appendChild(stEl);
+}
+
+const _MAPA_IDS_TRAVA_VINCULO = {
+  nomePaciente: ["nomePaciente", "agilNomePaciente"],
+  cpfPaciente: ["cpfPaciente", "agilCpfPaciente"],
+  idade: ["idade", "agilIdade"],
+  cargo: ["cargo", "agilCargo"],
+  tempoCargo: ["tempoCargo", "agilTempoCargo"],
+  tempoUnidade: ["tempoUnidade", "agilTempoUnidade"],
+  cid: ["cid", "agilCid"],
+  dataDocumento: ["dataDocumento", "agilDataDocumento"],
+  dataExpedicao: ["dataExpedicao", "agilDataExpedicao"],
+  diasSolicitados: ["diasSolicitados", "agilDiasSolicitados"],
+  crmCro: ["crmCro", "agilCrmCro"]
+};
+
+function _guardTravaSelectOuRadio(ev) {
+  if (ev.currentTarget && ev.currentTarget.dataset.vinculoLocked === "1") {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const orig = ev.currentTarget.dataset.vinculoOrigVal;
+    if (ev.currentTarget.tagName === "SELECT" && orig !== undefined) {
+      ev.currentTarget.value = orig;
+    } else if (ev.currentTarget.type === "radio") {
+      const name = ev.currentTarget.name;
+      if (name && orig !== undefined) {
+        document.querySelectorAll(`input[name="${name}"]`).forEach(r => { r.checked = (r.value === orig); });
+      }
+    }
+    if (typeof toast === "function") toast("🔒 Campo travado pela ficha vinculada. Clique em 'Destravar campos' se precisar corrigir.");
+  }
+}
+
+function aplicarTravaCamposVinculados(forcarEstado) {
+  if (typeof document === "undefined" || !state || !state.aux) return;
+  const vinculado = hasFichaVinculada();
+  if (!vinculado) {
+    const oldBar = document.getElementById("vinculoTravaBar");
+    if (oldBar) oldBar.remove();
+    return;
+  }
+  garantirEstiloTravaVinculo();
+  if (typeof forcarEstado === "boolean") {
+    state.aux.travaVinculoAtiva = forcarEstado;
+  } else if (typeof state.aux.travaVinculoAtiva !== "boolean") {
+    state.aux.travaVinculoAtiva = true;
+  }
+  const v = state.aux.dadosFichaVinculada || {};
+  if (!Array.isArray(state.aux.camposTravadosVinculo) || state.aux.camposTravadosVinculo.length === 0) {
+    state.aux.camposTravadosVinculo = coletarCamposTravadosDaFicha(v);
+  }
+  const camposTravados = state.aux.camposTravadosVinculo || [];
+  const travaAtiva = Boolean(state.aux.travaVinculoAtiva);
+
+  Object.entries(_MAPA_IDS_TRAVA_VINCULO).forEach(([chave, ids]) => {
+    const deveTravar = travaAtiva && camposTravados.includes(chave);
+    ids.forEach(elId => {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      if (el.tagName === "SELECT") {
+        el.dataset.vinculoLocked = deveTravar ? "1" : "0";
+        el.dataset.vinculoOrigVal = String(v[chave] || el.value || "");
+        el.classList.toggle("vinculo-locked", deveTravar);
+        el.title = deveTravar ? "🔒 Campo travado pela ficha vinculada" : "";
+        el.removeEventListener("change", _guardTravaSelectOuRadio);
+        if (deveTravar) el.addEventListener("change", _guardTravaSelectOuRadio);
+      } else {
+        el.readOnly = deveTravar;
+        el.dataset.vinculoLocked = deveTravar ? "1" : "0";
+        el.classList.toggle("vinculo-locked", deveTravar);
+        el.title = deveTravar ? "🔒 Campo travado pela ficha vinculada" : "";
+      }
+    });
+  });
+
+  // Radios de readaptação
+  const travarReadap = travaAtiva && camposTravados.includes("readaptado") && Boolean(v.readaptado);
+  ["readaptado", "agilReadaptado"].forEach(rName => {
+    document.querySelectorAll(`input[name="${rName}"]`).forEach(r => {
+      r.dataset.vinculoLocked = travarReadap ? "1" : "0";
+      r.dataset.vinculoOrigVal = String(v.readaptado || "");
+      r.removeEventListener("click", _guardTravaSelectOuRadio);
+      if (travarReadap) r.addEventListener("click", _guardTravaSelectOuRadio);
+    });
+  });
+
+  // Barra discreta com botão Destravar / Travar novamente
+  let bar = document.getElementById("vinculoTravaBar");
+  const cidPrimarioInfo = v.cid ? ` · CID primário ${v.cid} protegido (IA pode sugerir CID secundário)` : "";
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "vinculoTravaBar";
+    const anchor = document.getElementById("agilForm") || document.getElementById("mainForm") || document.querySelector("main") || document.body;
+    if (anchor && anchor.firstChild) anchor.insertBefore(bar, anchor.firstChild);
+    else if (anchor) anchor.appendChild(bar);
+  }
+  bar.className = "vinculo-lock-bar" + (travaAtiva ? "" : " unlocked");
+  bar.innerHTML = travaAtiva
+    ? `<span>🔒 <strong>Ficha vinculada ativa:</strong> ${camposTravados.length} campo(s) oficial(is) travado(s)${cidPrimarioInfo}</span>
+       <button type="button" id="btnToggleTravaVinculo" class="vinculo-lock-btn" onclick="toggleTravaCamposVinculados()">🔓 Destravar campos</button>`
+    : `<span>🔓 <strong>Edição manual liberada:</strong> campos da ficha vinculada estão destravados temporariamente.</span>
+       <button type="button" id="btnToggleTravaVinculo" class="vinculo-lock-btn" onclick="toggleTravaCamposVinculados()">🔒 Travar novamente</button>`;
+}
+
+function toggleTravaCamposVinculados() {
+  if (!state || !state.aux) return;
+  const novoEstado = state.aux.travaVinculoAtiva === false;
+  if (novoEstado) {
+    preservarDadosFichaVinculada();
+  }
+  aplicarTravaCamposVinculados(novoEstado);
+  if (typeof toast === "function") {
+    toast(novoEstado ? "🔒 Campos oficiais da ficha vinculada travados novamente." : "🔓 Campos da ficha vinculada destravados para edição manual.");
+  }
+}
+
+function montarContextoIA2ComFichaVinculada() {
+  const isVinc = hasFichaVinculada();
+  const travaAtiva = Boolean(isVinc && state.aux?.travaVinculoAtiva !== false);
+  const v = state.aux?.dadosFichaVinculada || {};
+  const cidTela = String(state.cid || state.aux?.cid || $("agilCid")?.value || $("cid")?.value || "").trim().toUpperCase();
+  const cidPrimarioAncora = (travaAtiva && v.cid) ? String(v.cid).trim().toUpperCase() : cidTela;
+
+  const contexto_atual = {
+    nomePaciente: (travaAtiva && v.nomePaciente) || state.nomePaciente || state.aux?.nomePaciente || "",
+    cpfPaciente: (travaAtiva && v.cpfPaciente) || state.cpfPaciente || state.aux?.cpfPaciente || "",
+    rg: (travaAtiva && v.rg) || state.aux?.rgPaciente || state.aux?.rg || "",
+    dataNascimento: (travaAtiva && v.dataNascimento) || state.aux?.dataNascimento || "",
+    idade: (travaAtiva && v.idade) || state.idade || state.aux?.idade || "",
+    sexo: (travaAtiva && v.sexo) || state.sexo || state.aux?.sexo || "",
+    cargo: (travaAtiva && v.cargo) || state.cargo || state.aux?.cargo || "",
+    tempoCargo: (travaAtiva && v.tempoCargo) || state.tempoCargo || state.aux?.tempoCargo || "",
+    tempoUnidade: (travaAtiva && v.tempoUnidade) || state.tempoUnidade || state.aux?.tempoUnidade || "Anos",
+    readaptado: (travaAtiva && v.readaptado) || state.readaptado || state.aux?.readaptado || "Não",
+    atividadesReadaptado: state.aux?.atividadesReadaptado || $("agilAtividadesReadaptado")?.value || "",
+    cid: cidPrimarioAncora,
+    cidAncoraConfirmado: Boolean(cidPrimarioAncora),
+    fichaVinculada: isVinc,
+    crmCro: (travaAtiva && v.crmCro) || state.crmCro || state.aux?.crmCro || "",
+    medicoAssistenteNome: (travaAtiva && v.medicoAssistenteNome) || state.aux?.nomeMedicoAssistente || state.aux?.medicoAssistenteNome || "",
+    dataDocumento: (travaAtiva && v.dataDocumento) || state.dataDocumento || state.aux?.dataDocumento || "",
+    dataExpedicao: (travaAtiva && v.dataExpedicao) || state.aux?.dataExpedicao || state.dataExpedicao || "",
+    dataExpedicaoIso: (travaAtiva && v.dataExpedicaoIso) || state.aux?.dataExpedicaoIso || state.dataExpedicao || "",
+    diasSolicitados: (travaAtiva && v.diasSolicitados) || state.diasSolicitados || state.aux?.diasSolicitados || "",
+    retroacaoInvalida: Boolean(state.aux?.retroacaoInvalida || state.retroacaoInvalida),
+    retroacaoDias: state.aux?.retroacaoDias || state.retroacaoDias || null,
+    parecerManualOverride: state.parecerManualOverride || ""
+  };
+
+  const ficha_vinculada = {
+    ativa: isVinc,
+    trava_ativa: travaAtiva,
+    campos_travados: Array.isArray(state.aux?.camposTravadosVinculo) ? state.aux.camposTravadosVinculo : coletarCamposTravadosDaFicha(v),
+    cid_primario_travado: cidPrimarioAncora,
+    dados: { ...v },
+    motivo_pericia: state.aux?.motivoPericia || v.motivoPericia || "",
+    tipo_pericia: state.aux?.tipoPericia || v.tipoPericia || "",
+    finalidade: state.aux?.finalidade || v.finalidade || "",
+    ultima_licenca_dias: state.aux?.ultimaLicencaDias || v.ultimaLicencaDias || "",
+    ultima_licenca_inicio: state.aux?.ultimaLicencaInicio || v.ultimaLicencaInicio || "",
+    ultima_licenca_fim: state.aux?.ultimaLicencaFim || v.ultimaLicencaFim || "",
+    atividades_readaptado: state.aux?.atividadesReadaptado || v.atividadesReadaptado || "",
+    cids_secundarios_existentes: Array.isArray(state.cidsSecundarios) ? state.cidsSecundarios : []
+  };
+
+  return { contexto_atual, ficha_vinculada };
+}
+
 function preservarDadosFichaVinculada() {
   if (!state || !state.aux) return;
   if (!hasFichaVinculada()) return;
   const v = state.aux.dadosFichaVinculada || {
+    nomePaciente: state.nomePaciente || state.aux.nomePaciente || "",
+    cpfPaciente: state.cpfPaciente || state.aux.cpfPaciente || "",
+    rg: state.aux.rg || state.aux.rgPaciente || "",
+    dataNascimento: state.aux.dataNascimento || "",
+    idade: state.idade || state.aux.idade || "",
+    sexo: state.sexo || state.aux.sexo || "",
+    cargo: state.cargo || state.aux.cargo || "",
+    readaptado: state.readaptado || state.aux.readaptado || "",
+    cid: state.cid || state.aux.cid || "",
     dataDocumento: state.dataDocumento || state.aux.dataDocumento || "",
     dataExpedicao: state.aux.dataExpedicao || state.dataExpedicao || "",
     dataExpedicaoIso: state.aux.dataExpedicaoIso || state.dataExpedicao || "",
@@ -5328,6 +5567,10 @@ function preservarDadosFichaVinculada() {
   };
   state.aux.fichaVinculada = true;
   state.aux.dadosFichaVinculada = v;
+  if (!Array.isArray(state.aux.camposTravadosVinculo) || state.aux.camposTravadosVinculo.length === 0) {
+    state.aux.camposTravadosVinculo = coletarCamposTravadosDaFicha(v);
+  }
+  if (state.aux.travaVinculoAtiva === false) return;
 
   const toIso = (val) => {
     if (!val) return "";
@@ -5337,6 +5580,40 @@ function preservarDadosFichaVinculada() {
     return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : s;
   };
 
+  if (v.nomePaciente) {
+    state.nomePaciente = v.nomePaciente;
+    state.aux.nomePaciente = v.nomePaciente;
+    if ($("nomePaciente")) $("nomePaciente").value = v.nomePaciente;
+    if ($("agilNomePaciente")) $("agilNomePaciente").value = v.nomePaciente;
+  }
+  if (v.cpfPaciente) {
+    state.cpfPaciente = v.cpfPaciente;
+    state.aux.cpfPaciente = v.cpfPaciente;
+    if ($("cpfPaciente")) $("cpfPaciente").value = v.cpfPaciente;
+    if ($("agilCpfPaciente")) $("agilCpfPaciente").value = v.cpfPaciente;
+  }
+  if (v.idade) {
+    state.idade = String(v.idade);
+    state.aux.idade = String(v.idade);
+    if ($("idade")) $("idade").value = String(v.idade);
+    if ($("agilIdade")) $("agilIdade").value = String(v.idade);
+  }
+  if (v.sexo) {
+    state.sexo = v.sexo;
+    state.aux.sexo = v.sexo;
+  }
+  if (v.cargo) {
+    state.cargo = v.cargo;
+    state.aux.cargo = v.cargo;
+    if ($("cargo")) $("cargo").value = v.cargo;
+    if ($("agilCargo")) $("agilCargo").value = v.cargo;
+  }
+  if (v.cid) {
+    state.cid = v.cid;
+    state.aux.cid = v.cid;
+    if ($("cid")) $("cid").value = v.cid;
+    if ($("agilCid")) $("agilCid").value = v.cid;
+  }
   if (v.dataDocumento) {
     const docIso = toIso(v.dataDocumento);
     state.dataDocumento = docIso;
@@ -5382,8 +5659,12 @@ function preservarDadosFichaVinculada() {
     state.aux.dataIngresso = v.dataIngresso;
     state.aux.ingresso = v.dataIngresso;
   }
+  aplicarTravaCamposVinculados();
 }
 window.preservarDadosFichaVinculada = preservarDadosFichaVinculada;
+window.aplicarTravaCamposVinculados = aplicarTravaCamposVinculados;
+window.toggleTravaCamposVinculados = toggleTravaCamposVinculados;
+window.montarContextoIA2ComFichaVinculada = montarContextoIA2ComFichaVinculada;
 
 function isModoIA2Habilitado() {
   const isImpersonating = Boolean(
@@ -5558,25 +5839,29 @@ async function executarPreenchimentoIA() {
       texto_bruto: txt,
       atendimento: state.atendimento || $("atd")?.value || "",
       impersonate_medico_id: (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('ambiental.impersonate_medico_id') : null),
-      contexto_atual: {
-        nomePaciente: state.nomePaciente || state.aux?.nomePaciente || "",
-        cpfPaciente: state.cpfPaciente || state.aux?.cpfPaciente || "",
-        rg: state.aux?.rgPaciente || state.aux?.rg || "",
-        dataNascimento: state.aux?.dataNascimento || "",
-        idade: state.idade || state.aux?.idade || "",
-        sexo: state.sexo || state.aux?.sexo || "",
-        cargo: state.cargo || state.aux?.cargo || "",
-        tempoCargo: state.tempoCargo || state.aux?.tempoCargo || "",
-        tempoUnidade: state.tempoUnidade || state.aux?.tempoUnidade || "Anos",
-        readaptado: state.readaptado || state.aux?.readaptado || "Não",
-        cid: state.cid || state.aux?.cid || "",
-        crmCro: state.crmCro || state.aux?.crmCro || "",
-        medicoAssistenteNome: state.aux?.nomeMedicoAssistente || state.aux?.medicoAssistenteNome || "",
-        dataDocumento: state.dataDocumento || state.aux?.dataDocumento || "",
-        dataExpedicao: state.aux?.dataExpedicao || state.dataExpedicao || "",
-        dataExpedicaoIso: state.aux?.dataExpedicaoIso || state.dataExpedicao || "",
-        diasSolicitados: state.diasSolicitados || state.aux?.diasSolicitados || ""
-      }
+      ...(typeof montarContextoIA2ComFichaVinculada === "function"
+        ? montarContextoIA2ComFichaVinculada()
+        : {
+            contexto_atual: {
+              nomePaciente: state.nomePaciente || state.aux?.nomePaciente || "",
+              cpfPaciente: state.cpfPaciente || state.aux?.cpfPaciente || "",
+              rg: state.aux?.rgPaciente || state.aux?.rg || "",
+              dataNascimento: state.aux?.dataNascimento || "",
+              idade: state.idade || state.aux?.idade || "",
+              sexo: state.sexo || state.aux?.sexo || "",
+              cargo: state.cargo || state.aux?.cargo || "",
+              tempoCargo: state.tempoCargo || state.aux?.tempoCargo || "",
+              tempoUnidade: state.tempoUnidade || state.aux?.tempoUnidade || "Anos",
+              readaptado: state.readaptado || state.aux?.readaptado || "Não",
+              cid: state.cid || state.aux?.cid || "",
+              crmCro: state.crmCro || state.aux?.crmCro || "",
+              medicoAssistenteNome: state.aux?.nomeMedicoAssistente || state.aux?.medicoAssistenteNome || "",
+              dataDocumento: state.dataDocumento || state.aux?.dataDocumento || "",
+              dataExpedicao: state.aux?.dataExpedicao || state.dataExpedicao || "",
+              dataExpedicaoIso: state.aux?.dataExpedicaoIso || state.dataExpedicao || "",
+              diasSolicitados: state.diasSolicitados || state.aux?.diasSolicitados || ""
+            }
+          })
     };
     if (window.AmbientalAPI?.ai?.preencherFicha) {
       res = await AmbientalAPI.ai.preencherFicha(reqBody);
@@ -5902,7 +6187,8 @@ async function processarAudioGravadoIA() {
       const reqBody = {
         texto_bruto: transcricao,
         atendimento: atdId,
-        impersonate_medico_id: impId
+        impersonate_medico_id: impId,
+        ...(typeof montarContextoIA2ComFichaVinculada === "function" ? montarContextoIA2ComFichaVinculada() : {})
       };
       let resIa;
       if (window.AmbientalAPI?.ai?.preencherFicha) {
@@ -6228,11 +6514,20 @@ function aplicarDadosEsisla(dados) {
       if ($("agilDiasSolicitados")) $("agilDiasSolicitados").value = diasVal;
     }
 
-    if (isoExp || isoDoc || dados.dias_solicitados) {
+    if (isoExp || isoDoc || dados.dias_solicitados || dados.nome_paciente || dados.cpf_paciente || dados.cid) {
       state.aux.fichaVinculada = true;
       state.aux.esislaReimportado = true;
       state.aux.dadosFichaVinculada = {
         ...(state.aux.dadosFichaVinculada || {}),
+        nomePaciente: dados.nome_paciente || state.nomePaciente || state.aux.nomePaciente || "",
+        cpfPaciente: state.cpfPaciente || state.aux.cpfPaciente || "",
+        rg: dados.rg_paciente || state.aux.rg || "",
+        dataNascimento: dados.data_nascimento || state.aux.dataNascimento || "",
+        idade: dados.idade ? String(dados.idade) : (state.idade || state.aux.idade || ""),
+        sexo: dados.sexo || state.sexo || state.aux.sexo || "",
+        cargo: dados.cargo || state.cargo || state.aux.cargo || "",
+        readaptado: dados.readaptado ? (dados.readaptado.toLowerCase().includes("sim") ? "Sim" : "Não") : (state.readaptado || state.aux.readaptado || ""),
+        cid: isAcomp ? "Z763" : (dados.cid || state.cid || state.aux.cid || ""),
         dataDocumento: isoDoc || state.dataDocumento || state.aux.dataDocumento || "",
         dataExpedicao: dados.data_expedicao || isoExp || state.aux.dataExpedicao || "",
         dataExpedicaoIso: isoExp || state.aux.dataExpedicaoIso || "",
@@ -6241,8 +6536,17 @@ function aplicarDadosEsisla(dados) {
         medicoAssistenteNome: dados.nome_medico_assistente || state.aux.medicoAssistenteNome || "",
         tempoCargo: state.tempoCargo || state.aux.tempoCargo || "",
         tempoUnidade: state.tempoUnidade || state.aux.tempoUnidade || "Anos",
-        dataIngresso: state.aux.dataIngresso || state.aux.ingresso || ""
+        dataIngresso: state.aux.dataIngresso || state.aux.ingresso || "",
+        motivoPericia: dados.motivo_pericia || state.aux.motivoPericia || "",
+        tipoPericia: dados.tipo_pericia || state.aux.tipoPericia || "",
+        finalidade: dados.finalidade || state.aux.finalidade || "",
+        ultimaLicencaDias: dados.ultima_licenca_dias || state.aux.ultimaLicencaDias || "",
+        ultimaLicencaInicio: dados.ultima_licenca_inicio || state.aux.ultimaLicencaInicio || "",
+        ultimaLicencaFim: dados.ultima_licenca_fim || state.aux.ultimaLicencaFim || ""
       };
+      state.aux.camposTravadosVinculo = coletarCamposTravadosDaFicha(state.aux.dadosFichaVinculada);
+      state.aux.travaVinculoAtiva = true;
+      if (typeof aplicarTravaCamposVinculados === "function") aplicarTravaCamposVinculados(true);
     } else if ((typeof hasFichaVinculada === "function") && hasFichaVinculada()) {
       if (typeof preservarDadosFichaVinculada === "function") preservarDadosFichaVinculada();
     }
@@ -6912,21 +7216,44 @@ function aplicarPreenchimentoIAResultado(dados) {
     state.descLimitacao = dados.desc_limitacao || state.descLimitacao || "";
     state.atividadesComprometidas = dados.atividades_comprometidas || state.atividadesComprometidas || "";
 
-    state.cid = dados.cid || state.cid || "";
+    const cidPrevioTela = String(state.cid || state.aux?.cid || $("agilCid")?.value || $("cid")?.value || "").trim().toUpperCase();
+    const isVincTrava = typeof hasFichaVinculada === "function" && hasFichaVinculada() && state.aux?.travaVinculoAtiva !== false;
+    const cidVinc = String(state.aux?.dadosFichaVinculada?.cid || "").trim().toUpperCase();
+    const cidAncoraPrimario = (isVincTrava && cidVinc) ? cidVinc : cidPrevioTela;
+    const iaCidRetornado = String(dados.cid || "").trim().toUpperCase();
 
-    // CIDs secundários estruturados e integrados
-    let rawSecList = [];
-    if (Array.isArray(dados.cidsSecundarios) && dados.cidsSecundarios.length > 0) {
-      rawSecList = dados.cidsSecundarios.map(item => ({
-        cid: typeof item === "object" ? (item.cid || item.codigo || "") : String(item || ""),
-        descricao: typeof item === "object" ? (item.descricao || item.nome || "") : ""
-      }));
-    } else if (Array.isArray(dados.cids_secundarios) && dados.cids_secundarios.length > 0) {
-      rawSecList = dados.cids_secundarios.map(code => {
-        const c = String(code || "").trim().toUpperCase();
+    if (cidAncoraPrimario) {
+      state.cid = cidAncoraPrimario;
+    } else {
+      state.cid = iaCidRetornado || state.cid || "";
+    }
+
+    // CIDs secundários estruturados e integrados (se IA sugeriu outro CID diferente do primário âncora, entra como secundário correlacionado)
+    let rawSecList = Array.isArray(state.cidsSecundarios) ? [...state.cidsSecundarios] : [];
+    const _pushSecUnique = (codeRaw, descRaw) => {
+      let c = String(codeRaw || "").trim().toUpperCase();
+      if (!c) return;
+      if (c.length === 4 && !c.includes(".")) c = `${c.slice(0, 3)}.${c.slice(3)}`;
+      const pNorm = (state.cid || "").toUpperCase().replace(".", "");
+      const cNorm = c.replace(".", "");
+      if (cNorm === pNorm) return;
+      if (!rawSecList.some(item => (item.cid || "").toUpperCase().replace(".", "") === cNorm)) {
         const f = typeof findCID === "function" ? findCID(c) : null;
-        return { cid: c, descricao: f ? f.n : "" };
+        rawSecList.push({ cid: c, descricao: descRaw || (f ? f.n : "") });
+      }
+    };
+    if (cidAncoraPrimario && iaCidRetornado && iaCidRetornado.replace(".", "") !== cidAncoraPrimario.replace(".", "")) {
+      _pushSecUnique(iaCidRetornado, dados.cid_descricao || "");
+    }
+    if (Array.isArray(dados.cidsSecundarios) && dados.cidsSecundarios.length > 0) {
+      dados.cidsSecundarios.forEach(item => {
+        _pushSecUnique(
+          typeof item === "object" ? (item.cid || item.codigo || "") : String(item || ""),
+          typeof item === "object" ? (item.descricao || item.nome || "") : ""
+        );
       });
+    } else if (Array.isArray(dados.cids_secundarios) && dados.cids_secundarios.length > 0) {
+      dados.cids_secundarios.forEach(code => _pushSecUnique(code, ""));
     }
 
     // Fallback por regex no texto bruto para garantir que NENHUM CID informado fique de fora
@@ -7547,6 +7874,15 @@ function aplicarPreenchimentoIAResultado(dados) {
     state.aux._ia2ModoPendente = false;
     state.aux._ia2StructuredAt = new Date().toISOString();
 
+    // Garantir preservação e trava visual dos campos oficiais da ficha vinculada antes de montar a Queixa final
+    if (typeof hasFichaVinculada === "function" && hasFichaVinculada()) {
+      if (typeof preservarDadosFichaVinculada === "function") {
+        preservarDadosFichaVinculada();
+      } else if (typeof aplicarTravaCamposVinculados === "function") {
+        aplicarTravaCamposVinculados();
+      }
+    }
+
     if (typeof gerarNarrativaQueixaMelhoriaContinua === "function") {
       state.queixaDuracao = "";
       state.aux.queixaDuracao = "";
@@ -7625,6 +7961,14 @@ async function tryServerLoad(id){
         state.aux.fichaVinculada = true;
         if (!state.aux.dadosFichaVinculada) {
           state.aux.dadosFichaVinculada = {
+            nomePaciente: state.nomePaciente || state.aux.nomePaciente || d.paciente_nome || d.paciente || "",
+            cpfPaciente: state.cpfPaciente || state.aux.cpfPaciente || d.paciente_cpf || d.cpf || "",
+            idade: state.idade || state.aux.idade || d.idade || "",
+            sexo: state.sexo || state.aux.sexo || "",
+            cargo: state.cargo || state.aux.cargo || d.cargo || "",
+            tempoCargo: state.tempoCargo || state.aux.tempoCargo || d.tempo_cargo || "",
+            tempoUnidade: state.tempoUnidade || state.aux.tempoUnidade || d.tempo_unidade || "Anos",
+            readaptado: state.readaptado || state.aux.readaptado || "",
             dataDocumento: state.dataDocumento || state.aux.dataDocumento || "",
             dataExpedicao: state.aux.dataExpedicao || state.dataExpedicao || "",
             dataExpedicaoIso: state.aux.dataExpedicaoIso || state.dataExpedicao || "",
@@ -7683,6 +8027,9 @@ async function tryServerLoad(id){
       }
       applyState();
       syncExtendedToAgil();
+      if (typeof hasFichaVinculada === "function" && hasFichaVinculada() && typeof aplicarTravaCamposVinculados === "function") {
+        aplicarTravaCamposVinculados();
+      }
       setPersistStatus("ok","Atendimento sincronizado com o servidor");
       return true;
     }
@@ -11742,32 +12089,67 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
     return acompPartes.join(" ");
   }
   
+  // Variedade controlada (4 estilos periciais DPME determinísticos por atendimento/CID, mantendo 100% a ordem obrigatória)
+  const _seedStr = `${st.atendimento || aux.protocolo || ""}|${cidVal || ""}|${st.nomePaciente || aux.nomePaciente || ""}|${cargo || ""}`;
+  let _h = 0;
+  for (let i = 0; i < _seedStr.length; i++) {
+    _h = ((_h << 5) - _h + _seedStr.charCodeAt(i)) | 0;
+  }
+  const styleIdx = Math.abs(_h) % 4;
+
   let partes = [];
   
   // 1. Identificação funcional
   const isFem = typeof inferIsFemininoJS === "function"
     ? inferIsFemininoJS(st, aux, v)
     : ["f", "feminino"].includes(String(st.sexo || v.sexo || "").toLowerCase());
+  const idadeNum = parseInt(String(idade || "").replace(/\D/g, ""), 10);
   let ident = isFem ? "Servidora" : "Servidor";
-  if (idade) ident += ` de ${idade} anos`;
+  if (idade && !isNaN(idadeNum) && idadeNum > 0) ident += ` de ${idadeNum} anos`;
   
-  // 2. Readaptação: logo após a idade: "relatou não ser readaptado" / "relatou ser readaptado"
+  // 2. Readaptação: logo após a idade, sem parênteses, com variedade redacional culta
+  const readapAdj = isFem ? "readaptada" : "readaptado";
   if (readap) {
     let ativClean = String(ativReadap || "").trim();
-    ativClean = ativClean.replace(/^atividades\s+(?:de\s+)?/i, "").trim();
+    ativClean = ativClean.replace(/^(?:as\s+)?atividades\s+(?:de\s+)?/i, "").trim();
     if (ativClean && !/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}\b/.test(ativClean)) {
       ativClean = ativClean.charAt(0).toLowerCase() + ativClean.slice(1);
     }
-    ident += `, relatou ser ${isFem ? 'readaptada' : 'readaptado'}${ativClean ? `, exercendo atualmente atividades de ${ativClean}` : ""}`;
+    if (ativClean) {
+      const isAdjFem = /^(?:administrativas|pedag[óo]gicas|burocr[áa]ticas|operacionais|t[ée]cnicas|leves|adaptadas|internas|externas|gerais|auxiliares|escolares)\b/i.test(ativClean);
+      const prep = isAdjFem ? " " : " de ";
+      const readapVars = [
+        `relatou ser ${readapAdj}, exercendo atualmente atividades${prep}${ativClean}`,
+        `${readapAdj}, atuando atualmente em atividades${prep}${ativClean}`,
+        `em readaptação funcional, desempenhando atividades${prep}${ativClean}`,
+        `informou ser ${readapAdj}, exercendo atividades${prep}${ativClean}`
+      ];
+      ident += `, ${readapVars[styleIdx]}`;
+    } else {
+      const readapVars = [
+        `relatou ser ${readapAdj}`,
+        `${readapAdj}`,
+        "em readaptação funcional",
+        `informou ser ${readapAdj}`
+      ];
+      ident += `, ${readapVars[styleIdx]}`;
+    }
   } else {
-    ident += `, relatou não ser ${isFem ? 'readaptada' : 'readaptado'}`;
+    const readapVars = [
+      `relatou não ser ${readapAdj}`,
+      `não ${readapAdj}`,
+      "sem readaptação funcional",
+      `informou não ser ${readapAdj}`
+    ];
+    ident += `, ${readapVars[styleIdx]}`;
   }
 
-  // 3. Cargo: "é {cargo} há {tempoCargo} {unidadeTempo}" (omite quando tempoCargo for 0)
+  // 3. Cargo: varia construções mantendo ordem e omitindo quando tempoCargo for 0
   if (cargo) {
     let cargoFormatado = cargo.trim().replace(/^é\s+/i, '');
     cargoFormatado = flexibilizarCargoFem(cargoFormatado, isFem);
     const tempoNum = parseInt(String(tempoCargo || "").replace(/\D/g, ""), 10);
+    let tempoSuf = "";
     if (tempoCargo && !isNaN(tempoNum) && tempoNum > 0) {
       let unidFmt = unidadeTempo.toLowerCase();
       if (tempoNum === 1) {
@@ -11775,13 +12157,18 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
         else if (unidFmt.startsWith("mes") || unidFmt.startsWith("mês")) unidFmt = "mês";
         else if (unidFmt.startsWith("dia")) unidFmt = "dia";
       }
-      ident += `, é ${cargoFormatado} há ${tempoNum} ${unidFmt}`;
-    } else {
-      ident += `, é ${cargoFormatado}`;
+      tempoSuf = ` há ${tempoNum} ${unidFmt}`;
     }
+    const cargoVars = [
+      `é ${cargoFormatado}${tempoSuf}`,
+      `atua como ${cargoFormatado}${tempoSuf}`,
+      `exerce o cargo de ${cargoFormatado}${tempoSuf}`,
+      `ocupante do cargo de ${cargoFormatado}${tempoSuf}`
+    ];
+    ident += `, ${cargoVars[styleIdx]}`;
   }
 
-  // 3. Doença, início do tratamento e consultas
+  // 3b. Doença, início do tratamento e consultas
   if (doenca) {
     let cleanDoenca = doenca.replace(/^[Vv]em\s+com\s+atestado\s+de\s+\d+\s+dias\s*(?:por|de|devido\s+a)?\s*/i, "")
                             .replace(/^[Aa]testado\s+de\s+\d+\s+dias\s*(?:por|de|devido\s+a)?\s*/i, "")
@@ -11794,42 +12181,69 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
     if (/acompanhamento\s+de\s+pessoa\s+doente|familiar\s+enfermo/i.test(cleanDoenca)) {
       ident += `, para acompanhamento de familiar enfermo, ${cleanDoenca.replace(/^acompanhamento\s+de\s+(?:pessoa\s+doente|familiar\s+enfermo)[\s,:]*/i, "")}`;
     } else {
-      ident += `, com queixa de ${cleanDoenca}`;
+      const cidUp = String(cidVal || "").trim().toUpperCase();
+      const isPosop = /^(?:Z98|K91|T81)/.test(cidUp) || /p[óo]s-operat/i.test(cleanDoenca);
+      const isMental = /^F/.test(cidUp);
+      const motVars = isPosop
+        ? [
+            `com queixa de ${cleanDoenca}`,
+            `em acompanhamento pós-operatório por ${cleanDoenca}`,
+            `apresentando quadro relacionado a ${cleanDoenca}`,
+            `em seguimento clínico por ${cleanDoenca}`
+          ]
+        : (isMental
+          ? [
+              `com queixa de ${cleanDoenca}`,
+              `em acompanhamento psiquiátrico por ${cleanDoenca}`,
+              `apresentando quadro de ${cleanDoenca}`,
+              `${isFem ? "acompanhada" : "acompanhado"} por ${cleanDoenca}`
+            ]
+          : [
+              `com queixa de ${cleanDoenca}`,
+              `apresentando quadro de ${cleanDoenca}`,
+              `em acompanhamento por ${cleanDoenca}`,
+              `com histórico atual de ${cleanDoenca}`
+            ]);
+      ident += `, ${motVars[styleIdx]}`;
     }
     
     if (inicioTrat && !isArtifactAttendanceDate(inicioTrat, aux.dataAtd || st.aux?.dataAtd || $("dataAtd")?.value)) {
       const s = String(inicioTrat).trim().replace(/^desde\s+/i, "");
       if (/^\d{4}$/.test(s)) {
-        ident += `, desde ${s}`; // iniciou-se seu tratamento em
+        ident += `, desde ${s}`;
       } else if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
         const p = s.split("-");
-        ident += `, desde ${p[2]}/${p[1]}/${p[0]}`; // iniciou-se seu tratamento em
+        ident += `, desde ${p[2]}/${p[1]}/${p[0]}`;
       } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
-        ident += `, desde ${s}`; // iniciou-se seu tratamento em
+        ident += `, desde ${s}`;
       } else if (s.toLowerCase().startsWith("há") || s.toLowerCase().startsWith("ha")) {
         ident += `, ${s}`;
       } else {
-        ident += `, desde ${s}`; // iniciou-se seu tratamento em
+        ident += `, desde ${s}`;
       }
     }
     
     if (freqCons) {
       const f = String(freqCons).trim();
       const fLow = f.toLowerCase();
-      if (fLow === "quinzenal") {
-        ident += `, realizando consultas quinzenalmente`; // realiza consultas quinzenalmente
-      } else if (fLow === "mensal") {
-        ident += `, realizando consultas mensalmente`;
-      } else if (fLow === "semanal") {
-        ident += `, realizando consultas semanalmente`;
-      } else if (fLow === "bimestral") {
-        ident += `, realizando consultas bimestralmente`;
-      } else if (fLow === "trimestral") {
-        ident += `, realizando consultas trimestralmente`;
-      } else if (fLow === "semestral") {
-        ident += `, realizando consultas semestralmente`;
-      } else if (fLow === "anual") {
-        ident += `, realizando consultas anualmente`;
+      const freqPairs = {
+        quinzenal: ["quinzenalmente", "quinzenal"],
+        mensal: ["mensalmente", "mensal"],
+        semanal: ["semanalmente", "semanal"],
+        bimestral: ["bimestralmente", "bimestral"],
+        trimestral: ["trimestralmente", "trimestral"],
+        semestral: ["semestralmente", "semestral"],
+        anual: ["anualmente", "anual"]
+      };
+      if (freqPairs[fLow]) {
+        const [fAdv, fAdj] = freqPairs[fLow];
+        const freqVars = [
+          `realizando consultas ${fAdv}`,
+          `em acompanhamento médico ${fAdj}`,
+          `com seguimento ambulatorial ${fAdj}`,
+          `mantendo consultas regulares com periodicidade ${fAdj}`
+        ];
+        ident += `, ${freqVars[styleIdx]}`;
       } else if (/^\d+\s*dias?$/i.test(fLow)) {
         ident += `, com consultas a cada ${fLow}`;
       } else if (fLow.startsWith("a cada")) {
@@ -11912,21 +12326,32 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
       formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
       partes.push(formatted.endsWith(".") ? formatted : formatted + ".");
     } else {
-      const verboIntro = (doenca && ident.includes("com queixa de")) ? "Refere" : "Queixa-se de";
-      const sBody = sClean.endsWith(".") ? sClean.slice(0, -1) : sClean;
+      const sintIntros = ["Refere", "Relata", "Descreve quadro de", "Apresenta sintomatologia caracterizada por"];
+      const verboIntro = sintIntros[styleIdx];
+      let sBody = sClean.endsWith(".") ? sClean.slice(0, -1) : sClean;
+      if (sBody.length > 1 && sBody[0] === sBody[0].toUpperCase() && !/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}\b/.test(sBody)) {
+        sBody = sBody.charAt(0).toLowerCase() + sBody.slice(1);
+      }
       partes.push(`${verboIntro} ${sBody}.`);
     }
   }
   
-  // 5. Medicações
+  // 5. Medicações (com variedade redacional culta)
   const hasAntineoplasicoOuInfusao = /\b(?:infus[ãa]o|infus[õo]es|imunobiol[óo]gic[oa]|imunoterapia|quimioterapia|quimioter[áa]pic[oa]|antineopl[áa]sic[oa]|bevacizumab[e]?|pembrolizumab[e]?|trastuzumab[e]?|rituximab[e]?)\b/i.test((doenca || "") + " " + (sintomas || "") + " " + (rawQ || ""));
   if (medsStr) {
-    partes.push(`Em uso de ${medsStr}.`);
+    const medIntros = ["Em uso de", "Faz uso regular de", "Mantém esquema farmacológico com", "Em uso atual de"];
+    partes.push(`${medIntros[styleIdx]} ${medsStr}.`);
   } else if (!hasAntineoplasicoOuInfusao) {
     if (isAcomp || /\b(?:acompanhante|familiar\s+(?:enfermo|doente|dependente))\b/i.test((sintomas || "") + " " + (doenca || ""))) {
       partes.push(isFem ? "A servidora negou uso de medicações próprias de uso contínuo." : "O servidor negou uso de medicações próprias de uso contínuo.");
     } else {
-      partes.push("Negou uso de medicações.");
+      const negMedVars = [
+        "Negou uso de medicações.",
+        "Nega uso atual de medicações.",
+        "Informou não fazer uso de medicações no momento.",
+        "Negou uso de medicações."
+      ];
+      partes.push(negMedVars[styleIdx]);
     }
   }
   
@@ -11934,7 +12359,7 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
   const medObsRaw = (cleanMeds || []).map(m => `${m.frequencia || ""} ${m.observacao || ""}`).join(" ");
   const sintRawTxt = String(sintomas || "") + " " + String(rawQ || "") + " " + medObsRaw;
   const temRelatoAlt = /\b(?:receita\s+(?:foi\s+)?ajustada|ajuste\s+medicamentoso|substitui[çc][ãa]o\s+d[eo]s?\s+(?:antibi[óo]ticos?|medica[çc][ãa]o|f[áa]rmaco)|novos?\s+antibi[óo]ticos?|troca\s+d[eo]\s+antibi[óo]ticos?|informa\s+altera[çc][ãa]o\s+recente\s+na\s+prescri[çc][ãa]o(?:\s+medicamentosa)?)\b|\b(?:aumentad[oa]|aumento|ajustad[oa]|ajuste|reduzid[oa]|redução|reducao|trocad[oa]|troca|introdu[çc][ãa]o|in[íi]cio|iniciou)\s+(?:terap[êe]utic[oa]\s+recente|medicamentos[oa]|a\s+medica[çc][ãa]o|de\s+medica[çc][ãa]o|d[ae]\s+dosagem|d[ae]\s+dose|de\s+[A-ZÀ-ÿa-z]{3,})\b|\b(?:foi\s+aumentada\s+a\s+medica[çc][ãa]o|aumentou\s+a\s+dose|trocou\s+a\s+medica[çc][ãa]o|ajustou\s+a\s+dose|ajuste\s+terap[êe]utico)\b|\b(?:recentemente\s+foi\s+aumentada\s+a\s+medica[çc][ãa]o)\b/i.test(sintRawTxt);
-  const temNegacaoTroca = /\b(?:sem\s+trocas?\s+(?:recentes?\s+)?de\s+medica[çc][ãa]o|sem\s+altera[çc][ãa]o\s+de\s+dosagem|n[ãa]o\s+relatou\s+troca\s+de\s+medica[çc][ãa]o|n[ãa]o\s+trocou\s+de\s+medica[çc][ãa]o)\b/i.test(sintRawTxt);
+  const temNegacaoTroca = /\b(?:sem\s+(?:relato\s+de\s+)?trocas?\s+(?:recentes?\s+)?de\s+medica[çc][ãa]o|sem\s+altera[çc][ãa]o\s+de\s+dosagem|ajuste\s+de\s+dosagem|n[ãa]o\s+relatou\s+troca\s+de\s+medica[çc][ãa]o|n[ãa]o\s+trocou\s+de\s+medica[çc][ãa]o)\b/i.test(sintRawTxt);
   const altMed = String(st.alteracaoMed || aux.alteracaoMed || getRadio("agilAlteracaoMed") || "").toLowerCase() === "sim" || temRelatoAlt;
   if (altMed) {
     const dtAlt = aux.dataAlteracaoMed || $("agilDataAlteracaoMed")?.value || "";
@@ -11945,10 +12370,16 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
       partes.push(`Informa alteração recente na prescrição medicamentosa${dtAlt ? ` em ${formatDate(dtAlt)}` : ""}${obsAlt ? `, ${obsAlt}` : ""}.`);
     }
   } else if (!temNegacaoTroca && (medsStr || hasAntineoplasicoOuInfusao)) {
-    partes.push("Não relatou troca de medicação ou alteração de dosagem.");
+    const semTrocaVars = [
+      "Não relatou troca de medicação ou alteração de dosagem.",
+      "Sem relato de troca de medicação ou ajuste de dosagem.",
+      "Não referiu modificação recente no esquema medicamentoso ou alteração de dosagem.",
+      "Mantém a prescrição habitual, sem troca de medicação ou alteração de dosagem."
+    ];
+    partes.push(semTrocaVars[styleIdx]);
   }
   
-  // 7. Terapias
+  // 7. Terapias (com variedade redacional culta)
   const extrairComplementoTerapia = (rawObs) => {
     const s = String(rawObs || "");
     const freqMap = { "1": "uma vez por semana", "2": "duas vezes por semana", "3": "três vezes por semana", "4": "quatro vezes por semana", "5": "cinco vezes por semana" };
@@ -11966,14 +12397,39 @@ function gerarNarrativaQueixaMelhoriaContinua(st, v) {
     return extras.join(" ");
   };
   const compTer = extrairComplementoTerapia(obsTerapias);
+  const cT = compTer ? " " + compTer : "";
   if (fisio && !psico) {
-    partes.push(`Realiza fisioterapia${compTer ? " " + compTer : ""} e não realiza psicoterapia.`);
+    const tVars = [
+      `Realiza fisioterapia${cT} e não realiza psicoterapia.`,
+      `Mantém sessões de fisioterapia${cT}, sem acompanhamento em psicoterapia.`,
+      `Em acompanhamento fisioterapêutico${cT}, não realizando psicoterapia.`,
+      `Realiza fisioterapia${cT} e nega realização de psicoterapia.`
+    ];
+    partes.push(tVars[styleIdx]);
   } else if (psico && !fisio) {
-    partes.push(`Realiza psicoterapia${compTer ? " " + compTer : ""} e não realiza fisioterapia.`);
+    const tVars = [
+      `Realiza psicoterapia${cT} e não realiza fisioterapia.`,
+      `Mantém acompanhamento em psicoterapia${cT}, sem realização de fisioterapia.`,
+      `Em acompanhamento psicoterápico${cT}, não realizando fisioterapia.`,
+      `Realiza psicoterapia${cT} e nega realização de fisioterapia.`
+    ];
+    partes.push(tVars[styleIdx]);
   } else if (fisio && psico) {
-    partes.push(`Realiza acompanhamento em fisioterapia e psicoterapia${compTer ? " " + compTer : ""}.`);
+    const tVars = [
+      `Realiza acompanhamento em fisioterapia e psicoterapia${cT}.`,
+      `Mantém fisioterapia e psicoterapia${cT}.`,
+      `Em seguimento com fisioterapia e psicoterapia${cT}.`,
+      `Realiza fisioterapia associada a psicoterapia${cT}.`
+    ];
+    partes.push(tVars[styleIdx]);
   } else {
-    partes.push("Não alegou fazer fisioterapia e psicoterapia.");
+    const tVars = [
+      "Não alegou fazer fisioterapia e psicoterapia.",
+      "Nega realização de fisioterapia e psicoterapia no momento.",
+      "Não realiza acompanhamento fisioterapêutico ou psicoterápico.",
+      "Informou não fazer fisioterapia nem psicoterapia."
+    ];
+    partes.push(tVars[styleIdx]);
   }
   
   let resNarrativa = partes.join(" ");

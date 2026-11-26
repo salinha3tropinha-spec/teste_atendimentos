@@ -116,3 +116,56 @@ def test_attendance_clean_disease_motive_field():
     agil_cid_block = ATTENDANCE[ATTENDANCE.index('function selectAgilCID(code)'):ATTENDANCE.index('function findCID(code)')]
     assert 'state.aux.doencaMotivo = rotulo;' not in agil_cid_block
     assert 'state.doencaMotivo = rotulo;' not in agil_cid_block
+
+
+def test_auto_preenchimento_tempo_cargo_por_ingresso():
+    """Valida que o campo Ingresso da ficha vinculada (e-SISLA/GPM) calcula automaticamente
+    o Tempo no Cargo em anos/meses para a data atual, auto-preenchendo o atendimento.
+    """
+    sample_user_gpm = """
+GOVERNO DO ESTADO DE SÃO PAULO
+DPME - DIRETORIA DE PERÍCIAS MÉDICAS DO ESTADO
+GPM - Guia para Perícia Médica
+NI: 1156488
+Nome: RUBIA ANEZIA SIQUEIRA CPF: 13400074870 RG: 20821671
+Nasc.: 20/03/1972 Sexo: FEMININO Estado Civil: Def Físico: NÃO
+Status: ATIVO
+Dados Funcionais
+Regime Jurídico: Cargo/Função: Ingresso:
+000000000022955 - EE MARIO COVAS JUNIOR GOV
+EFETIVO PROFESSOR EDUCACAO BASICA II
+00008 - SECRETARIA DA EDUCACAO
+SAO VICENTE
+13/02/2006
+Readaptado: NAO Data Readaptação: CID-10:
+Número: 954400573
+Local e Data da Expedição
+, 03 Novembro 2026
+Parecer do Médico Assistente
+CRM: 70668 Nome: Edson kasuo Matsumoto
+CID 10: Z41 Dias: 60 Data de Emissão do Atestado: 03/11/2026
+"""
+    dados = parse_esisla_text(sample_user_gpm)
+    assert dados["protocolo"] == "954400573"
+    assert dados["nome_paciente"] == "RUBIA ANEZIA SIQUEIRA"
+    assert dados["cargo"] == "PROFESSOR EDUCACAO BASICA II"
+    assert dados["data_ingresso"] == "13/02/2006"
+    assert dados["tempo_cargo"] == "20"
+    assert dados["tempo_unidade"] == "Anos"
+
+    # Valida formato inline com Ingresso direto
+    sample_inline = """
+Cargo/Função: AGENTE DE SEGURANCA Regime Jurídico: EFETIVO Ingresso: 10/05/2026
+Readaptado: NAO
+"""
+    d_inline = parse_esisla_text(sample_inline)
+    assert d_inline.get("data_ingresso") == "10/05/2026"
+    assert d_inline.get("tempo_cargo") in ("5", "6")
+    assert d_inline.get("tempo_unidade") == "Meses"
+
+    # Valida integração no frontend assistente.js
+    js_content = (ROOT / "ambiental_assistente.js").read_text(encoding="utf-8")
+    assert "function calcularTempoNoCargoPorIngresso" in js_content
+    assert "tempoCargoVal" in js_content
+    assert "prevIngressoTempo" in (ROOT / "gestao_atendimentos.html").read_text(encoding="utf-8")
+    assert "prevIngressoTempo" in (ROOT / "gestao_atendimentos.js").read_text(encoding="utf-8")

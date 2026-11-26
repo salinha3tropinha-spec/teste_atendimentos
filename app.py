@@ -1488,6 +1488,11 @@ REGRAS OBRIGATÓRIAS:
 5. CLASSIFICAÇÃO ANATÔMICA EXATA DO EXAME FÍSICO: Use "Exame Mental" somente para transtornos mentais/CID F; "Aparelho Osteomuscular e Tecido Conjutivo" somente para quadros osteoarticulares/CID M, S, T ou G5; e "Outros" com o `outros_subtipo` anatômico exato ("Aparelho Digestivo" para CID K e pós-op abdominal, "Aparelho Respiratório" para CID J, "Aparelho Circulatório" para CID I, "Pele e Fâneros" para CID L, "Aparelho Geniturinário" para CID N/O, "Órgãos dos Sentidos" para CID H, "Aparelho Endócrino" para CID E, "Sistema Nervoso" para CID G00-G47/G60-G99).
 6. DECISÃO SOBERANA DO MÉDICO PERITO: Alinhe estritamente exame_fisico_descricao, outros_resultado, exame_mental_resultado ("" se não for Exame Mental), desc_limitacao, limitacao_funcional, limitacao_rol, capacidade, parecer, quesitos e justificativa ao modelo ativo da decisão médica ou à regra administrativa de retroação (> 3 dias).
 7. COERÊNCIA DE GÊNERO E ACOMPANHANTE: Utilize sempre "Servidor"/"Servidora" ou "Periciado"/"Periciada" (nunca "Paciente"). Só classifique como perícia de acompanhante (CID Z76.3 / Artigo 199) quando houver indicação explícita de acompanhamento de familiar/dependente enfermo. Nunca inclua parênteses desnecessários () no campo justificativa.
+8. FICHA VINCULADA E CID PRIMÁRIO ÂNCORA (IMUTÁVEL): Quando houver dados oficiais de uma ficha vinculada e/ou um CID primário já informado/travado no sistema:
+   - JAMAIS altere os campos travados da ficha vinculada (nome, CPF, idade, sexo, cargo, tempo no cargo, readaptação, datas da guia/atestado, dias solicitados, CRM/CRO assistente) e JAMAIS substitua o CID primário âncora por outro código.
+   - ANALISE ativamente os dados da ficha vinculada (cargo oficial, readaptação, histórico de última licença, motivo/finalidade da perícia) em conjunto com o CID primário e o texto bruto para produzir uma perícia de alto nível: aprofunde a semiologia do exame físico/mental compatível com o CID primário, correlacione as limitações funcionais diretamente às atribuições reais do cargo vinculado e considere a continuidade clínica com licenças anteriores quando registradas.
+   - Se o texto bruto ou a correlação clínica justificar um diagnóstico associado, complicação ou comorbidade correlata distinta do CID primário, inclua-o em `cids_secundarios` (CID secundário correlacionado), mantendo o CID primário intocado.
+9. VARIEDADE REDACIONAL EM QUEIXA E DURAÇÃO: Preserve sempre a ordem lógica do Programa de Melhoria Contínua (idade/gênero → readaptação → cargo/tempo → motivo/início/consultas → sintomas → medicações/trocas → terapias), mas varie as construções sintáticas, conectivos e verbos clínicos conforme a especialidade (ortopédico, psiquiátrico, pós-operatório, clínico geral) para que cada prontuário tenha redação culta, natural e individualizada, sem soar mecânico ou repetitivo.
 """.strip()
 
 TASK_PROMPTS = {
@@ -1694,7 +1699,7 @@ REGRA MANDATÓRIA DE DATAS NO PADRÃO OFICIAL E-SISLA (DD/MM/AAAA):
 REDAÇÃO INTELIGENTE DOS CINCO CAMPOS NARRATIVOS:
 
 1. “(*) Queixa e Duração:”
-   Reescreva e sintetize em parágrafo único, fluido e coeso, integrando os dados clínicos e ocupacionais na ordem padronizada do Programa de Melhoria Contínua:
+   Reescreva e sintetize em parágrafo único, fluido, natural e coeso, mantendo OBRIGATORIAMENTE a ordem padronizada do Programa de Melhoria Contínua, porém utilizando VARIEDADE REDACIONAL CULTA (evitando repetir sempre o mesmo molde robótico em todos os prontuários; adapte aberturas, verbos clínicos e conectivos à natureza do quadro — ortopédico, psiquiátrico, pós-operatório, infeccioso, oncológico — mantendo sempre o mais alto nível técnico DPME):
    (1) Idade ("Servidor de X anos" ou "Periciado de X anos", respeitando o gênero: homem = "Servidor de X anos", mulher = "Servidora de X anos"; em caso de dúvida, utilize "Servidor de X anos"),
    (2) Readaptação funcional (mencionar OBRIGATORIAMENTE UMA ÚNICA VEZ logo após a idade: "relatou não ser readaptado" para homem ou "relatou não ser readaptada" para mulher, sem parênteses, ex.: "Servidor de 38 anos, relatou não ser readaptado, é Investigador de Polícia há 29 anos..."; se for readaptado(a), "relatou ser readaptado(a), exercendo atualmente atividades de [atividades]" — NUNCA escreva "atividades de Atividades..."). NUNCA duplique termos de readaptação.
    (3) Cargo e (4) Tempo de cargo ("é [cargo] há X anos/meses"), convertendo cargos em maiúsculas para caixa mista formal (ex.: "Professor de Educação Básica II"). Se o tempo de cargo for 0, vazio ou não informado, OMITA "há 0 anos" e escreva apenas "é [cargo]".
@@ -4697,26 +4702,31 @@ def _gatekeeper_anti_glosa_esisla(ficha_text: str, payload: dict[str, Any]) -> s
                 pf_body = re.sub(r"^(N[ºo°\.]*[ \t]*Dias:[ \t]*)0\b", rf"\g<1>{dias_concedidos_fav}", pf_body, flags=re.MULTILINE)
                 t = t[:m_pf.start(2)] + pf_body
 
-    # 5. Garantir Queixa e Duração com terapias, medicações e trocas
+    # 5. Garantir Queixa e Duração com terapias, medicações e trocas (reconhecendo variações redacionais cultas)
     m_q_final = re.search(r"(\(\*\)\s*Queixa e Duração:?\s*\n)(.*?)(\n\s*Antecedentes Mórbidos)", t, re.DOTALL | re.IGNORECASE)
     if m_q_final:
         b_q = m_q_final.group(2).strip()
-        if "fisioterapia" not in b_q.lower() and "psicoterapia" not in b_q.lower():
+        if not re.search(r"fisioter[aá]p|psicoter[aá]p", b_q, re.IGNORECASE):
             b_q += " Não alegou fazer fisioterapia e psicoterapia."
         has_antineo_q = bool(re.search(
             r"\b(?:infus[ãa]o|infus[õo]es|imunobiol[óo]gic[oa]|imunoterapia|quimioterapia|quimioter[áa]pic[oa]|antineopl[áa]sic[oa]|neoplasia|c[âa]ncer|cancer|carcinoma|oncol[óo]gic[oa]|linfoma|leucemia|bevacizumab[e]?|pembrolizumab[e]?|trastuzumab[e]?|rituximab[e]?)\b",
             b_q + " " + cid_desc + " " + str(payload.get("doenca_motivo") or "") + " " + str(payload.get("sintomas_limitacoes") or ""),
             re.IGNORECASE
         ))
-        if not re.search(r"\b(?:Em\s+uso\s+de|Negou\s+uso\s+de|faz\s+uso\s+de)\b", b_q, re.IGNORECASE):
+        if not re.search(
+            r"\b(?:Em\s+uso\s+(?:atual\s+)?de|Faz\s+uso\s+(?:regular\s+)?de|Mant[ée]m\s+esquema\s+farmacol[óo]gico|Negou\s+uso\s+de|Nega\s+uso\s+(?:atual\s+)?de|n[ãa]o\s+fazer\s+uso\s+de\s+medica[çc][õo]es|n[ãa]o\s+relatou\s+uso\s+de)\b",
+            b_q,
+            re.IGNORECASE,
+        ):
             if not has_antineo_q:
                 b_q += " Negou uso de medicações."
         if has_antineo_q:
-            b_q = re.sub(r"\b(?:[Aa]\s+servidora|[Oo]\s+servidor)?\s*Negou\s+uso\s+de\s+medica[çc][õo]es(?:\s+pr[óo]prias\s+de\s+uso\s+cont[íi]nuo)?\.?\s*", "", b_q, flags=re.IGNORECASE)
+            b_q = re.sub(r"\b(?:[Aa]\s+servidora|[Oo]\s+servidor)?\s*Neg(?:ou|a)\s+uso\s+(?:atual\s+)?de\s+medica[çc][õo]es(?:\s+pr[óo]prias\s+de\s+uso\s+cont[íi]nuo)?\.?\s*", "", b_q, flags=re.IGNORECASE)
             b_q = re.sub(r"\b(?:[Aa]\s+servidora|[Oo]\s+servidor)?\s*N[ãa]o\s+relatou\s+uso\s+de\s+medica[çc][õo]es(?:\s+pr[óo]prias\s+de\s+uso\s+cont[íi]nuo)?\.?\s*", "", b_q, flags=re.IGNORECASE)
+            b_q = re.sub(r"\bInformou\s+n[ãa]o\s+fazer\s+uso\s+de\s+medica[çc][õo]es(?:\s+no\s+momento)?\.?\s*", "", b_q, flags=re.IGNORECASE)
             b_q = re.sub(r"\bsem\s+uso\s+de\s+medica[çc][õo]es\.?\s*", "", b_q, flags=re.IGNORECASE)
 
-        if re.search(r"\bNegou\s+uso\s+de\s+medica[çc][õo]es\b", b_q, re.IGNORECASE):
+        if re.search(r"\b(?:Negou\s+uso\s+de\s+medica[çc][õo]es|Nega\s+uso\s+(?:atual\s+)?de\s+medica[çc][õo]es|n[ãa]o\s+fazer\s+uso\s+de\s+medica[çc][õo]es)\b", b_q, re.IGNORECASE):
             b_q = re.sub(r"\s*N[ãa]o\s+relatou\s+troca\s+(?:de\s+altera[çc][ãa]o\s+de\s+dosagem\s+da\s+medica[çc][ãa]o|de\s+medica[çc][ãa]o\s+ou\s+altera[çc][ãa]o\s+de\s+dosagem)\.?", "", b_q, flags=re.IGNORECASE)
         else:
             b_q = re.sub(r"\btroca\s+de\s+altera[çc][ãa]o\s+de\s+dosagem\s+da\s+medica[çc][ãa]o\b", "troca de medicação ou alteração de dosagem", b_q, flags=re.IGNORECASE)
@@ -4731,13 +4741,13 @@ def _gatekeeper_anti_glosa_esisla(ficha_text: str, payload: dict[str, Any]) -> s
             if b_q.endswith(",") or b_q.endswith(";"):
                 b_q = b_q.rstrip(",; ") + "."
             tem_negacao_troca_q = bool(re.search(
-                r"\b(?:sem\s+trocas?\s+(?:recentes?\s+)?de\s+medica[çc][ãa]o|sem\s+altera[çc][ãa]o\s+de\s+dosagem|n[ãa]o\s+trocou\s+de\s+medica[çc][ãa]o)\b",
+                r"\b(?:sem\s+(?:relato\s+de\s+)?trocas?\s+(?:recentes?\s+)?de\s+medica[çc][ãa]o|sem\s+altera[çc][ãa]o\s+de\s+dosagem|ajuste\s+de\s+dosagem|modifica[çc][ãa]o\s+recente\s+no\s+esquema\s+medicamentoso|n[ãa]o\s+trocou\s+de\s+medica[çc][ãa]o)\b",
                 b_q,
                 re.IGNORECASE,
             ))
             if tem_relato_dose_q or tem_negacao_troca_q:
                 b_q = re.sub(r"\s*N[ãa]o\s+relatou\s+troca\s+de\s+medica[çc][ãa]o\s+ou\s+altera[çc][ãa]o\s+de\s+dosagem\.?", "", b_q, flags=re.IGNORECASE)
-            elif "alteração de dosagem" not in b_q.lower() and "troca de medicação" not in b_q.lower():
+            elif "alteração de dosagem" not in b_q.lower() and "troca de medicação" not in b_q.lower() and "ajuste de dosagem" not in b_q.lower() and "esquema medicamentoso" not in b_q.lower():
                 b_q += " Não relatou troca de medicação ou alteração de dosagem."
         b_q = _clean_queixa_duracao_text(b_q)
         t = t[:m_q_final.start(2)] + b_q.strip() + "\n\n" + t[m_q_final.end(2):].lstrip("\n")
@@ -5987,22 +5997,32 @@ def _clean_queixa_duracao_text(text: str) -> str:
         flags=re.IGNORECASE
     )
 
-    # 2. Se houver "Servidor(a) de X anos" seguido de repetições de [não readaptado / relatou não ser readaptado]
+    # 2. Se houver "Servidor(a) de X anos" seguido de repetições (2+) de [não readaptado / relatou não ser readaptado], ou versão entre parênteses
     t = re.sub(
-        r'\b(Servidor|Servidora)\s+de\s+(\d+\s+anos)(?:,?\s*(?:\(?\s*não\s+readaptad([oa])\s*\)?|relatou\s+não\s+ser\s+readaptad([oa])))+',
+        r'\b(Servidor|Servidora)\s+de\s+(\d+\s+anos)(?:,?\s*(?:\(?\s*não\s+readaptad([oa])\s*\)?|relatou\s+não\s+ser\s+readaptad([oa]))){2,}',
+        lambda m: f'{m.group(1)} de {m.group(2)}, relatou não ser readaptad{"a" if m.group(1).lower() == "servidora" else "o"}',
+        t,
+        flags=re.IGNORECASE
+    )
+    t = re.sub(
+        r'\b(Servidor|Servidora)\s+de\s+(\d+\s+anos),?\s*\(\s*não\s+readaptad([oa])\s*\)',
         lambda m: f'{m.group(1)} de {m.group(2)}, relatou não ser readaptad{"a" if m.group(1).lower() == "servidora" else "o"}',
         t,
         flags=re.IGNORECASE
     )
 
     # 2b. Concordância de gênero de readaptação com Servidor/Servidora
-    t = re.sub(r"(\bServidor\b[^\.\n\r]*?\brelatou\s+(?:não\s+)?ser\s+)readaptada\b", r"\1readaptado", t, flags=re.IGNORECASE)
-    t = re.sub(r"(\bServidora\b[^\.\n\r]*?\brelatou\s+(?:não\s+)?ser\s+)readaptado\b", r"\1readaptada", t, flags=re.IGNORECASE)
+    t = re.sub(r"(\bServidor\b[^\.\n\r]*?\b(?:relatou|informou)\s+(?:não\s+)?ser\s+)readaptada\b", r"\1readaptado", t, flags=re.IGNORECASE)
+    t = re.sub(r"(\bServidora\b[^\.\n\r]*?\b(?:relatou|informou)\s+(?:não\s+)?ser\s+)readaptado\b", r"\1readaptada", t, flags=re.IGNORECASE)
+    t = re.sub(r"(\bServidor\b\s+de\s+\d+\s+anos,\s*não\s+)readaptada\b", r"\1readaptado", t, flags=re.IGNORECASE)
+    t = re.sub(r"(\bServidora\b\s+de\s+\d+\s+anos,\s*não\s+)readaptado\b", r"\1readaptada", t, flags=re.IGNORECASE)
 
-    # 3. Normaliza cargo e tempo: "relatou não ser readaptado(a), é [cargo] há [tempo]"
+    # 3. Normaliza cargo e tempo: "relatou não ser readaptado(a), é [cargo] há [tempo]" (preservando variações cultas já verbalizadas)
     def _repl_cargo(m):
         serv_block = m.group(1)
         ct = m.group(2).strip()
+        if re.match(r"^(?:atua\s+como|exerce\s+o\s+cargo|ocupante\s+do\s+cargo|desempenha\s+o\s+cargo)\b", ct, flags=re.IGNORECASE):
+            return f'{serv_block}, {ct}'
         if ct.lower().startswith('é ') or ct.lower().startswith('e '):
             ct = ct[2:].strip()
         return f'{serv_block}, é {ct}'
@@ -7882,6 +7902,14 @@ def _aprimorar_justificativa_retroacao_esisla(payload: dict[str, Any], just_atua
     return _remover_parenteses_texto(base_just)
 
 
+def _queixa_style_idx(seed: str) -> int:
+    """Seleciona deterministicamente um dos 4 estilos redacionais DPME (0..3) para variedade controlada."""
+    s = str(seed or "").strip()
+    if not s:
+        return 0
+    return int(hashlib.md5(s.encode("utf-8")).hexdigest()[:8], 16) % 4
+
+
 def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
     payload = _desacoplar_e_rotear_fatos_clinicos(payload)
     a_aux = payload.get("aux") if isinstance(payload.get("aux"), dict) else {}
@@ -7890,6 +7918,9 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
     cid_code = str(payload.get("cid") or "").strip().upper()
     if len(cid_code) == 4 and re.match(r"^[A-Z]\d{3}$", cid_code):
         cid_code = f"{cid_code[:3]}.{cid_code[3:]}"
+
+    style_seed = f"{payload.get('atendimento') or ''}|{cid_code}|{payload.get('nome_paciente') or ''}|{cargo}"
+    style_idx = _queixa_style_idx(style_seed)
 
     is_fem = _infer_is_feminino(
         sexo=str(payload.get("sexo") or ""),
@@ -7903,21 +7934,36 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
     idade_str = f"{termo_serv} de {idade_num} anos" if idade_num > 0 else termo_serv
 
     is_readap = str(payload.get("readaptado") or "").strip().lower() in ("sim", "s", "true", "1")
+    readap_adj = "readaptada" if is_fem else "readaptado"
     if is_readap:
         atv_readap = str(payload.get("atividades_readaptado") or "").strip()
         atv_readap = re.sub(r"^(?:as\s+)?atividades\s+(?:de\s+)?", "", atv_readap, flags=re.IGNORECASE).strip(" .,;:")
         if atv_readap:
             is_adj_fem = bool(re.match(r"^(?:administrativas|pedag[óo]gicas|burocr[áa]ticas|operacionais|t[ée]cnicas|leves|adaptadas|internas|externas|gerais|auxiliares|escolares)\b", atv_readap, re.IGNORECASE))
             prep_readap = " " if is_adj_fem else " de "
-            readap_str = (
-                f"relatou ser readaptada, exercendo atualmente atividades{prep_readap}{atv_readap}"
-                if is_fem
-                else f"relatou ser readaptado, exercendo atualmente atividades{prep_readap}{atv_readap}"
-            )
+            readap_variants = [
+                f"relatou ser {readap_adj}, exercendo atualmente atividades{prep_readap}{atv_readap}",
+                f"{readap_adj}, atuando atualmente em atividades{prep_readap}{atv_readap}",
+                f"em readaptação funcional, desempenhando atividades{prep_readap}{atv_readap}",
+                f"informou ser {readap_adj}, exercendo atividades{prep_readap}{atv_readap}",
+            ]
+            readap_str = readap_variants[style_idx]
         else:
-            readap_str = "relatou ser readaptada" if is_fem else "relatou ser readaptado"
+            readap_variants = [
+                f"relatou ser {readap_adj}",
+                f"{readap_adj}",
+                "em readaptação funcional",
+                f"informou ser {readap_adj}",
+            ]
+            readap_str = readap_variants[style_idx]
     else:
-        readap_str = "relatou não ser readaptada" if is_fem else "relatou não ser readaptado"
+        readap_variants = [
+            f"relatou não ser {readap_adj}",
+            f"não {readap_adj}",
+            "sem readaptação funcional",
+            f"informou não ser {readap_adj}",
+        ]
+        readap_str = readap_variants[style_idx]
 
     cargo_exibicao = cargo
     if is_fem:
@@ -7959,9 +8005,16 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
                 unid_tempo = "mês"
             elif unid_tempo.startswith("dia"):
                 unid_tempo = "dia"
-        cargo_str = f"é {cargo_exibicao} há {tempo_num} {unid_tempo}"
+        tempo_suf = f" há {tempo_num} {unid_tempo}"
     else:
-        cargo_str = f"é {cargo_exibicao}"
+        tempo_suf = ""
+    cargo_variants = [
+        f"é {cargo_exibicao}{tempo_suf}",
+        f"atua como {cargo_exibicao}{tempo_suf}",
+        f"exerce o cargo de {cargo_exibicao}{tempo_suf}",
+        f"ocupante do cargo de {cargo_exibicao}{tempo_suf}",
+    ]
+    cargo_str = cargo_variants[style_idx]
 
     doenca_raw = str(payload.get("doenca_motivo") or "").strip()
     info_cid_p = get_cid_info(cid_code) if cid_code else None
@@ -7986,20 +8039,27 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
 
     ini_trat = str(payload.get("inicio_tratamento") or payload.get("inicioTratamento") or "").strip()
     freq_cons = str(payload.get("frequencia_consultas") or "").strip().lower()
-    if "quinzenal" in freq_cons:
-        freq_str = "realizando consultas quinzenalmente"
-    elif "mensal" in freq_cons:
-        freq_str = "realizando consultas mensalmente"
-    elif "semanal" in freq_cons:
-        freq_str = "realizando consultas semanalmente"
-    elif "bimestral" in freq_cons:
-        freq_str = "realizando consultas bimestralmente"
-    elif "trimestral" in freq_cons:
-        freq_str = "realizando consultas trimestralmente"
-    elif freq_cons:
+    _freq_map = {
+        "quinzenal": ("quinzenalmente", "quinzenal"),
+        "mensal": ("mensalmente", "mensal"),
+        "semanal": ("semanalmente", "semanal"),
+        "bimestral": ("bimestralmente", "bimestral"),
+        "trimestral": ("trimestralmente", "trimestral"),
+        "semestral": ("semestralmente", "semestral"),
+    }
+    freq_str = ""
+    for fk, (f_adv, f_adj) in _freq_map.items():
+        if fk in freq_cons:
+            freq_variants = [
+                f"realizando consultas {f_adv}",
+                f"em acompanhamento médico {f_adj}",
+                f"com seguimento ambulatorial {f_adj}",
+                f"mantendo consultas regulares com periodicidade {f_adj}",
+            ]
+            freq_str = freq_variants[style_idx]
+            break
+    if not freq_str and freq_cons:
         freq_str = f"realizando consultas {freq_cons}"
-    else:
-        freq_str = ""
 
     sintomas = str(payload.get("sintomas_limitacoes") or "").strip()
     psico = payload.get("psicoterapia")
@@ -8023,13 +8083,20 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
     if is_queixa_completa:
         corpo_queixa = _clean_queixa_duracao_text(queixa_informada)
         # Se na queixa completa ainda não constar relato de medicações, formata e inclui
-        if not re.search(r"\b(?:em\s+uso\s+de|negou\s+uso|nega\s+uso|n[ãa]o\s+relatou\s+uso|sem\s+uso\s+de)\b", corpo_queixa, re.I):
+        if not re.search(r"\b(?:em\s+uso\s+(?:atual\s+)?de|faz\s+uso\s+(?:regular\s+)?de|mant[ée]m\s+esquema\s+farmacol[óo]gico|negou\s+uso|nega\s+uso|n[ãa]o\s+fazer\s+uso\s+de\s+medica[çc][õo]es|n[ãa]o\s+relatou\s+uso|sem\s+uso\s+de)\b", corpo_queixa, re.I):
             med_fmt = _formatar_lista_medicamentos(payload.get("medications") or payload.get("medicamentos"))
             if med_fmt:
                 tem_alt = bool(re.search(r"\b(?:aument|ajust|reduz|troc)", corpo_queixa + " " + sintomas, re.I))
-                corpo_queixa = corpo_queixa.rstrip(".,; ") + f". Em uso de {med_fmt}."
+                med_intro = ["Em uso de", "Faz uso regular de", "Mantém esquema farmacológico com", "Em uso atual de"][style_idx]
+                corpo_queixa = corpo_queixa.rstrip(".,; ") + f". {med_intro} {med_fmt}."
                 if not tem_alt:
-                    corpo_queixa += " Não relatou troca de medicação ou alteração de dosagem."
+                    sem_troca = [
+                        "Não relatou troca de medicação ou alteração de dosagem.",
+                        "Sem relato de troca de medicação ou ajuste de dosagem.",
+                        "Não referiu modificação recente no esquema medicamentoso ou alteração de dosagem.",
+                        "Mantém a prescrição habitual, sem troca de medicação ou alteração de dosagem.",
+                    ][style_idx]
+                    corpo_queixa += f" {sem_troca}"
             else:
                 has_antineo = bool(re.search(
                     r"\b(?:infus[ãa]o|infus[õo]es|imunobiol[óo]gic[oa]|imunoterapia|quimioterapia|quimioter[áa]pic[oa]|antineopl[áa]sic[oa]|neoplasia|c[âa]ncer|cancer|carcinoma|oncol[óo]gic[oa]|linfoma|leucemia|bevacizumab[e]?|pembrolizumab[e]?|trastuzumab[e]?|rituximab[e]?)\b",
@@ -8037,13 +8104,19 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
                     re.I
                 ))
                 if not has_antineo:
+                    neg_med_v = [
+                        "Negou uso de medicações.",
+                        "Nega uso atual de medicações.",
+                        "Informou não fazer uso de medicações no momento.",
+                        "Negou uso de medicações.",
+                    ][style_idx]
                     corpo_queixa = corpo_queixa.rstrip(".,; ") + (
                         f". {'A servidora' if is_fem else 'O servidor'} negou uso de medicações próprias de uso contínuo."
                         if is_acomp_det
-                        else ". Negou uso de medicações."
+                        else f". {neg_med_v}"
                     )
         # Se na queixa completa ainda não constar terapias (fisio/psico), inclui
-        if not re.search(r"\b(?:fisioterapia|psicoterapia)\b", corpo_queixa, re.I):
+        if not re.search(r"fisioterap|psicoterap", corpo_queixa, re.I):
             if fisio_bool and psico_bool:
                 f_str = f" {fisio_desc}" if fisio_desc else ""
                 p_str = f" {psico_desc}" if psico_desc else ""
@@ -8055,7 +8128,13 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
                 p_str = f" {psico_desc}" if psico_desc else ""
                 corpo_queixa = corpo_queixa.rstrip(".,; ") + f". Realiza psicoterapia{p_str} e não realiza fisioterapia."
             else:
-                corpo_queixa = corpo_queixa.rstrip(".,; ") + ". Não alegou fazer fisioterapia e psicoterapia."
+                neg_ter_v = [
+                    "Não alegou fazer fisioterapia e psicoterapia.",
+                    "Nega realização de fisioterapia e psicoterapia no momento.",
+                    "Não realiza acompanhamento fisioterapêutico ou psicoterápico.",
+                    "Informou não fazer fisioterapia nem psicoterapia.",
+                ][style_idx]
+                corpo_queixa = corpo_queixa.rstrip(".,; ") + f". {neg_ter_v}"
     else:
         partes_q = [f"{idade_str}, {readap_str}, {cargo_str}"]
         if is_acomp_det:
@@ -8065,23 +8144,58 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
             else:
                 partes_q.append(f"para acompanhamento de familiar enfermo ({dep_str})")
         elif doenca_motivo:
-            if ini_trat:
-                partes_q.append(f"com queixa de {doenca_motivo} desde {ini_trat}")
+            dm_low_first = (
+                doenca_motivo[0].lower() + doenca_motivo[1:]
+                if len(doenca_motivo) > 1 and doenca_motivo[0].isupper() and not doenca_motivo[:2].isupper()
+                else doenca_motivo
+            )
+            is_posop_q = cid_code.startswith(("Z98", "K91", "T81")) or "pós-operat" in dm_low_first
+            is_mental_q = cid_code.startswith("F")
+            if is_posop_q:
+                mot_variants = [
+                    f"com queixa de {dm_low_first}",
+                    f"em acompanhamento pós-operatório por {dm_low_first}",
+                    f"apresentando quadro relacionado a {dm_low_first}",
+                    f"em seguimento clínico por {dm_low_first}",
+                ]
+            elif is_mental_q:
+                mot_variants = [
+                    f"com queixa de {dm_low_first}",
+                    f"em acompanhamento psiquiátrico por {dm_low_first}",
+                    f"apresentando quadro de {dm_low_first}",
+                    f"acompanhada por {dm_low_first}" if is_fem else f"acompanhado por {dm_low_first}",
+                ]
             else:
-                partes_q.append(f"com queixa de {doenca_motivo}")
+                mot_variants = [
+                    f"com queixa de {dm_low_first}",
+                    f"apresentando quadro de {dm_low_first}",
+                    f"em acompanhamento por {dm_low_first}",
+                    f"com histórico atual de {dm_low_first}",
+                ]
+            mot_clausula = mot_variants[style_idx]
+            if ini_trat:
+                partes_q.append(f"{mot_clausula} desde {ini_trat}")
+            else:
+                partes_q.append(mot_clausula)
         if freq_str:
             partes_q.append(freq_str)
 
         corpo_queixa = ", ".join(partes_q) + "."
         if sintomas and sintomas.lower() not in corpo_queixa.lower():
-            if re.match(r"^(?:[Aa]\s+periciada|[Oo]\s+periciado|[Aa]\s+servidora|[Oo]\s+servidor)\s+(?:refere|relata|informa)\b", sintomas):
+            if re.match(r"^(?:[Aa]\s+periciada|[Oo]\s+periciado|[Aa]\s+servidora|[Oo]\s+servidor)\s+(?:refere|relata|informa|descreve)\b", sintomas):
                 corpo_queixa += f" {sintomas.rstrip('.')}."
             else:
-                sint_clean = re.sub(r"^(?:Refere|Referiu|Relata|Relatou|Apresenta|Apresentou|Comparece|Compareceu)\s*(?:e\s*,?|ou\s*,?|,\s*)?", "", sintomas, flags=re.I).strip(" ,.;")
+                sint_clean = re.sub(r"^(?:Refere|Referiu|Relata|Relatou|Apresenta|Apresentou|Comparece|Compareceu|Descreve)\s*(?:e\s*,?|ou\s*,?|,\s*)?", "", sintomas, flags=re.I).strip(" ,.;")
                 if sint_clean:
                     if len(sint_clean) > 1 and sint_clean[0].isupper() and not sint_clean[:2].isupper():
                         sint_clean = sint_clean[0].lower() + sint_clean[1:]
-                    corpo_queixa += f" Refere {sint_clean.rstrip('.')}."
+                    sint_intros = [
+                        "Refere",
+                        "Relata",
+                        "Descreve quadro de",
+                        "Apresenta sintomatologia caracterizada por",
+                    ]
+                    corpo_queixa += f" {sint_intros[style_idx]} {sint_clean.rstrip('.')}."
         if queixa_informada and queixa_informada.lower() not in corpo_queixa.lower():
             q_clean = re.sub(r"^(?:Refere|Referiu|Relata|Relatou|Apresenta|Apresentou|Comparece|Compareceu)\s*(?:e\s*,?|ou\s*,?|,\s*)?", "", queixa_informada, flags=re.I).strip(" ,.;")
             if q_clean:
@@ -8090,9 +8204,16 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
         med_fmt = _formatar_lista_medicamentos(payload.get("medications") or payload.get("medicamentos"))
         if med_fmt:
             tem_alt = bool(re.search(r"\b(?:aument|ajust|reduz|troc)", corpo_queixa + " " + sintomas, re.I))
-            corpo_queixa += f" Em uso de {med_fmt}."
+            med_intro = ["Em uso de", "Faz uso regular de", "Mantém esquema farmacológico com", "Em uso atual de"][style_idx]
+            corpo_queixa += f" {med_intro} {med_fmt}."
             if not tem_alt:
-                corpo_queixa += " Não relatou troca de medicação ou alteração de dosagem."
+                sem_troca = [
+                    "Não relatou troca de medicação ou alteração de dosagem.",
+                    "Sem relato de troca de medicação ou ajuste de dosagem.",
+                    "Não referiu modificação recente no esquema medicamentoso ou alteração de dosagem.",
+                    "Mantém a prescrição habitual, sem troca de medicação ou alteração de dosagem.",
+                ][style_idx]
+                corpo_queixa += f" {sem_troca}"
         else:
             has_antineo = bool(re.search(
                 r"\b(?:infus[ãa]o|infus[õo]es|imunobiol[óo]gic[oa]|imunoterapia|quimioterapia|quimioter[áa]pic[oa]|antineopl[áa]sic[oa]|neoplasia|c[âa]ncer|cancer|carcinoma|oncol[óo]gic[oa]|linfoma|leucemia|bevacizumab[e]?|pembrolizumab[e]?|trastuzumab[e]?|rituximab[e]?)\b",
@@ -8100,24 +8221,54 @@ def _build_deterministic_esisla(payload: dict[str, Any]) -> str:
                 re.I
             ))
             if not has_antineo:
+                neg_med_v = [
+                    "Negou uso de medicações.",
+                    "Nega uso atual de medicações.",
+                    "Informou não fazer uso de medicações no momento.",
+                    "Negou uso de medicações.",
+                ][style_idx]
                 corpo_queixa += (
                     f" {'A servidora' if is_fem else 'O servidor'} negou uso de medicações próprias de uso contínuo."
                     if is_acomp_det
-                    else " Negou uso de medicações."
+                    else f" {neg_med_v}"
                 )
 
         if fisio_bool and psico_bool:
             f_str = f" {fisio_desc}" if fisio_desc else ""
             p_str = f" {psico_desc}" if psico_desc else ""
-            corpo_queixa += f" Realiza fisioterapia{f_str} e psicoterapia{p_str}."
+            ter_ambas = [
+                f"Realiza fisioterapia{f_str} e psicoterapia{p_str}.",
+                f"Mantém acompanhamento em fisioterapia{f_str} e psicoterapia{p_str}.",
+                f"Em seguimento com fisioterapia{f_str} e psicoterapia{p_str}.",
+                f"Realiza fisioterapia{f_str} associada a psicoterapia{p_str}.",
+            ][style_idx]
+            corpo_queixa += f" {ter_ambas}"
         elif fisio_bool:
             f_str = f" {fisio_desc}" if fisio_desc else ""
-            corpo_queixa += f" Realiza fisioterapia{f_str} e não realiza psicoterapia."
+            ter_fisio = [
+                f"Realiza fisioterapia{f_str} e não realiza psicoterapia.",
+                f"Mantém sessões de fisioterapia{f_str}, sem acompanhamento em psicoterapia.",
+                f"Em acompanhamento fisioterapêutico{f_str}, não realizando psicoterapia.",
+                f"Realiza fisioterapia{f_str} e nega realização de psicoterapia.",
+            ][style_idx]
+            corpo_queixa += f" {ter_fisio}"
         elif psico_bool:
             p_str = f" {psico_desc}" if psico_desc else ""
-            corpo_queixa += f" Realiza psicoterapia{p_str} e não realiza fisioterapia."
+            ter_psico = [
+                f"Realiza psicoterapia{p_str} e não realiza fisioterapia.",
+                f"Mantém acompanhamento em psicoterapia{p_str}, sem realização de fisioterapia.",
+                f"Em acompanhamento psicoterápico{p_str}, não realizando fisioterapia.",
+                f"Realiza psicoterapia{p_str} e nega realização de fisioterapia.",
+            ][style_idx]
+            corpo_queixa += f" {ter_psico}"
         else:
-            corpo_queixa += " Não alegou fazer fisioterapia e psicoterapia."
+            neg_ter_v = [
+                "Não alegou fazer fisioterapia e psicoterapia.",
+                "Nega realização de fisioterapia e psicoterapia no momento.",
+                "Não realiza acompanhamento fisioterapêutico ou psicoterápico.",
+                "Informou não fazer fisioterapia nem psicoterapia.",
+            ][style_idx]
+            corpo_queixa += f" {neg_ter_v}"
 
     corpo_queixa = _clean_queixa_duracao_text(corpo_queixa)
 
@@ -8787,7 +8938,7 @@ def api_ai_esisla():
                 ficha_text = re.sub(r"\b[Il],\s*\(?n[ãa]o\s+readaptad([oa])\)?\s*nvestigador\b", r"não readaptad\1, Investigador", ficha_text, flags=re.IGNORECASE)
                 ficha_text = re.sub(r",\s*[Il],\s*(?=(?:não\s+readaptad[oa]|investigador|[a-zà-ú]))", r", ", ficha_text, flags=re.IGNORECASE)
 
-                if not re.search(r"n[ãa]o\s+readaptad[oa]|relatou\s+n[ãa]o\s+ser\s+readaptad[oa]", ficha_text, flags=re.IGNORECASE):
+                if not re.search(r"n[ãa]o\s+readaptad[oa]|relatou\s+n[ãa]o\s+ser\s+readaptad[oa]|informou\s+n[ãa]o\s+(?:ser\s+readaptad[oa]|possuir\s+readapta[çc][ãa]o)|sem\s+readapta[çc][ãa]o\s+funcional", ficha_text, flags=re.IGNORECASE):
                     termo_nr = "relatou não ser readaptada" if "servidora" in ficha_text.lower() else "relatou não ser readaptado"
                     # Inserir logo após a identificação/idade: "Servidor(a) de X anos"
                     ficha_text = re.sub(
@@ -10116,6 +10267,27 @@ def api_ai_preencher_ficha():
             esisla_pre = parse_esisla_text(texto_bruto_expandido)
             ctx_atual = raw.get("contexto_atual") if isinstance(raw.get("contexto_atual"), dict) else {}
             decisao_medico = raw.get("decisao_medico") if isinstance(raw.get("decisao_medico"), dict) else {}
+            ficha_vinc = raw.get("ficha_vinculada") if isinstance(raw.get("ficha_vinculada"), dict) else {}
+            ficha_vinc_ativa = bool(ficha_vinc.get("ativa") or ctx_atual.get("fichaVinculada"))
+            ficha_vinc_trava_ativa = bool(ficha_vinc_ativa and ficha_vinc.get("trava_ativa", True))
+            ficha_vinc_dados = ficha_vinc.get("dados") if isinstance(ficha_vinc.get("dados"), dict) else {}
+            ficha_vinc_campos_travados = set(
+                str(k).strip() for k in (ficha_vinc.get("campos_travados") or []) if str(k).strip()
+            )
+
+            def _norm_cid_code(c_val: Any) -> str:
+                c_up = str(c_val or "").strip().upper()
+                if len(c_up) == 4 and "." not in c_up and re.match(r"^[A-Z]\d{3}$", c_up):
+                    return f"{c_up[:3]}.{c_up[3:]}"
+                return c_up
+
+            cid_ancora_raw = (
+                ficha_vinc.get("cid_primario_travado")
+                or (ficha_vinc_dados.get("cid") if ficha_vinc_trava_ativa else "")
+                or (ctx_atual.get("cid") if (ficha_vinc_ativa or ctx_atual.get("cidAncoraConfirmado")) else "")
+            )
+            cid_ancora = _norm_cid_code(cid_ancora_raw)
+            cid_ancora_info = get_cid_info(cid_ancora) if cid_ancora else {}
 
             pre_retro_invalida = bool(
                 esisla_pre.get("retroacao_invalida")
@@ -10136,21 +10308,28 @@ def api_ai_preencher_ficha():
 
             ctx_known_lines = []
             _known_pairs = [
-                ("Nome do Periciado", esisla_pre.get("nome_paciente") or ctx_atual.get("nomePaciente")),
-                ("CPF", esisla_pre.get("cpf_paciente") or ctx_atual.get("cpfPaciente")),
-                ("RG", esisla_pre.get("rg_paciente") or ctx_atual.get("rg")),
-                ("Data de Nascimento", esisla_pre.get("data_nascimento") or ctx_atual.get("dataNascimento")),
-                ("Idade", esisla_pre.get("idade") or ctx_atual.get("idade")),
-                ("Sexo", esisla_pre.get("sexo") or ctx_atual.get("sexo")),
-                ("Cargo", esisla_pre.get("cargo") or ctx_atual.get("cargo")),
-                ("Tempo no Cargo", esisla_pre.get("tempo_cargo") or ctx_atual.get("tempoCargo")),
-                ("Readaptado", esisla_pre.get("readaptado") or ctx_atual.get("readaptado")),
-                ("CID Principal", esisla_pre.get("cid") or ctx_atual.get("cid")),
-                ("CRM/CRO Assistente", esisla_pre.get("crm_cro") or ctx_atual.get("crmCro")),
-                ("Médico Assistente", esisla_pre.get("nome_medico_assistente") or ctx_atual.get("medicoAssistenteNome")),
-                ("Data do Atestado", esisla_pre.get("data_documento") or ctx_atual.get("dataDocumento")),
-                ("Data de Expedição da Guia", esisla_pre.get("data_expedicao") or ctx_atual.get("dataExpedicao") or ctx_atual.get("dataExpedicaoIso")),
-                ("Dias Solicitados", esisla_pre.get("dias_solicitados") or ctx_atual.get("diasSolicitados")),
+                ("Nome do Periciado", ficha_vinc_dados.get("nomePaciente") or esisla_pre.get("nome_paciente") or ctx_atual.get("nomePaciente")),
+                ("CPF", ficha_vinc_dados.get("cpfPaciente") or esisla_pre.get("cpf_paciente") or ctx_atual.get("cpfPaciente")),
+                ("RG", ficha_vinc_dados.get("rg") or esisla_pre.get("rg_paciente") or ctx_atual.get("rg")),
+                ("Data de Nascimento", ficha_vinc_dados.get("dataNascimento") or esisla_pre.get("data_nascimento") or ctx_atual.get("dataNascimento")),
+                ("Idade", ficha_vinc_dados.get("idade") or esisla_pre.get("idade") or ctx_atual.get("idade")),
+                ("Sexo", ficha_vinc_dados.get("sexo") or esisla_pre.get("sexo") or ctx_atual.get("sexo")),
+                ("Cargo", ficha_vinc_dados.get("cargo") or esisla_pre.get("cargo") or ctx_atual.get("cargo")),
+                ("Tempo no Cargo", ficha_vinc_dados.get("tempoCargo") or esisla_pre.get("tempo_cargo") or ctx_atual.get("tempoCargo")),
+                ("Readaptado", ficha_vinc_dados.get("readaptado") or esisla_pre.get("readaptado") or ctx_atual.get("readaptado")),
+                ("Atividades da Readaptação", ficha_vinc.get("atividades_readaptado") or ficha_vinc_dados.get("atividadesReadaptado") or ctx_atual.get("atividadesReadaptado")),
+                ("CID Principal", cid_ancora or esisla_pre.get("cid") or ctx_atual.get("cid")),
+                ("CRM/CRO Assistente", ficha_vinc_dados.get("crmCro") or esisla_pre.get("crm_cro") or ctx_atual.get("crmCro")),
+                ("Médico Assistente", ficha_vinc_dados.get("medicoAssistenteNome") or esisla_pre.get("nome_medico_assistente") or ctx_atual.get("medicoAssistenteNome")),
+                ("Data do Atestado", ficha_vinc_dados.get("dataDocumento") or esisla_pre.get("data_documento") or ctx_atual.get("dataDocumento")),
+                ("Data de Expedição da Guia", ficha_vinc_dados.get("dataExpedicao") or ficha_vinc_dados.get("dataExpedicaoIso") or esisla_pre.get("data_expedicao") or ctx_atual.get("dataExpedicao") or ctx_atual.get("dataExpedicaoIso")),
+                ("Dias Solicitados", ficha_vinc_dados.get("diasSolicitados") or esisla_pre.get("dias_solicitados") or ctx_atual.get("diasSolicitados")),
+                ("Motivo da Perícia (Ficha Vinculada)", ficha_vinc.get("motivo_pericia") or ficha_vinc_dados.get("motivoPericia")),
+                ("Tipo/Finalidade da Perícia", " / ".join(x for x in [str(ficha_vinc.get("tipo_pericia") or "").strip(), str(ficha_vinc.get("finalidade") or "").strip()] if x)),
+                ("Última Licença Registrada", (
+                    f"{ficha_vinc.get('ultima_licenca_dias')} dias ({ficha_vinc.get('ultima_licenca_inicio') or '?'} a {ficha_vinc.get('ultima_licenca_fim') or '?'})"
+                    if ficha_vinc.get("ultima_licenca_dias") else ""
+                )),
             ]
             for lbl, val in _known_pairs:
                 v_str = str(val or "").strip()
@@ -10158,9 +10337,28 @@ def api_ai_preencher_ficha():
                     ctx_known_lines.append(f"- {lbl}: {v_str}")
             if ctx_known_lines:
                 instruction += (
-                    "\n\nDADOS CADASTRAIS E DA GUIA JÁ CONHECIDOS NO SISTEMA (PRESERVE COM FIDELIDADE ABSOLUTA; "
+                    "\n\nDADOS CADASTRAIS E DA FICHA VINCULADA JÁ CONHECIDOS NO SISTEMA (PRESERVE COM FIDELIDADE ABSOLUTA; "
+                    "ANALISE ESTE CONTEXTO PARA CORRELACIONAR COM O CARGO REAL, O HISTÓRICO DE LICENÇAS E COMPLEMENTAR A PERÍCIA; "
                     "NUNCA SUBSTITUA POR PLACEHOLDERS COMO 000.000.000-00, 000000 OU NOMES FICTÍCIOS):\n"
                     + "\n".join(ctx_known_lines)
+                )
+
+            if cid_ancora:
+                cid_anc_nome = str(cid_ancora_info.get("nome") or "").strip()
+                cid_anc_grupo = str(cid_ancora_info.get("grupo") or "").strip()
+                cid_anc_desc_str = f" — {cid_anc_nome}" if cid_anc_nome else ""
+                cid_anc_grp_str = f" (Grupo: {cid_anc_grupo})" if cid_anc_grupo else ""
+                instruction += (
+                    f"\n\nCID PRIMÁRIO ÂNCORA TRAVADO / INFORMADO ANTES DA IA: {cid_ancora}{cid_anc_desc_str}{cid_anc_grp_str}\n"
+                    "- REGRA INEGOCIÁVEL: NÃO ALTERE o campo `cid`! O CID primário DEVE permanecer exatamente `"
+                    + cid_ancora
+                    + "`.\n"
+                    "- COMPLEMENTAÇÃO PERICIAL DE ALTO NÍVEL: Utilize este CID primário em conjunto com os dados da ficha vinculada (cargo, idade, sexo, readaptação, licenças prévias) e o texto bruto para construir semiologia completa do exame físico/mental, limitações diretamente vinculadas ao Rol de Atividades do cargo oficial e justificativa técnica individualizada.\n"
+                    "- CID SECUNDÁRIO CORRELACIONADO (PERMITIDO E RECOMENDADO QUANDO CLINICAMENTE JUSTIFICADO): Se o texto bruto descrever outra patologia associada, causa subjacente, complicação ou comorbidade correlata distinta de `"
+                    + cid_ancora
+                    + "`, inclua o código correspondente em `cids_secundarios`, SEM modificar o CID primário `"
+                    + cid_ancora
+                    + "`.\n"
                 )
 
             if decisao_medico:
@@ -10366,12 +10564,19 @@ def api_ai_preencher_ficha():
             elif ctx_exp_date:
                 result.data_expedicao = ctx_exp_date
 
-            # 6. CID Principal (prioriza CID explícito do texto bruto; se ausente do texto, preserva CID já preenchido em contexto_atual)
+            # 6. CID Principal (quando houver CID âncora travado pela ficha vinculada ou já definido pelo perito,
+            #    ele é IMUTÁVEL como CID primário, mas eventual CID alternativo sugerido pela IA vira CID secundário correlacionado)
             explicit_cids_txt = [c.upper() for c in re.findall(r"\b([A-Z]\d{2}(?:\.\d{1,2})?)\b", texto_bruto, re.I)]
             cid_from_esisla = str(esisla_pre.get("cid") or "").strip().upper()
             cid_from_ctx = str(ctx_atual.get("cid") or "").strip().upper()
-            res_cid_up = str(result.cid or "").strip().upper()
-            if cid_from_esisla and not res_cid_up:
+            res_cid_up = _norm_cid_code(result.cid)
+            cid_secundario_da_ia_correlato = ""
+
+            if cid_ancora:
+                if res_cid_up and res_cid_up.replace(".", "") != cid_ancora.replace(".", ""):
+                    cid_secundario_da_ia_correlato = res_cid_up
+                result.cid = cid_ancora
+            elif cid_from_esisla and not res_cid_up:
                 result.cid = cid_from_esisla
             elif not explicit_cids_txt and cid_from_ctx:
                 # Texto bruto não especificou outro CID: preserva o CID oficial do contexto atual
@@ -10379,16 +10584,37 @@ def api_ai_preencher_ficha():
             elif not res_cid_up:
                 result.cid = cid_from_esisla or (explicit_cids_txt[0] if explicit_cids_txt else "") or cid_from_ctx
 
+            # Blindagem determinística de campos travados pela Ficha Vinculada (impede qualquer sobrescrita pela IA)
+            if ficha_vinc_trava_ativa and ficha_vinc_dados:
+                _lock_map = [
+                    ("nomePaciente", "nome_paciente"),
+                    ("cpfPaciente", "cpf_paciente"),
+                    ("rg", "rg_paciente"),
+                    ("dataNascimento", "data_nascimento"),
+                    ("idade", "idade"),
+                    ("sexo", "sexo"),
+                    ("cargo", "cargo"),
+                    ("tempoCargo", "tempo_cargo"),
+                    ("tempoUnidade", "tempo_unidade"),
+                    ("readaptado", "readaptado"),
+                    ("dataDocumento", "data_documento"),
+                    ("dataExpedicao", "data_expedicao"),
+                    ("diasSolicitados", "dias_solicitados"),
+                    ("crmCro", "crm_cro"),
+                    ("medicoAssistenteNome", "nome_medico_assistente"),
+                ]
+                for js_k, py_attr in _lock_map:
+                    if (not ficha_vinc_campos_travados or js_k in ficha_vinc_campos_travados) and ficha_vinc_dados.get(js_k):
+                        val_l = str(ficha_vinc_dados.get(js_k)).strip()
+                        if val_l:
+                            setattr(result, py_attr, val_l)
+
             # Normalização de CID (ex.: Z988 -> Z98.8, f332 -> F33.2)
-            cid_str = (result.cid or "").strip().upper()
-            if cid_str and len(cid_str) == 4 and "." not in cid_str:
-                cid_str = f"{cid_str[:3]}.{cid_str[3:]}"
-                result.cid = cid_str
-            else:
-                result.cid = cid_str
+            cid_str = _norm_cid_code(result.cid)
+            result.cid = cid_str
             if cid_str:
                 cid_info = get_cid_info(cid_str)
-                if cid_info and cid_info.get("nome") and (not result.cid_descricao or cid_str == cid_from_ctx):
+                if cid_info and cid_info.get("nome") and (not result.cid_descricao or cid_str == cid_from_ctx or cid_str == cid_ancora):
                     result.cid_descricao = cid_info["nome"]
 
             is_acomp = _is_acompanhante_context(
@@ -10931,18 +11157,26 @@ def api_ai_preencher_ficha():
             seen_sec = set()
             primary_clean = (result.cid or "").upper().strip()
 
-            for c in (result.cids_secundarios or []):
-                c_clean = str(c or "").upper().strip()
-                if len(c_clean) == 4 and "." not in c_clean:
-                    c_clean = f"{c_clean[:3]}.{c_clean[3:]}"
-                if c_clean and c_clean != primary_clean and c_clean not in seen_sec:
+            def _add_sec_cid(c_raw: Any) -> None:
+                if isinstance(c_raw, dict):
+                    c_raw = c_raw.get("cid") or c_raw.get("codigo") or ""
+                c_clean = _norm_cid_code(c_raw)
+                if c_clean and c_clean.replace(".", "") != primary_clean.replace(".", "") and c_clean not in seen_sec:
                     seen_sec.add(c_clean)
                     all_secondary.append(c_clean)
 
+            # Preservar CIDs secundários já existentes na ficha vinculada e eventual CID correlacionado sugerido pela IA
+            for c_ex in (ficha_vinc.get("cids_secundarios_existentes") or []):
+                if isinstance(c_ex, dict):
+                    _add_sec_cid(c_ex.get("cid") or c_ex.get("codigo"))
+                else:
+                    _add_sec_cid(c_ex)
+            if cid_secundario_da_ia_correlato:
+                _add_sec_cid(cid_secundario_da_ia_correlato)
+            for c in (result.cids_secundarios or []):
+                _add_sec_cid(c)
             for c in norm_cids_found:
-                if c != primary_clean and c not in seen_sec:
-                    seen_sec.add(c)
-                    all_secondary.append(c)
+                _add_sec_cid(c)
 
             result.cids_secundarios = all_secondary
 
